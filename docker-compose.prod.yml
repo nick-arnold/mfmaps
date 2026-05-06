@@ -1,0 +1,40 @@
+services:
+  content:
+    build: ./content
+    env_file:
+      - ./content/.env
+    volumes:
+      - content_static:/app/staticfiles
+    restart: always
+    expose:
+      - "8000"
+
+  map:
+    build: ./map
+    env_file:
+      - ./map/.env
+    volumes:
+      - map_static:/app/staticfiles
+    restart: always
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - content_static:/app/content_static:ro
+      - map_static:/app/map_static:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - content
+      - map
+    restart: always
+
+volumes:
+  content_static:
+  map_static:
