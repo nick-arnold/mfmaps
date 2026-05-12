@@ -1,97 +1,355 @@
-/* Full-viewport map */
+/* ============================================================
+   MF Maps — map app styles
+   ============================================================ */
+
+   :root {
+    --brand-green: #2c5530;
+    --brand-orange: #d96d2a;
+    --app-bar-h: 52px;
+    --bottom-dock-h: 64px;
+    --side-panel-w: 320px;
+    --fab-size: 44px;
+}
+
 html, body {
     height: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
-}
-
-body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-#map {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-}
-
-/* Top-right layers button */
-.layers-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 10;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-/* Bottom-right custom control cluster (sits above MapLibre's ctrl group) */
-.map-controls-br {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    z-index: 10;
+body {
     display: flex;
     flex-direction: column;
-    gap: 8px;
 }
 
-.map-controls-br .btn {
-    width: 40px;
-    height: 40px;
-    padding: 0;
+/* ============================================================
+   Desktop top app bar
+   ============================================================ */
+
+.app-bar {
+    height: var(--app-bar-h);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+    align-items: center;
+    padding: 0 16px;
+    flex-shrink: 0;
+    z-index: 20;
+}
+
+.app-bar-brand {
+    margin-right: 24px;
+    font-size: 1.05rem;
+    color: var(--brand-green);
+}
+
+.app-bar-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.app-tab {
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.app-tab:hover { background: rgba(0, 0, 0, 0.04); color: #333; }
+
+.app-tab.active {
+    color: var(--brand-green);
+    background: rgba(44, 85, 48, 0.08);
+}
+
+.app-tab i { font-size: 1rem; }
+
+.app-bar-spacer { flex: 1; }
+
+/* ============================================================
+   Main app area (left panel + map)
+   ============================================================ */
+
+.app-main {
+    position: relative;
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+#map {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+}
+
+/* ============================================================
+   Desktop left side panel
+   ============================================================ */
+
+.side-panel {
+    width: var(--side-panel-w);
+    background: #ffffff;
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    flex-direction: column;
+    flex-shrink: 0;
+    z-index: 5;
+}
+
+.side-panel-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.side-panel-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* ============================================================
+   Floating action button stack (right edge)
+   ============================================================ */
+
+.fab-stack {
+    position: absolute;
+    right: 12px;
+    bottom: calc(var(--bottom-dock-h) + 16px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+    align-items: center;
+}
+
+@media (min-width: 768px) {
+    .fab-stack { bottom: 20px; }
+}
+
+.fab {
+    width: var(--fab-size);
+    height: var(--fab-size);
+    border-radius: 50%;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    color: #333;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1.05rem;
+    transition: transform 0.08s ease;
+}
+
+.fab:hover { transform: translateY(-1px); }
+.fab:active { transform: translateY(0); }
+
+.fab[aria-pressed="true"] {
+    background: var(--brand-green);
+    color: white;
+    border-color: var(--brand-green);
+}
+
+.fab-primary {
+    width: 56px;
+    height: 56px;
+    font-size: 1.3rem;
+    background: var(--brand-green);
+    color: white;
+    border-color: var(--brand-green);
+    box-shadow: 0 4px 12px rgba(44, 85, 48, 0.3);
+}
+
+.fab-primary:hover { background: #244526; border-color: #244526; }
+
+/* ============================================================
+   Mobile bottom-left layers pill
+   ============================================================ */
+
+.layers-pill {
+    position: absolute;
+    bottom: calc(var(--bottom-dock-h) + 16px);
+    left: 12px;
+    background: white;
     border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    padding: 8px 16px 8px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #333;
+    z-index: 10;
+    cursor: pointer;
 }
 
-/* Query mode visual feedback */
-.query-mode #map {
-    cursor: crosshair;
+.layers-pill i { color: var(--brand-green); font-size: 1rem; }
+
+/* ============================================================
+   Mobile bottom dock
+   ============================================================ */
+
+.bottom-dock {
+    height: var(--bottom-dock-h);
+    background: white;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    flex-shrink: 0;
+    z-index: 20;
+    /* respect iOS safe area */
+    padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.query-mode #map .maplibregl-canvas {
+.dock-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #888;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.dock-tab i { font-size: 1.4rem; }
+
+.dock-tab.active {
+    color: var(--brand-green);
+}
+
+/* ============================================================
+   Mobile offcanvas bottom sheet
+   ============================================================ */
+
+.layers-sheet {
+    height: 75vh;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}
+
+.layers-sheet .offcanvas-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    /* drag-handle visual cue */
+    position: relative;
+}
+
+.layers-sheet .offcanvas-header::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================================
+   List panel (used by both desktop and mobile)
+   ============================================================ */
+
+.list-panel {
+    position: absolute;
+    background: white;
+    z-index: 6;
+}
+
+/* Mobile: full-screen overlay over the map */
+@media (max-width: 767.98px) {
+    .list-panel {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+}
+
+/* Desktop: overlays the map area, leaving the side panel visible */
+@media (min-width: 768px) {
+    .list-panel {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: var(--side-panel-w);
+    }
+}
+
+.list-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.list-panel-body {
+    padding: 16px;
+    overflow-y: auto;
+}
+
+/* ============================================================
+   Query mode
+   ============================================================ */
+
+.query-mode .maplibregl-canvas {
     cursor: crosshair !important;
 }
 
-#queryToggle[aria-pressed="true"] {
-    background-color: #2c5530;
-    color: white;
-    border-color: #2c5530;
-}
-
-/* Query result floating panel */
 .query-result {
     position: absolute;
-    bottom: 12px;
+    top: 12px;
     left: 12px;
-    z-index: 10;
     background: white;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 12px;
     max-width: 320px;
     max-height: 50vh;
     overflow-y: auto;
+    z-index: 8;
 }
 
-/* Reposition MapLibre's default controls so they don't collide with ours */
-.maplibregl-ctrl-top-right {
-    /* Move out of the way of our Layers button */
-    margin-top: 56px !important;
-}
-
-.maplibregl-ctrl-bottom-right {
-    /* Move out of the way of our custom controls */
-    margin-right: 56px !important;
-}
-
-/* Tighten the offcanvas a touch on mobile */
-@media (max-width: 576px) {
-    .offcanvas-end {
-        width: 85%;
+@media (min-width: 768px) {
+    .query-result {
+        top: 12px;
+        left: calc(var(--side-panel-w) + 12px);
     }
 }
+
+/* ============================================================
+   MapLibre control overrides
+   Push built-in controls out of the way of our custom UI.
+   ============================================================ */
+
+.maplibregl-ctrl-top-right { display: none; }
+
+/* Move scale + attribution to bottom-left, above the layers pill on mobile */
+.maplibregl-ctrl-bottom-left {
+    margin-bottom: calc(var(--bottom-dock-h) + 60px) !important;
+}
+
+@media (min-width: 768px) {
+    .maplibregl-ctrl-bottom-left {
+        margin-bottom: 12px !important;
+    }
+}
+
+/* Bottom-right MapLibre controls — we're not using them anymore; hide */
+.maplibregl-ctrl-bottom-right { display: none; }
