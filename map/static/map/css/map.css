@@ -118,19 +118,15 @@ body {
    Floating action button stack (right edge)
    ============================================================ */
 
-.fab-stack {
+   .fab-stack {
     position: absolute;
     right: 12px;
-    bottom: calc(var(--bottom-dock-h) + 16px);
+    bottom: 12px;
     display: flex;
     flex-direction: column;
     gap: 10px;
     z-index: 10;
     align-items: center;
-}
-
-@media (min-width: 768px) {
-    .fab-stack { bottom: 20px; }
 }
 
 .fab {
@@ -171,29 +167,7 @@ body {
 
 .fab-primary:hover { background: #244526; border-color: #244526; }
 
-/* ============================================================
-   Mobile bottom-left layers pill
-   ============================================================ */
 
-.layers-pill {
-    position: absolute;
-    bottom: calc(var(--bottom-dock-h) + 16px);
-    left: 12px;
-    background: white;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 999px;
-    padding: 8px 16px 8px 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    color: #333;
-    z-index: 10;
-    cursor: pointer;
-}
-
-.layers-pill i { color: var(--brand-green); font-size: 1rem; }
 
 /* ============================================================
    Mobile bottom dock
@@ -335,15 +309,16 @@ body {
 
 /* ============================================================
    MapLibre control overrides
-   Push built-in controls out of the way of our custom UI.
    ============================================================ */
 
-.maplibregl-ctrl-top-right { display: none; }
-
-/* Move scale + attribution to bottom-left, above the layers pill on mobile */
-.maplibregl-ctrl-bottom-left {
-    margin-bottom: calc(var(--bottom-dock-h) + 60px) !important;
-}
+   .maplibregl-ctrl-top-right { display: none; }
+   .maplibregl-ctrl-bottom-right { display: none; }
+   
+   /* Scale bar + attribution: keep bottom-left, clear of any safe area */
+   .maplibregl-ctrl-bottom-left {
+       margin-left: 12px !important;
+       margin-bottom: 12px !important;
+   }
 
 @media (min-width: 768px) {
     .maplibregl-ctrl-bottom-left {

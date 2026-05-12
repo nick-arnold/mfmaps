@@ -64,13 +64,7 @@
         </button>
     </div>
 
-    <!-- Bottom-left layers pill (mobile) -->
-    <button class="layers-pill d-md-none" type="button"
-            data-bs-toggle="offcanvas" data-bs-target="#layersSheet"
-            aria-controls="layersSheet">
-        <i class="bi bi-layers"></i>
-        <span>Layers</span>
-    </button>
+    
 
     <!-- Query result popover -->
     <div id="queryResult" class="query-result shadow-sm d-none">
@@ -99,16 +93,22 @@
 <!-- =========================================================
      Mobile bottom dock
      ========================================================= -->
-<nav class="bottom-dock d-md-none">
-    <button class="dock-tab active" data-mode="map" type="button">
-        <i class="bi bi-map"></i>
-        <span>Map</span>
-    </button>
-    <button class="dock-tab" data-mode="list" type="button">
-        <i class="bi bi-list-ul"></i>
-        <span>List</span>
-    </button>
-</nav>
+     <nav class="bottom-dock d-md-none">
+        <button class="dock-tab active" data-mode="map" type="button">
+            <i class="bi bi-map"></i>
+            <span>Map</span>
+        </button>
+        <button class="dock-tab" data-mode="layers" type="button"
+                data-bs-toggle="offcanvas" data-bs-target="#layersSheet"
+                aria-controls="layersSheet">
+            <i class="bi bi-layers"></i>
+            <span>Layers</span>
+        </button>
+        <button class="dock-tab" data-mode="list" type="button">
+            <i class="bi bi-list-ul"></i>
+            <span>List</span>
+        </button>
+    </nav>
 
 <!-- =========================================================
      Layer panel content (rendered into desktop sidebar AND

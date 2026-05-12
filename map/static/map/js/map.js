@@ -339,9 +339,16 @@ function wireGeolocate() {
 // --- Mode tabs (Map / List), both desktop and mobile dock -----------------
 
 function setMode(mode) {
+    // "layers" is a sheet-trigger, not a persistent mode — don't apply it as active state.
+    // It just opens the offcanvas; Bootstrap handles that via the data-bs-toggle attribute.
+    if (mode === 'layers') return;
+
     document.querySelectorAll('.app-tab, .dock-tab').forEach(t => {
+        // Only consider mode-tabs (Map / List), not the Layers trigger
+        if (t.dataset.mode === 'layers') return;
         t.classList.toggle('active', t.dataset.mode === mode);
     });
+
     const listPanel = document.getElementById('listPanel');
     if (mode === 'list') {
         listPanel.classList.remove('d-none');
@@ -349,7 +356,6 @@ function setMode(mode) {
         listPanel.classList.add('d-none');
     }
 }
-// expose so the inline close-button in listPanel can call it
 window.setMode = setMode;
 
 function wireDockTabs() {
