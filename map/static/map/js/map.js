@@ -28,6 +28,20 @@ const OSM_STYLE = {
     layers: [{ id: 'osm-base', type: 'raster', source: 'osm-raster' }]
 };
 
+// --- Toast notifications --------------------------------------------------
+
+function showToast(message, kind = 'info') {
+    const toastEl = document.getElementById('appToast');
+    const bodyEl = document.getElementById('appToastBody');
+    toastEl.classList.remove('text-bg-dark', 'text-bg-success', 'text-bg-danger');
+    if (kind === 'success') toastEl.classList.add('text-bg-success');
+    else if (kind === 'error') toastEl.classList.add('text-bg-danger');
+    else toastEl.classList.add('text-bg-dark');
+    bodyEl.textContent = message;
+    bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500 }).show();
+}
+
+
 // --- Auth state ------------------------------------------------------------
 
 let currentUser = null; // { email, id } when logged in, null otherwise
@@ -137,9 +151,9 @@ async function signup(email, password) {
 async function logout() {
     await apiFetch('/_allauth/browser/v1/auth/session', { method: 'DELETE' });
     await fetchAuthState();
-    // Clear observations from map since they were user-scoped
     const empty = { type: 'FeatureCollection', features: [] };
     map.getSource('observations')?.setData(empty);
+    showToast('Signed out', 'info');
 }
 
 function wireAuthForms() {
@@ -152,6 +166,7 @@ function wireAuthForms() {
         if (result.ok) {
             bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
             e.target.reset();
+            showToast(`Signed in as ${currentUser.email}`, 'success');
             loadObservations();
         } else {
             errEl.textContent = result.error;
@@ -168,6 +183,7 @@ function wireAuthForms() {
         if (result.ok) {
             bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
             e.target.reset();
+            showToast(`Account created — welcome, ${currentUser.email}`, 'success');
             loadObservations();
         } else {
             errEl.textContent = result.error;
@@ -569,10 +585,12 @@ function wireObservationFlow() {
         if (resp.ok) {
             bootstrap.Modal.getInstance(document.getElementById('observationModal')).hide();
             await loadObservations();
+            showToast('Observation saved', 'success');
         } else {
             const data = await resp.json().catch(() => ({}));
             errEl.textContent = JSON.stringify(data);
             errEl.classList.remove('d-none');
+            showToast('Could not save observation', 'error');
         }
     });
 }

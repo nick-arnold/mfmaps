@@ -381,3 +381,20 @@ body {
       Saved panel needs the same positioning as the (removed) listPanel
       The .list-panel CSS still applies because we reused the class.
       ============================================================ */
+
+      /* ============================================================
+   Toast notifications
+   ============================================================ */
+
+.toast-container {
+    top: 60px !important;  /* clear the desktop app bar */
+}
+
+@media (max-width: 767.98px) {
+    .toast-container {
+        top: 12px !important;  /* sit just under the mobile account button row */
+    }
+}
+
+#appToast.text-bg-success { background-color: var(--brand-green) !important; color: white; }
+#appToast.text-bg-danger { background-color: #b3261e !important; color: white; }
