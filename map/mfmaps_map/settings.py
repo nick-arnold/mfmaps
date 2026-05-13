@@ -39,6 +39,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # required by allauth
+    'django.contrib.gis',    # GeoDjango for spatial fields
+
+    # Third-party
+    'rest_framework',
+    'rest_framework.authtoken',
+    'allauth',
+    'allauth.account',
+    'allauth.headless',  # provides DRF-compatible auth endpoints
 ]
 
 MIDDLEWARE = [
@@ -49,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'mfmaps_map.urls'
@@ -76,7 +86,7 @@ WSGI_APPLICATION = 'mfmaps_map.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': os.environ['DB_NAME'],
         'USER': os.environ['DB_USER'],
         'PASSWORD': os.environ['DB_PASSWORD'],
@@ -126,3 +136,49 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# --- Sites framework ---
+SITE_ID = 1
+
+# --- Authentication ---
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',  # admin login
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# --- django-allauth ---
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = 'optional'  # 'mandatory' once email backend is set up
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_SESSION_REMEMBER = True
+
+# --- Cross-subdomain sessions (content + map share login) ---
+SESSION_COOKIE_DOMAIN = '.mfmaps.com'
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_DOMAIN = '.mfmaps.com'
+CSRF_COOKIE_SECURE = True
+
+# --- DRF ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+# --- Email (placeholder, will configure real provider later) ---
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # prints to stdout
+DEFAULT_FROM_EMAIL = 'no-reply@mfmaps.com'
+
+# --- Allauth headless config ---
+# Tells allauth where the SPA-style auth flow lives
+HEADLESS_ONLY = False
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": "https://map.mfmaps.com/account/verify-email/{key}",
+    "account_reset_password_from_key": "https://map.mfmaps.com/account/password/reset/key/{key}",
+}
