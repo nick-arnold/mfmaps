@@ -398,3 +398,62 @@ body {
 
 #appToast.text-bg-success { background-color: var(--brand-green) !important; color: white; }
 #appToast.text-bg-danger { background-color: #b3261e !important; color: white; }
+
+/* ============================================================
+   MapLibre popup styling
+   ============================================================ */
+
+   .maplibregl-popup-content {
+    padding: 12px 14px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    max-width: 280px;
+}
+
+.observation-popup .popup-species {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+.observation-popup .popup-meta {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.observation-popup .popup-notes {
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    color: #333;
+    white-space: pre-wrap;
+}
+
+.observation-popup .popup-h3 {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: #999;
+    margin-bottom: 10px;
+}
+
+.observation-popup .popup-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.observation-popup .popup-actions button {
+    flex: 1;
+    font-size: 0.8rem;
+}
+
+/* Edit-mode pin styling */
+.observation-edit-marker {
+    cursor: grab;
+}
+.observation-edit-marker:active { cursor: grabbing; }
+
+.maplibregl-popup-close-button {
+    font-size: 1.2rem;
+    padding: 2px 8px;
+}

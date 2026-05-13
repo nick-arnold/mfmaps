@@ -45,7 +45,11 @@ function showToast(message, kind = 'info') {
 // --- Auth state ------------------------------------------------------------
 
 let currentUser = null; // { email, id } when logged in, null otherwise
-
+// Observation creation/editing state
+let observationMode = null;       // 'create' | 'edit' | null
+let editingObservationId = null;  // UUID when editing
+let editMarker = null;            // draggable MapLibre Marker shown in edit mode
+let pendingCoords = null;         // { latitude, longitude, accuracy }
 // --- CSRF helper -----------------------------------------------------------
 
 function getCookie(name) {
@@ -70,6 +74,22 @@ async function apiFetch(url, options = {}) {
     return resp;
 }
 
+
+// Click on an observation pin → open popup
+map.on('click', 'observations-layer', (e) => {
+    if (queryMode) return; // query mode handles clicks differently
+    if (!e.features?.length) return;
+    const feature = e.features[0];
+    showObservationPopup(feature);
+});
+
+// Cursor feedback over pins
+map.on('mouseenter', 'observations-layer', () => {
+    if (!queryMode) map.getCanvas().style.cursor = 'pointer';
+});
+map.on('mouseleave', 'observations-layer', () => {
+    if (!queryMode) map.getCanvas().style.cursor = '';
+});
 // --- Auth flows ------------------------------------------------------------
 
 async function fetchAuthState() {
@@ -318,7 +338,7 @@ map.on('load', () => {
     wireDockTabs();
     wireAuthForms();
     wireObservationFlow();
-
+    wireDeleteFlow();
     fetchAuthState().then(() => {
         if (currentUser) loadObservations();
     });
@@ -508,42 +528,147 @@ function wireGeolocate() {
 
 // --- Observation flow -----------------------------------------------------
 
-let pendingObservationCoords = null;
+let openPopup = null;
+
+function showObservationPopup(feature) {
+    const p = feature.properties;
+    const coords = feature.geometry.coordinates;
+    const species = p.species_name || '(no species)';
+    const when = new Date(p.recorded_at).toLocaleString();
+    const notes = p.notes ? `<div class="popup-notes">${escapeHtml(p.notes)}</div>` : '';
+
+    const html = `
+        <div class="observation-popup">
+            <div class="popup-species">${escapeHtml(species)}</div>
+            <div class="popup-meta">${when}</div>
+            ${notes}
+            <div class="popup-h3">res 8 · ${p.h3_cell_res_8}</div>
+            <div class="popup-actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit">
+                    <i class="bi bi-pencil"></i> Edit
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-action="delete">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `;
+
+    if (openPopup) openPopup.remove();
+    openPopup = new maplibregl.Popup({ offset: 14, closeButton: true })
+        .setLngLat(coords)
+        .setHTML(html)
+        .addTo(map);
+
+    const root = openPopup.getElement();
+    root.querySelector('[data-action="edit"]').addEventListener('click', () => {
+        openPopup.remove();
+        openPopup = null;
+        startEditObservation(feature);
+    });
+    root.querySelector('[data-action="delete"]').addEventListener('click', () => {
+        openPopup.remove();
+        openPopup = null;
+        startDeleteObservation(feature);
+    });
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+}
+
+// --- Create-mode entry ----------------------------------------------------
 
 function startObservation() {
     if (!currentUser) {
         new bootstrap.Modal(document.getElementById('loginModal')).show();
         return;
     }
+    observationMode = 'create';
+    editingObservationId = null;
+    pendingCoords = null;
 
-    // Reset form state
     const form = document.getElementById('observationForm');
     form.reset();
+    form.querySelector('input[name="id"]').value = '';
+    document.getElementById('observationModalLabel').textContent = 'New observation';
     document.getElementById('observationError').classList.add('d-none');
     document.getElementById('obsLocation').textContent = 'acquiring GPS…';
     document.getElementById('obsAccuracy').textContent = '—';
-    document.getElementById('obsTime').textContent = '—';
+    document.getElementById('obsTime').textContent = new Date().toLocaleString();
     document.getElementById('observationSubmit').disabled = true;
-    pendingObservationCoords = null;
+    document.getElementById('observationSubmit').textContent = 'Save observation';
+    document.getElementById('obsEditHints').classList.add('d-none');
+    document.getElementById('obsRecaptureWrap').classList.add('d-none');
+    removeEditMarker();
 
     new bootstrap.Modal(document.getElementById('observationModal')).show();
+    captureCurrentGPS();
+}
 
-    // Get the GPS location
+// --- Edit-mode entry ------------------------------------------------------
+
+function startEditObservation(feature) {
+    observationMode = 'edit';
+    editingObservationId = feature.properties.id || feature.id;
+    pendingCoords = {
+        longitude: feature.geometry.coordinates[0],
+        latitude: feature.geometry.coordinates[1],
+        accuracy: feature.properties.accuracy_meters,
+    };
+
+    const form = document.getElementById('observationForm');
+    form.reset();
+    form.querySelector('input[name="id"]').value = editingObservationId;
+    form.querySelector('input[name="species_name"]').value = feature.properties.species_name || '';
+    form.querySelector('textarea[name="notes"]').value = feature.properties.notes || '';
+
+    document.getElementById('observationModalLabel').textContent = 'Edit observation';
+    document.getElementById('observationError').classList.add('d-none');
+    updateLocationDisplay();
+    document.getElementById('obsTime').textContent =
+        new Date(feature.properties.recorded_at).toLocaleString();
+    document.getElementById('observationSubmit').disabled = false;
+    document.getElementById('observationSubmit').textContent = 'Save changes';
+    document.getElementById('obsEditHints').classList.remove('d-none');
+    document.getElementById('obsRecaptureWrap').classList.remove('d-none');
+
+    // Add a draggable marker the user can use to reposition
+    addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
+
+    new bootstrap.Modal(document.getElementById('observationModal')).show();
+}
+
+function updateLocationDisplay() {
+    if (!pendingCoords) return;
+    document.getElementById('obsLocation').textContent =
+        `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
+    document.getElementById('obsAccuracy').textContent =
+        pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
+}
+
+function captureCurrentGPS() {
     if (!navigator.geolocation) {
-        document.getElementById('observationError').textContent = 'Geolocation unsupported in this browser.';
-        document.getElementById('observationError').classList.remove('d-none');
+        const errEl = document.getElementById('observationError');
+        errEl.textContent = 'Geolocation unsupported in this browser.';
+        errEl.classList.remove('d-none');
         return;
     }
-
     navigator.geolocation.getCurrentPosition(
         (pos) => {
-            const { latitude, longitude, accuracy } = pos.coords;
-            pendingObservationCoords = { latitude, longitude, accuracy };
-            document.getElementById('obsLocation').textContent =
-                `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-            document.getElementById('obsAccuracy').textContent = `${Math.round(accuracy)} m`;
-            document.getElementById('obsTime').textContent = new Date().toLocaleString();
+            pendingCoords = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+            };
+            updateLocationDisplay();
             document.getElementById('observationSubmit').disabled = false;
+            // If editing, also move the marker
+            if (observationMode === 'edit' && editMarker) {
+                editMarker.setLngLat([pendingCoords.longitude, pendingCoords.latitude]);
+            }
         },
         (err) => {
             const errEl = document.getElementById('observationError');
@@ -554,44 +679,131 @@ function startObservation() {
     );
 }
 
+function addEditMarker(lng, lat) {
+    removeEditMarker();
+    const el = document.createElement('div');
+    el.className = 'observation-edit-marker';
+    el.innerHTML = `
+        <div style="
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #d96d2a; border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        "></div>
+    `;
+    editMarker = new maplibregl.Marker({ element: el, draggable: true })
+        .setLngLat([lng, lat])
+        .addTo(map);
+    editMarker.on('dragend', () => {
+        const ll = editMarker.getLngLat();
+        pendingCoords = {
+            latitude: ll.lat,
+            longitude: ll.lng,
+            accuracy: pendingCoords?.accuracy ?? null,
+        };
+        updateLocationDisplay();
+    });
+}
+
+function removeEditMarker() {
+    if (editMarker) {
+        editMarker.remove();
+        editMarker = null;
+    }
+}
+
+// --- Form submit (handles both create and edit) ---------------------------
+
 function wireObservationFlow() {
     document.getElementById('observationForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!pendingObservationCoords) return;
+        if (!pendingCoords) return;
         const fd = new FormData(e.target);
-
-        const payload = {
-            species_name: fd.get('species_name') || '',
-            notes: fd.get('notes') || '',
-            accuracy_meters: pendingObservationCoords.accuracy,
-            recorded_at: new Date().toISOString(),
-            location: {
-                type: 'Point',
-                coordinates: [
-                    pendingObservationCoords.longitude,
-                    pendingObservationCoords.latitude,
-                ]
-            }
-        };
+        const id = fd.get('id');
 
         const errEl = document.getElementById('observationError');
         errEl.classList.add('d-none');
 
-        const resp = await apiFetch('/api/v1/observations/', {
-            method: 'POST',
-            body: JSON.stringify(payload)
+        const isEdit = observationMode === 'edit' && id;
+        const url = isEdit ? `/api/v1/observations/${id}/` : '/api/v1/observations/';
+        const method = isEdit ? 'PATCH' : 'POST';
+
+        const payload = {
+            species_name: fd.get('species_name') || '',
+            notes: fd.get('notes') || '',
+            location: {
+                type: 'Point',
+                coordinates: [pendingCoords.longitude, pendingCoords.latitude],
+            },
+        };
+        if (!isEdit) {
+            payload.accuracy_meters = pendingCoords.accuracy;
+            payload.recorded_at = new Date().toISOString();
+        } else if (pendingCoords.accuracy != null) {
+            payload.accuracy_meters = pendingCoords.accuracy;
+        }
+
+        const resp = await apiFetch(url, {
+            method,
+            body: JSON.stringify(payload),
         });
 
         if (resp.ok) {
             bootstrap.Modal.getInstance(document.getElementById('observationModal')).hide();
+            removeEditMarker();
+            observationMode = null;
+            editingObservationId = null;
             await loadObservations();
-            showToast('Observation saved', 'success');
+            showToast(isEdit ? 'Observation updated' : 'Observation saved', 'success');
         } else {
             const data = await resp.json().catch(() => ({}));
             errEl.textContent = JSON.stringify(data);
             errEl.classList.remove('d-none');
-            showToast('Could not save observation', 'error');
+            showToast(isEdit ? 'Could not update observation' : 'Could not save observation', 'error');
         }
+    });
+
+    // Re-capture GPS button (edit mode)
+    document.getElementById('obsRecaptureBtn').addEventListener('click', () => {
+        captureCurrentGPS();
+    });
+
+    // Reset edit state when the modal is dismissed
+    document.getElementById('observationModal').addEventListener('hidden.bs.modal', () => {
+        removeEditMarker();
+        observationMode = null;
+        editingObservationId = null;
+    });
+}
+
+// --- Delete flow ----------------------------------------------------------
+
+let pendingDeleteId = null;
+
+function startDeleteObservation(feature) {
+    pendingDeleteId = feature.properties.id || feature.id;
+    const p = feature.properties;
+    const species = p.species_name || '(no species)';
+    const when = new Date(p.recorded_at).toLocaleString();
+    document.getElementById('deletePreview').innerHTML = `
+        <strong>${escapeHtml(species)}</strong><br>${when}
+    `;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function wireDeleteFlow() {
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        if (!pendingDeleteId) return;
+        const resp = await apiFetch(`/api/v1/observations/${pendingDeleteId}/`, {
+            method: 'DELETE',
+        });
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+        if (resp.ok || resp.status === 204) {
+            await loadObservations();
+            showToast('Observation deleted', 'success');
+        } else {
+            showToast('Could not delete observation', 'error');
+        }
+        pendingDeleteId = null;
     });
 }
 
@@ -668,3 +880,4 @@ function wireDockTabs() {
         tab.addEventListener('click', () => setMode(tab.dataset.mode));
     });
 }
+
