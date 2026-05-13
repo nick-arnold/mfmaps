@@ -99,7 +99,25 @@
             <div class="text-muted">Loading…</div>
         </div>
     </section>
-
+<!-- Drag-edit floating tooltip -->
+<div id="dragTooltip" class="drag-tooltip d-none">
+    <div class="drag-tooltip-arrow"></div>
+    <div class="drag-tooltip-body">
+        <div class="small fw-bold mb-1">Drag the pin to a new location</div>
+        <div class="small text-muted mb-2" id="dragTooltipCoords">—</div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="dragCancel">
+                Cancel
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="dragRecapture">
+                <i class="bi bi-geo-alt"></i> GPS
+            </button>
+            <button type="button" class="btn btn-sm btn-primary flex-fill" id="dragDone">
+                Done
+            </button>
+        </div>
+    </div>
+</div>
 </main>
 <!-- Toast container -->
 <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1080;">
