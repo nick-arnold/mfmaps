@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.gis.geos import GEOSGeometry
+from rest_framework_gis.fields import GeometryField
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from .models import Observation
@@ -10,6 +11,10 @@ class ObservationSerializer(GeoFeatureModelSerializer):
     """
     Serializes Observation as GeoJSON Feature, suitable for MapLibre.
     """
+
+    # Force the geometry field to use GeoJSON dict representation,
+    # bypassing the geography=True + WKT string fallback.
+    location = GeometryField()
 
     class Meta:
         model = Observation
@@ -34,7 +39,6 @@ class ObservationSerializer(GeoFeatureModelSerializer):
         ]
 
     def create(self, validated_data):
-        # rest_framework_gis hands us `location` as a Python dict; convert to GEOS
         loc = validated_data.get('location')
         if isinstance(loc, dict):
             validated_data['location'] = GEOSGeometry(json.dumps(loc))
