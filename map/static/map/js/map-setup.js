@@ -1,5 +1,5 @@
 // =============================================================================
-// Map initialization, sources/layers, geolocation, query mode, demo, mode tabs
+// Map initialization, sources/layers, geolocation, query mode, mode tabs
 // =============================================================================
 
 import { state, LAYER_IDS, H3_RES } from './state.js';
@@ -59,6 +59,32 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
+    // H3 hexes (computed from observations, layered BELOW the pins)
+    map.addSource('h3-hexes', { type: 'geojson', data: empty });
+    map.addLayer({
+        id: 'h3-hexes-fill',
+        type: 'fill',
+        source: 'h3-hexes',
+        paint: {
+            'fill-color': [
+                'interpolate', ['linear'], ['get', 'count'],
+                1, '#fee5d9',
+                2, '#fcae91',
+                4, '#fb6a4a',
+                8, '#cb181d'
+            ],
+            'fill-opacity': 0.55
+        },
+        layout: { visibility: 'none' }
+    });
+    map.addLayer({
+        id: 'h3-hexes-line',
+        type: 'line',
+        source: 'h3-hexes',
+        paint: { 'line-color': '#2c5530', 'line-width': 1, 'line-opacity': 0.7 },
+        layout: { visibility: 'none' }
+    });
+
     // Observations
     map.addSource('observations', { type: 'geojson', data: empty });
     map.addLayer({
@@ -72,47 +98,6 @@ function addSourcesAndLayers() {
             'circle-stroke-width': 2
         }
     });
-
-    // Random demo points
-    map.addSource('random-points', { type: 'geojson', data: empty });
-    map.addLayer({
-        id: 'random-points-layer',
-        type: 'circle',
-        source: 'random-points',
-        paint: {
-            'circle-radius': 5,
-            'circle-color': '#d96d2a',
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 1.5
-        },
-        layout: { visibility: 'none' }
-    });
-
-    // H3 hexes
-    map.addSource('h3-hexes', { type: 'geojson', data: empty });
-    map.addLayer({
-        id: 'h3-hexes-fill',
-        type: 'fill',
-        source: 'h3-hexes',
-        paint: {
-            'fill-color': [
-                'interpolate', ['linear'], ['get', 'count'],
-                1, '#fee5d9',
-                3, '#fcae91',
-                5, '#fb6a4a',
-                8, '#cb181d'
-            ],
-            'fill-opacity': 0.6
-        },
-        layout: { visibility: 'none' }
-    }, 'random-points-layer');
-    map.addLayer({
-        id: 'h3-hexes-line',
-        type: 'line',
-        source: 'h3-hexes',
-        paint: { 'line-color': '#2c5530', 'line-width': 1 },
-        layout: { visibility: 'none' }
-    }, 'random-points-layer');
 
     // User's H3 cell from geolocation
     map.addSource('user-h3', { type: 'geojson', data: empty });
@@ -142,17 +127,9 @@ export function initLayerPanels() {
             const group = e.target.dataset.layerGroup;
             const visible = e.target.checked;
             setLayerGroupVisibility(group, visible);
-            // sync the matching toggle in the other panel
             document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
                 .forEach(other => { if (other !== e.target) other.checked = visible; });
         });
-    });
-
-    document.querySelectorAll('.js-add-random-points').forEach(btn => {
-        btn.addEventListener('click', addRandomPoints);
-    });
-    document.querySelectorAll('.js-clear-demo').forEach(btn => {
-        btn.addEventListener('click', clearDemo);
     });
 }
 
@@ -176,67 +153,12 @@ export function setLayerGroupVisibility(group, visible) {
     });
 }
 
-export function setLayerToggleUI(group, checked) {
-    document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
-        .forEach(cb => { cb.checked = checked; });
-}
-
-// --- Demo: random points + H3 aggregation ---------------------------------
-
-function generateRandomPoints(n = 50) {
-    const bounds = state.map.getBounds();
-    const features = [];
-    for (let i = 0; i < n; i++) {
-        const lng = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
-        const lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
-        features.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [lng, lat] },
-            properties: { id: i }
-        });
-    }
-    return { type: 'FeatureCollection', features };
-}
-
-function aggregateToH3(pointCollection, resolution = H3_RES) {
-    const cellCounts = new Map();
-    pointCollection.features.forEach(feat => {
-        const [lng, lat] = feat.geometry.coordinates;
-        const cell = h3.latLngToCell(lat, lng, resolution);
-        cellCounts.set(cell, (cellCounts.get(cell) || 0) + 1);
-    });
-    const features = [];
-    cellCounts.forEach((count, cell) => {
-        const boundary = h3.cellToBoundary(cell, false).map(([lat, lng]) => [lng, lat]);
-        boundary.push(boundary[0]);
-        features.push({
-            type: 'Feature',
-            geometry: { type: 'Polygon', coordinates: [boundary] },
-            properties: { h3: cell, count }
-        });
-    });
-    return { type: 'FeatureCollection', features };
-}
-
-function addRandomPoints() {
-    const points = generateRandomPoints(50);
-    const hexes = aggregateToH3(points, H3_RES);
-    state.map.getSource('random-points').setData(points);
-    state.map.getSource('h3-hexes').setData(hexes);
-    ['random-points', 'h3-hexes'].forEach(group => {
-        setLayerGroupVisibility(group, true);
-        setLayerToggleUI(group, true);
-    });
-}
-
-function clearDemo() {
-    const empty = { type: 'FeatureCollection', features: [] };
-    state.map.getSource('random-points').setData(empty);
-    state.map.getSource('h3-hexes').setData(empty);
-    ['random-points', 'h3-hexes'].forEach(group => {
-        setLayerGroupVisibility(group, false);
-        setLayerToggleUI(group, false);
-    });
+export function isLayerGroupVisible(group) {
+    const ids = LAYER_IDS[group] || [];
+    if (!ids.length) return false;
+    const layer = ids[0];
+    if (!state.map.getLayer(layer)) return false;
+    return state.map.getLayoutProperty(layer, 'visibility') !== 'none';
 }
 
 // --- FAB button wiring ----------------------------------------------------
@@ -263,7 +185,7 @@ export function initQueryMode() {
 
     state.map.on('click', (e) => {
         if (!state.queryMode) return;
-        const queryable = ['observations-layer', 'random-points-layer', 'h3-hexes-fill']
+        const queryable = ['observations-layer', 'h3-hexes-fill']
             .filter(id => state.map.getLayer(id));
         const features = state.map.queryRenderedFeatures(e.point, { layers: queryable });
         const resultEl = document.getElementById('queryResult');
@@ -312,10 +234,23 @@ export function initGeolocate() {
     });
 }
 
+// --- Zoom-adaptive H3 resolution ------------------------------------------
+
+// Map zoom level → H3 resolution
+export function zoomToH3Res(zoom) {
+    if (zoom < 6) return 4;
+    if (zoom < 8) return 5;
+    if (zoom < 10) return 6;
+    if (zoom < 12) return 7;
+    if (zoom < 14) return 8;
+    if (zoom < 16) return 9;
+    return 10;
+}
+
 // --- Mode tabs (Map / Saved) ----------------------------------------------
 
 export function setMode(mode, onSavedActivate) {
-    if (mode === 'layers') return; // sheet trigger, not a persistent mode
+    if (mode === 'layers') return;
     document.querySelectorAll('.app-tab, .dock-tab').forEach(t => {
         if (t.dataset.mode === 'layers') return;
         t.classList.toggle('active', t.dataset.mode === mode);
@@ -330,9 +265,7 @@ export function setMode(mode, onSavedActivate) {
 }
 
 export function initModeTabs(onSavedActivate) {
-    // Expose setMode globally so inline onclick="setMode('map')" in template works
     window.setMode = (mode) => setMode(mode, onSavedActivate);
-
     document.querySelectorAll('.app-tab, .dock-tab').forEach(tab => {
         tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate));
     });

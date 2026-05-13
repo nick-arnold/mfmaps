@@ -146,7 +146,6 @@
     </button>
 </nav>
 
-<!-- Layer panel template (rendered into desktop sidebar AND mobile offcanvas) -->
 <template id="layerPanelTemplate">
     <h6 class="text-uppercase text-muted small fw-bold mb-2">Free Layers</h6>
     <div class="form-check form-switch mb-2">
@@ -156,18 +155,11 @@
             My observations
         </label>
     </div>
-    <div class="form-check form-switch mb-2">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-random-points-CTX" data-layer-group="random-points">
-        <label class="form-check-label" for="layer-random-points-CTX">
-            Random demo points
-        </label>
-    </div>
     <div class="form-check form-switch mb-3">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-h3-hexes-CTX" data-layer-group="h3-hexes">
         <label class="form-check-label" for="layer-h3-hexes-CTX">
-            H3 aggregation
+            H3 grid
         </label>
     </div>
 
@@ -192,17 +184,7 @@
 
     <hr class="my-4">
 
-    <h6 class="text-uppercase text-muted small fw-bold mb-3">Demo Tools</h6>
-    <div class="d-grid gap-2 mb-3">
-        <button class="btn btn-outline-secondary btn-sm js-add-random-points">
-            <i class="bi bi-shuffle"></i> Add 50 random points
-        </button>
-        <button class="btn btn-outline-secondary btn-sm js-clear-demo">
-            <i class="bi bi-trash"></i> Clear demo
-        </button>
-    </div>
-
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Your Location</h6>
+    <h6 class="text-uppercase text-muted small fw-bold mb-2">Your Location</h6>
     <div class="user-location-info small text-muted">
         Tap the locate button to find your H3 cell.
     </div>

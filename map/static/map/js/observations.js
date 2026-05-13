@@ -1,9 +1,10 @@
 // =============================================================================
-// Observations: create, edit (with drag-tooltip), delete, popup, list view
+// Observations: create, edit, delete, popup, H3 aggregation, list view
 // =============================================================================
 
 import { state } from './state.js';
 import { apiFetch, showToast, escapeHtml } from './api.js';
+import { zoomToH3Res, isLayerGroupVisible } from './map-setup.js';
 
 // --- Module state ---------------------------------------------------------
 
@@ -12,11 +13,12 @@ let editingObservationId = null;
 let editMarker = null;
 let pendingCoords = null;        // { latitude, longitude, accuracy }
 let pendingDeleteId = null;
-
-// Form snapshot while user is in the drag phase (so we can restore on Done/Cancel)
 let editFormSnapshot = null;
 
-// --- Map click handler ----------------------------------------------------
+// Latest observations cached locally so we can recompute H3 aggregation on zoom
+let cachedObservations = { type: 'FeatureCollection', features: [] };
+
+// --- Map click + zoom handlers -------------------------------------------
 
 export function wireMapClicks() {
     state.map.on('click', 'observations-layer', (e) => {
@@ -30,6 +32,20 @@ export function wireMapClicks() {
     });
     state.map.on('mouseleave', 'observations-layer', () => {
         if (!state.queryMode) state.map.getCanvas().style.cursor = '';
+    });
+
+    // Recompute H3 aggregation when zoom changes
+    state.map.on('zoomend', () => {
+        if (isLayerGroupVisible('h3-hexes')) {
+            recomputeH3();
+        }
+    });
+
+    // Recompute H3 when the toggle is flipped on
+    document.body.addEventListener('change', (e) => {
+        if (e.target.matches('.layer-toggle[data-layer-group="h3-hexes"]') && e.target.checked) {
+            recomputeH3();
+        }
     });
 }
 
@@ -47,7 +63,7 @@ function showObservationPopup(feature) {
             <div class="popup-species">${escapeHtml(species)}</div>
             <div class="popup-meta">${when}</div>
             ${notes}
-            <div class="popup-h3">res 8 · ${p.h3_cell_res_8}</div>
+            <div class="popup-h3">res 10 · ${p.h3_cell_res_10}</div>
             <div class="popup-actions">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit">
                     <i class="bi bi-pencil"></i> Edit
@@ -100,7 +116,6 @@ export function startObservation() {
     document.getElementById('observationSubmit').disabled = true;
     document.getElementById('observationSubmit').textContent = 'Save observation';
     document.getElementById('obsEditHints').classList.add('d-none');
-    document.getElementById('obsRecaptureWrap').classList.add('d-none');
     removeEditMarker();
 
     new bootstrap.Modal(document.getElementById('observationModal')).show();
@@ -132,33 +147,33 @@ function startEditObservation(feature) {
     document.getElementById('observationSubmit').disabled = false;
     document.getElementById('observationSubmit').textContent = 'Save changes';
     document.getElementById('obsEditHints').classList.remove('d-none');
-    document.getElementById('obsRecaptureWrap').classList.add('d-none'); // moved to tooltip
 
     new bootstrap.Modal(document.getElementById('observationModal')).show();
 }
 
-// --- Drag phase ------------------------------------------------------------
+// --- Drag phase -----------------------------------------------------------
 
 function enterDragMode() {
     if (observationMode !== 'edit') return;
 
-    // Snapshot the form so we can restore values when returning
     const form = document.getElementById('observationForm');
     editFormSnapshot = {
         species_name: form.querySelector('input[name="species_name"]').value,
         notes: form.querySelector('textarea[name="notes"]').value,
-        coords: { ...pendingCoords },  // in case the user cancels drag
+        coords: { ...pendingCoords },
     };
 
     observationMode = 'edit-drag';
 
-    // Hide the modal (without destroying state) and show the tooltip + draggable marker
     const modalEl = document.getElementById('observationModal');
     bootstrap.Modal.getInstance(modalEl)?.hide();
 
     addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
     showDragTooltip();
-    state.map.flyTo({ center: [pendingCoords.longitude, pendingCoords.latitude], zoom: Math.max(state.map.getZoom(), 14) });
+    state.map.flyTo({
+        center: [pendingCoords.longitude, pendingCoords.latitude],
+        zoom: Math.max(state.map.getZoom(), 14),
+    });
 }
 
 function showDragTooltip() {
@@ -188,18 +203,14 @@ function updateDragTooltipCoords() {
 }
 
 function exitDragMode(commit) {
-    // commit=true → keep the new coords; false → revert to snapshot
     if (!commit && editFormSnapshot) {
         pendingCoords = editFormSnapshot.coords;
     }
     hideDragTooltip();
     removeEditMarker();
     observationMode = 'edit';
-
-    // Restore the modal with whatever form fields/coords we have
     updateLocationDisplay();
     new bootstrap.Modal(document.getElementById('observationModal')).show();
-    // Form field values are still in the DOM, no need to restore
     editFormSnapshot = null;
 }
 
@@ -211,15 +222,11 @@ function updateLocationDisplay() {
         pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
 }
 
-// --- GPS capture -----------------------------------------------------------
+// --- GPS capture ----------------------------------------------------------
 
-function captureCurrentGPS(onSuccess) {
+function captureCurrentGPS() {
     if (!navigator.geolocation) {
-        const errEl = document.getElementById('observationError');
-        if (errEl) {
-            errEl.textContent = 'Geolocation unsupported in this browser.';
-            errEl.classList.remove('d-none');
-        }
+        showToast('Geolocation unsupported in this browser.', 'error');
         return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -238,7 +245,6 @@ function captureCurrentGPS(onSuccess) {
                 updateLocationDisplay();
                 document.getElementById('observationSubmit').disabled = false;
             }
-            if (onSuccess) onSuccess();
         },
         (err) => {
             showToast('Could not get your location: ' + err.message, 'error');
@@ -275,11 +281,7 @@ function addEditMarker(lng, lat) {
         updateDragTooltipCoords();
     });
 
-    editMarker.on('dragend', () => {
-        positionDragTooltip();
-    });
-
-    // Keep tooltip glued to marker as the map moves/zooms
+    editMarker.on('dragend', positionDragTooltip);
     state.map.on('move', positionDragTooltip);
 }
 
@@ -307,7 +309,6 @@ function startDeleteObservation(feature) {
 // --- Form wiring ----------------------------------------------------------
 
 export function initObservationForms() {
-    // Main form submit (create + edit)
     document.getElementById('observationForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!pendingCoords) return;
@@ -316,6 +317,7 @@ export function initObservationForms() {
 
         const errEl = document.getElementById('observationError');
         errEl.classList.add('d-none');
+
         const isEdit = observationMode === 'edit' && id;
         const url = isEdit ? `/api/v1/observations/${id}/` : '/api/v1/observations/';
         const method = isEdit ? 'PATCH' : 'POST';
@@ -355,19 +357,14 @@ export function initObservationForms() {
         }
     });
 
-    // Clicking the "edit hints" area in the modal puts us into drag mode.
-    // It's the obvious affordance for "I want to move the pin".
     document.getElementById('obsEditHints').addEventListener('click', enterDragMode);
     document.getElementById('obsEditHints').style.cursor = 'pointer';
 
-    // Drag-mode tooltip buttons
     document.getElementById('dragDone').addEventListener('click', () => exitDragMode(true));
     document.getElementById('dragCancel').addEventListener('click', () => exitDragMode(false));
     document.getElementById('dragRecapture').addEventListener('click', () => captureCurrentGPS());
 
-    // Reset state when the modal is fully dismissed
     document.getElementById('observationModal').addEventListener('hidden.bs.modal', () => {
-        // Only fully reset if we're NOT mid-drag (drag temporarily hides the modal)
         if (observationMode === 'edit-drag') return;
         removeEditMarker();
         hideDragTooltip();
@@ -376,7 +373,6 @@ export function initObservationForms() {
         editFormSnapshot = null;
     });
 
-    // Delete confirmation
     document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
         if (!pendingDeleteId) return;
         const resp = await apiFetch(`/api/v1/observations/${pendingDeleteId}/`, {
@@ -396,27 +392,76 @@ export function initObservationForms() {
 // --- Load + render --------------------------------------------------------
 
 export async function loadObservations() {
+    // Close any open popup so it doesn't show stale data after edits
+    if (state.openPopup) {
+        state.openPopup.remove();
+        state.openPopup = null;
+    }
+
     if (!state.currentUser) {
-        const empty = { type: 'FeatureCollection', features: [] };
-        state.map.getSource('observations')?.setData(empty);
-        renderSavedList(empty);
+        cachedObservations = { type: 'FeatureCollection', features: [] };
+        state.map.getSource('observations')?.setData(cachedObservations);
+        state.map.getSource('h3-hexes')?.setData(cachedObservations);
+        renderSavedList(cachedObservations);
         return;
     }
+
     const resp = await apiFetch('/api/v1/observations/');
     if (!resp.ok) return;
     const data = await resp.json();
 
     // MapLibre strips feature.id in queryRenderedFeatures results;
-    // copy the id into properties so we can read it back on click.
+    // copy it into properties so we can read it back on click.
     data.features.forEach(f => {
         if (f.id != null && f.properties && f.properties.id == null) {
             f.properties.id = f.id;
         }
     });
 
+    cachedObservations = data;
     state.map.getSource('observations')?.setData(data);
+    recomputeH3();
     renderSavedList(data);
 }
+
+// --- H3 aggregation from observations -------------------------------------
+
+function recomputeH3() {
+    const source = state.map.getSource('h3-hexes');
+    if (!source) return;
+
+    const features = cachedObservations.features;
+    if (!features.length) {
+        source.setData({ type: 'FeatureCollection', features: [] });
+        return;
+    }
+
+    const res = zoomToH3Res(state.map.getZoom());
+
+    // Aggregate each observation's res-10 cell up to the current display resolution
+    const cellCounts = new Map();
+    for (const f of features) {
+        const fineCell = f.properties.h3_cell_res_10;
+        if (!fineCell) continue;
+        const displayCell = res >= 10 ? fineCell : h3.cellToParent(fineCell, res);
+        cellCounts.set(displayCell, (cellCounts.get(displayCell) || 0) + 1);
+    }
+
+    const hexFeatures = [];
+    cellCounts.forEach((count, cell) => {
+        const boundary = h3.cellToBoundary(cell, false).map(([lat, lng]) => [lng, lat]);
+        boundary.push(boundary[0]);
+        hexFeatures.push({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: [boundary] },
+            properties: { h3: cell, count, resolution: res },
+        });
+    });
+
+    source.setData({ type: 'FeatureCollection', features: hexFeatures });
+}
+
+// --- Saved list view ------------------------------------------------------
 
 function renderSavedList(featureCollection) {
     const el = document.getElementById('savedPanelBody');
@@ -439,7 +484,7 @@ function renderSavedList(featureCollection) {
                 </div>
                 ${notes}
                 <div class="small text-muted mt-1">
-                    H3-8: <code>${p.h3_cell_res_8}</code>
+                    H3-10: <code>${p.h3_cell_res_10}</code>
                 </div>
             </div>
         `;
