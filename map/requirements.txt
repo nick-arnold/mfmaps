@@ -1,7 +1,9 @@
 asgiref==3.11.1
 Django==6.0.5
 django-allauth==65.16.1
+django-filter==25.2
 djangorestframework==3.17.1
+djangorestframework-gis==1.2.1
 gunicorn==26.0.0
 h3==4.4.2
 packaging==26.2

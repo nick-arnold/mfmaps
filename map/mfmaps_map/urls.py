@@ -20,9 +20,12 @@ urlpatterns = [
     path('robots.txt', robots_txt, name='robots'),
     path('admin/', admin.site.urls),
 
-    # allauth: traditional server-side flows (login pages, password reset)
+    # API
+    path('api/v1/', include('observations.urls')),
+
+    # allauth: traditional server-side flows
     path('accounts/', include('allauth.urls')),
 
-    # allauth: headless API (DRF-compatible endpoints for SPA auth)
+    # allauth: headless API
     path('_allauth/', include('allauth.headless.urls')),
 ]
