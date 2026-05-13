@@ -26,6 +26,7 @@ class ObservationSerializer(GeoFeatureModelSerializer):
             'accuracy_meters',
             'h3_cell_res_8',
             'h3_cell_res_9',
+            'h3_cell_res_10',
             'recorded_at',
             'created_at',
             'updated_at',
@@ -34,6 +35,7 @@ class ObservationSerializer(GeoFeatureModelSerializer):
             'id',
             'h3_cell_res_8',
             'h3_cell_res_9',
+            'h3_cell_res_10',
             'created_at',
             'updated_at',
         ]

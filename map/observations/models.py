@@ -34,8 +34,13 @@ class Observation(models.Model):
     accuracy_meters = models.FloatField(null=True, blank=True)
 
     # Where (privacy-preserving aggregation buckets, computed on save)
+    # H3 cells at multiple resolutions, computed on save.
+    # res_10 (~66m) — user's private view, finest resolution we store
+    # res_9 (~175m) — intermediate
+    # res_8 (~750m) — community-safe aggregation resolution
     h3_cell_res_8 = models.CharField(max_length=20, db_index=True, blank=True)
     h3_cell_res_9 = models.CharField(max_length=20, db_index=True, blank=True)
+    h3_cell_res_10 = models.CharField(max_length=20, db_index=True, blank=True)
 
     # When
     recorded_at = models.DateTimeField()
@@ -48,15 +53,16 @@ class Observation(models.Model):
             models.Index(fields=['user', '-recorded_at']),
             models.Index(fields=['h3_cell_res_8']),
             models.Index(fields=['h3_cell_res_9']),
+            models.Index(fields=['h3_cell_res_10']),
         ]
 
     def save(self, *args, **kwargs):
-        # Compute H3 cells from lat/lng before persisting
         if self.location:
             lat = self.location.y
             lng = self.location.x
             self.h3_cell_res_8 = h3.latlng_to_cell(lat, lng, 8)
             self.h3_cell_res_9 = h3.latlng_to_cell(lat, lng, 9)
+            self.h3_cell_res_10 = h3.latlng_to_cell(lat, lng, 10)
         super().save(*args, **kwargs)
 
     def __str__(self):
