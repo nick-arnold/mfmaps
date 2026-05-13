@@ -191,3 +191,22 @@ HEADLESS_FRONTEND_URLS = {
     "account_confirm_email": "https://map.mfmaps.com/account/verify-email/{key}",
     "account_reset_password_from_key": "https://map.mfmaps.com/account/password/reset/key/{key}",
 }
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
