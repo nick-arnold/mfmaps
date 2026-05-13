@@ -48,6 +48,9 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.headless',  # provides DRF-compatible auth endpoints
+
+    # Local apps
+    'observations',
 ]
 
 MIDDLEWARE = [
