@@ -328,3 +328,56 @@ body {
 
 /* Bottom-right MapLibre controls — we're not using them anymore; hide */
 .maplibregl-ctrl-bottom-right { display: none; }
+
+/* ============================================================
+   Account menu — desktop bar
+   ============================================================ */
+
+   .app-bar-account { position: relative; }
+
+   .account-btn {
+       background: none;
+       border: none;
+       padding: 4px 8px;
+       font-size: 1.4rem;
+       color: #444;
+       cursor: pointer;
+       border-radius: 6px;
+   }
+   
+   .account-btn:hover { background: rgba(0, 0, 0, 0.05); color: #222; }
+   
+   .app-bar-account .dropdown-menu { min-width: 220px; }
+   
+   /* ============================================================
+      Account menu — mobile floating
+      ============================================================ */
+   
+   .mobile-account {
+       position: absolute;
+       top: 12px;
+       right: 12px;
+       z-index: 11;
+   }
+   
+   .mobile-account .account-btn {
+       background: white;
+       border: 1px solid rgba(0, 0, 0, 0.08);
+       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+       width: 44px;
+       height: 44px;
+       border-radius: 50%;
+       padding: 0;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       font-size: 1.4rem;
+       color: #444;
+   }
+   
+   .mobile-account .dropdown-menu { min-width: 220px; }
+   
+   /* ============================================================
+      Saved panel needs the same positioning as the (removed) listPanel
+      The .list-panel CSS still applies because we reused the class.
+      ============================================================ */

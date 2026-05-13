@@ -4,7 +4,7 @@
 
 // --- Configuration ---------------------------------------------------------
 
-const H3_RES = 8; // ~750 m hex cells
+const H3_RES = 8;
 
 const US_BOUNDS = [
     [-125.0, 24.5],
@@ -25,10 +25,167 @@ const OSM_STYLE = {
             attribution: '© OpenStreetMap contributors'
         }
     },
-    layers: [
-        { id: 'osm-base', type: 'raster', source: 'osm-raster' }
-    ]
+    layers: [{ id: 'osm-base', type: 'raster', source: 'osm-raster' }]
 };
+
+// --- Auth state ------------------------------------------------------------
+
+let currentUser = null; // { email, id } when logged in, null otherwise
+
+// --- CSRF helper -----------------------------------------------------------
+
+function getCookie(name) {
+    const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return m ? decodeURIComponent(m[2]) : null;
+}
+
+function csrfHeaders() {
+    const token = getCookie('csrftoken');
+    return token ? { 'X-CSRFToken': token, 'Content-Type': 'application/json' }
+                 : { 'Content-Type': 'application/json' };
+}
+
+// --- API helpers -----------------------------------------------------------
+
+async function apiFetch(url, options = {}) {
+    const resp = await fetch(url, {
+        credentials: 'same-origin',
+        headers: csrfHeaders(),
+        ...options,
+    });
+    return resp;
+}
+
+// --- Auth flows ------------------------------------------------------------
+
+async function fetchAuthState() {
+    // allauth-headless: GET /_allauth/browser/v1/auth/session
+    try {
+        const resp = await apiFetch('/_allauth/browser/v1/auth/session');
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.data?.user) {
+                currentUser = {
+                    email: data.data.user.email,
+                    id: data.data.user.id,
+                };
+            } else {
+                currentUser = null;
+            }
+        } else {
+            currentUser = null;
+        }
+    } catch (e) {
+        currentUser = null;
+    }
+    renderAccountMenus();
+}
+
+function renderAccountMenus() {
+    const html = currentUser
+        ? `
+            <li class="dropdown-header small text-muted">Signed in as</li>
+            <li class="dropdown-item-text small fw-bold text-truncate" style="max-width:240px">${currentUser.email}</li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="logoutLink"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
+          `
+        : `
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal"><i class="bi bi-box-arrow-in-right me-2"></i>Sign in</a></li>
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#signupModal"><i class="bi bi-person-plus me-2"></i>Create account</a></li>
+          `;
+
+    document.querySelectorAll('#accountMenu, #accountMenuMobile').forEach(el => {
+        el.innerHTML = html;
+    });
+
+    document.querySelectorAll('#logoutLink').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await logout();
+        });
+    });
+}
+
+async function login(email, password) {
+    const resp = await apiFetch('/_allauth/browser/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        await fetchAuthState();
+        return { ok: true };
+    }
+    const msg = data?.errors?.[0]?.message || 'Sign in failed';
+    return { ok: false, error: msg };
+}
+
+async function signup(email, password) {
+    const resp = await apiFetch('/_allauth/browser/v1/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        await fetchAuthState();
+        return { ok: true };
+    }
+    const msg = data?.errors?.[0]?.message || 'Sign up failed';
+    return { ok: false, error: msg };
+}
+
+async function logout() {
+    await apiFetch('/_allauth/browser/v1/auth/session', { method: 'DELETE' });
+    await fetchAuthState();
+    // Clear observations from map since they were user-scoped
+    const empty = { type: 'FeatureCollection', features: [] };
+    map.getSource('observations')?.setData(empty);
+}
+
+function wireAuthForms() {
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const errEl = document.getElementById('loginError');
+        errEl.classList.add('d-none');
+        const result = await login(fd.get('email'), fd.get('password'));
+        if (result.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+            e.target.reset();
+            loadObservations();
+        } else {
+            errEl.textContent = result.error;
+            errEl.classList.remove('d-none');
+        }
+    });
+
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const errEl = document.getElementById('signupError');
+        errEl.classList.add('d-none');
+        const result = await signup(fd.get('email'), fd.get('password'));
+        if (result.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
+            e.target.reset();
+            loadObservations();
+        } else {
+            errEl.textContent = result.error;
+            errEl.classList.remove('d-none');
+        }
+    });
+
+    document.getElementById('switchToSignup').addEventListener('click', (e) => {
+        e.preventDefault();
+        bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+        new bootstrap.Modal(document.getElementById('signupModal')).show();
+    });
+    document.getElementById('switchToLogin').addEventListener('click', (e) => {
+        e.preventDefault();
+        bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
+        new bootstrap.Modal(document.getElementById('loginModal')).show();
+    });
+}
 
 // --- Map initialization ----------------------------------------------------
 
@@ -39,32 +196,45 @@ const map = new maplibregl.Map({
     fitBoundsOptions: { padding: 40 }
 });
 
-// We hide MapLibre's default control containers via CSS and roll our own,
-// but we still need the GeolocateControl instance for its events + behavior.
 const geolocate = new maplibregl.GeolocateControl({
     positionOptions: { enableHighAccuracy: true },
     trackUserLocation: false,
     showUserLocation: true
 });
-map.addControl(geolocate, 'top-right'); // container hidden by CSS
-
+map.addControl(geolocate, 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
-
-// --- Layer groups ----------------------------------------------------------
 
 const LAYER_IDS = {
     'random-points': ['random-points-layer'],
-    'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line']
+    'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
+    'observations': ['observations-layer'],
 };
 
-// --- Sources & layers (after style load) ----------------------------------
+// --- Sources + layers (after style load) ----------------------------------
 
 map.on('load', () => {
+    // Observations (user's saved pins)
+    map.addSource('observations', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+    map.addLayer({
+        id: 'observations-layer',
+        type: 'circle',
+        source: 'observations',
+        paint: {
+            'circle-radius': 7,
+            'circle-color': '#2c5530',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+        }
+    });
+
+    // Random demo points
     map.addSource('random-points', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
     });
-
     map.addLayer({
         id: 'random-points-layer',
         type: 'circle',
@@ -78,11 +248,11 @@ map.on('load', () => {
         layout: { visibility: 'none' }
     });
 
+    // H3 hexes
     map.addSource('h3-hexes', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
     });
-
     map.addLayer({
         id: 'h3-hexes-fill',
         type: 'fill',
@@ -99,7 +269,6 @@ map.on('load', () => {
         },
         layout: { visibility: 'none' }
     }, 'random-points-layer');
-
     map.addLayer({
         id: 'h3-hexes-line',
         type: 'line',
@@ -108,18 +277,17 @@ map.on('load', () => {
         layout: { visibility: 'none' }
     }, 'random-points-layer');
 
+    // User's H3 cell from geolocation
     map.addSource('user-h3', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
     });
-
     map.addLayer({
         id: 'user-h3-fill',
         type: 'fill',
         source: 'user-h3',
         paint: { 'fill-color': '#2c5530', 'fill-opacity': 0.2 }
     });
-
     map.addLayer({
         id: 'user-h3-line',
         type: 'line',
@@ -132,30 +300,34 @@ map.on('load', () => {
     wireQueryMode();
     wireGeolocate();
     wireDockTabs();
+    wireAuthForms();
+    wireObservationFlow();
+
+    fetchAuthState().then(() => {
+        if (currentUser) loadObservations();
+    });
 });
 
-// --- Shared layer panel: render template into desktop + mobile containers --
+// --- Layer panel sync ------------------------------------------------------
 
 function initLayerPanels() {
     const template = document.getElementById('layerPanelTemplate');
-
-    // Desktop sidebar
     renderPanelInto(template, document.querySelector('.side-panel-body'), 'desk');
-    // Mobile bottom sheet
     renderPanelInto(template, document.getElementById('layersSheetBody'), 'mob');
 
-    // Wire all rendered toggles + buttons across both panels
-    document.querySelectorAll('.layer-toggle').forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
+    document.querySelectorAll('.layer-toggle').forEach(cb => {
+        cb.addEventListener('change', (e) => {
             const group = e.target.dataset.layerGroup;
             const visible = e.target.checked;
             setLayerGroupVisibility(group, visible);
-            // Keep the other panel's matching toggle in sync
             document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
-                .forEach(cb => { if (cb !== e.target) cb.checked = visible; });
+                .forEach(other => { if (other !== e.target) other.checked = visible; });
         });
     });
 
+    document.querySelectorAll('.js-add-random-points').forEach(btn => {
+        btn.addEventListener('click', addRandomPoints);
+    });
     document.querySelectorAll('.js-clear-demo').forEach(btn => {
         btn.addEventListener('click', clearDemo);
     });
@@ -164,10 +336,8 @@ function initLayerPanels() {
 function renderPanelInto(template, container, contextSuffix) {
     if (!container) return;
     const clone = template.content.cloneNode(true);
-    // Make checkbox IDs unique across the two clones so labels still pair properly
     clone.querySelectorAll('[id$="-CTX"]').forEach(el => {
-        const newId = el.id.replace(/-CTX$/, `-${contextSuffix}`);
-        el.id = newId;
+        el.id = el.id.replace(/-CTX$/, `-${contextSuffix}`);
     });
     clone.querySelectorAll('label[for$="-CTX"]').forEach(label => {
         label.htmlFor = label.htmlFor.replace(/-CTX$/, `-${contextSuffix}`);
@@ -188,18 +358,13 @@ function setLayerToggleUI(group, checked) {
         .forEach(cb => { cb.checked = checked; });
 }
 
-// --- FAB buttons ----------------------------------------------------------
+// --- FABs ------------------------------------------------------------------
 
 function wireFabs() {
     document.getElementById('fabGeolocate').addEventListener('click', () => {
         geolocate.trigger();
     });
-
-    document.getElementById('fabPrimary').addEventListener('click', () => {
-        addRandomPoints();
-    });
-
-    // Query toggle handled in wireQueryMode
+    document.getElementById('fabPrimary').addEventListener('click', startObservation);
 }
 
 // --- Demo: random points + H3 aggregation ---------------------------------
@@ -226,7 +391,6 @@ function aggregateToH3(pointCollection, resolution = H3_RES) {
         const cell = h3.latLngToCell(lat, lng, resolution);
         cellCounts.set(cell, (cellCounts.get(cell) || 0) + 1);
     });
-
     const features = [];
     cellCounts.forEach((count, cell) => {
         const boundary = h3.cellToBoundary(cell, false).map(([lat, lng]) => [lng, lat]);
@@ -237,17 +401,14 @@ function aggregateToH3(pointCollection, resolution = H3_RES) {
             properties: { h3: cell, count }
         });
     });
-
     return { type: 'FeatureCollection', features };
 }
 
 function addRandomPoints() {
     const points = generateRandomPoints(50);
     const hexes = aggregateToH3(points, H3_RES);
-
     map.getSource('random-points').setData(points);
     map.getSource('h3-hexes').setData(hexes);
-
     ['random-points', 'h3-hexes'].forEach(group => {
         setLayerGroupVisibility(group, true);
         setLayerToggleUI(group, true);
@@ -281,13 +442,11 @@ function wireQueryMode() {
 
     map.on('click', (e) => {
         if (!queryMode) return;
-        const queryableLayers = ['random-points-layer', 'h3-hexes-fill']
+        const queryable = ['observations-layer', 'random-points-layer', 'h3-hexes-fill']
             .filter(id => map.getLayer(id));
-        const features = map.queryRenderedFeatures(e.point, { layers: queryableLayers });
-
+        const features = map.queryRenderedFeatures(e.point, { layers: queryable });
         const resultEl = document.getElementById('queryResult');
         const bodyEl = document.getElementById('queryResultBody');
-
         if (features.length === 0) {
             bodyEl.innerHTML = '<em class="text-muted">No features at this location.</em>';
         } else {
@@ -309,7 +468,6 @@ function wireGeolocate() {
         const cell = h3.latLngToCell(latitude, longitude, H3_RES);
         const boundary = h3.cellToBoundary(cell, false).map(([lat, lng]) => [lng, lat]);
         boundary.push(boundary[0]);
-
         map.getSource('user-h3').setData({
             type: 'FeatureCollection',
             features: [{
@@ -318,17 +476,13 @@ function wireGeolocate() {
                 properties: { h3: cell }
             }]
         });
-
         const html = `
             <div class="mb-1"><strong>Lat:</strong> ${latitude.toFixed(5)}</div>
             <div class="mb-1"><strong>Lng:</strong> ${longitude.toFixed(5)}</div>
             <div class="mb-1"><strong>H3 cell (res ${H3_RES}):</strong> <code class="small">${cell}</code></div>
         `;
-        document.querySelectorAll('.user-location-info').forEach(el => {
-            el.innerHTML = html;
-        });
+        document.querySelectorAll('.user-location-info').forEach(el => { el.innerHTML = html; });
     });
-
     geolocate.on('error', () => {
         document.querySelectorAll('.user-location-info').forEach(el => {
             el.innerHTML = '<em class="text-warning-emphasis">Could not get your location.</em>';
@@ -336,24 +490,157 @@ function wireGeolocate() {
     });
 }
 
-// --- Mode tabs (Map / List), both desktop and mobile dock -----------------
+// --- Observation flow -----------------------------------------------------
+
+let pendingObservationCoords = null;
+
+function startObservation() {
+    if (!currentUser) {
+        new bootstrap.Modal(document.getElementById('loginModal')).show();
+        return;
+    }
+
+    // Reset form state
+    const form = document.getElementById('observationForm');
+    form.reset();
+    document.getElementById('observationError').classList.add('d-none');
+    document.getElementById('obsLocation').textContent = 'acquiring GPS…';
+    document.getElementById('obsAccuracy').textContent = '—';
+    document.getElementById('obsTime').textContent = '—';
+    document.getElementById('observationSubmit').disabled = true;
+    pendingObservationCoords = null;
+
+    new bootstrap.Modal(document.getElementById('observationModal')).show();
+
+    // Get the GPS location
+    if (!navigator.geolocation) {
+        document.getElementById('observationError').textContent = 'Geolocation unsupported in this browser.';
+        document.getElementById('observationError').classList.remove('d-none');
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            pendingObservationCoords = { latitude, longitude, accuracy };
+            document.getElementById('obsLocation').textContent =
+                `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+            document.getElementById('obsAccuracy').textContent = `${Math.round(accuracy)} m`;
+            document.getElementById('obsTime').textContent = new Date().toLocaleString();
+            document.getElementById('observationSubmit').disabled = false;
+        },
+        (err) => {
+            const errEl = document.getElementById('observationError');
+            errEl.textContent = 'Could not get your location: ' + err.message;
+            errEl.classList.remove('d-none');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+}
+
+function wireObservationFlow() {
+    document.getElementById('observationForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!pendingObservationCoords) return;
+        const fd = new FormData(e.target);
+
+        const payload = {
+            species_name: fd.get('species_name') || '',
+            notes: fd.get('notes') || '',
+            accuracy_meters: pendingObservationCoords.accuracy,
+            recorded_at: new Date().toISOString(),
+            location: {
+                type: 'Point',
+                coordinates: [
+                    pendingObservationCoords.longitude,
+                    pendingObservationCoords.latitude,
+                ]
+            }
+        };
+
+        const errEl = document.getElementById('observationError');
+        errEl.classList.add('d-none');
+
+        const resp = await apiFetch('/api/v1/observations/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (resp.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('observationModal')).hide();
+            await loadObservations();
+        } else {
+            const data = await resp.json().catch(() => ({}));
+            errEl.textContent = JSON.stringify(data);
+            errEl.classList.remove('d-none');
+        }
+    });
+}
+
+// --- Load and render observations -----------------------------------------
+
+async function loadObservations() {
+    if (!currentUser) return;
+    const resp = await apiFetch('/api/v1/observations/');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    map.getSource('observations')?.setData(data);
+    renderSavedList(data);
+}
+
+function renderSavedList(featureCollection) {
+    const el = document.getElementById('savedPanelBody');
+    if (!featureCollection.features.length) {
+        el.innerHTML = '<div class="text-muted">No observations yet. Tap the + button on the map to add one.</div>';
+        return;
+    }
+    el.innerHTML = featureCollection.features.map(f => {
+        const p = f.properties;
+        const coords = f.geometry.coordinates;
+        const species = p.species_name || '(no species)';
+        const when = new Date(p.recorded_at).toLocaleDateString();
+        const notes = p.notes ? `<div class="text-muted small mt-1">${p.notes}</div>` : '';
+        return `
+            <div class="saved-item border-bottom py-2"
+                 data-lng="${coords[0]}" data-lat="${coords[1]}">
+                <div class="d-flex justify-content-between">
+                    <strong>${species}</strong>
+                    <small class="text-muted">${when}</small>
+                </div>
+                ${notes}
+                <div class="small text-muted mt-1">
+                    H3-8: <code>${p.h3_cell_res_8}</code>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    el.querySelectorAll('.saved-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const lng = parseFloat(item.dataset.lng);
+            const lat = parseFloat(item.dataset.lat);
+            map.flyTo({ center: [lng, lat], zoom: 14 });
+            setMode('map');
+        });
+    });
+}
+
+// --- Mode tabs ------------------------------------------------------------
 
 function setMode(mode) {
-    // "layers" is a sheet-trigger, not a persistent mode — don't apply it as active state.
-    // It just opens the offcanvas; Bootstrap handles that via the data-bs-toggle attribute.
-    if (mode === 'layers') return;
+    if (mode === 'layers') return; // sheet trigger, not a persistent mode
 
     document.querySelectorAll('.app-tab, .dock-tab').forEach(t => {
-        // Only consider mode-tabs (Map / List), not the Layers trigger
         if (t.dataset.mode === 'layers') return;
         t.classList.toggle('active', t.dataset.mode === mode);
     });
 
-    const listPanel = document.getElementById('listPanel');
-    if (mode === 'list') {
-        listPanel.classList.remove('d-none');
+    const savedPanel = document.getElementById('savedPanel');
+    if (mode === 'saved') {
+        savedPanel.classList.remove('d-none');
+        loadObservations(); // refresh on every view
     } else {
-        listPanel.classList.add('d-none');
+        savedPanel.classList.add('d-none');
     }
 }
 window.setMode = setMode;

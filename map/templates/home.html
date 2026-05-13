@@ -15,9 +15,7 @@
 </head>
 <body>
 
-<!-- =========================================================
-     Desktop top bar (hidden on mobile)
-     ========================================================= -->
+<!-- Desktop top bar -->
 <header class="app-bar d-none d-md-flex">
     <div class="app-bar-brand">
         <strong>MF Maps</strong>
@@ -26,30 +24,46 @@
         <button class="app-tab active" data-mode="map" type="button">
             <i class="bi bi-map"></i><span>Map</span>
         </button>
-        <button class="app-tab" data-mode="list" type="button">
-            <i class="bi bi-list-ul"></i><span>List</span>
+        <button class="app-tab" data-mode="saved" type="button">
+            <i class="bi bi-bookmark"></i><span>Saved</span>
         </button>
     </nav>
     <div class="app-bar-spacer"></div>
+    <div class="app-bar-account">
+        <button id="accountBtn" class="account-btn" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" id="accountMenu" aria-labelledby="accountBtn">
+            <!-- Filled by JS based on auth state -->
+        </ul>
+    </div>
 </header>
 
-<!-- =========================================================
-     Main app area: left panel (desktop) + map
-     ========================================================= -->
 <main class="app-main">
 
-    <!-- Desktop persistent left panel -->
+    <!-- Desktop left panel -->
     <aside class="side-panel d-none d-md-flex">
         <div class="side-panel-header">
             <h6 class="mb-0">Layers &amp; Tools</h6>
         </div>
         <div class="side-panel-body">
-            <!-- shared content rendered here via JS clone -->
+            <!-- Filled by JS from template -->
         </div>
     </aside>
 
-    <!-- Map container -->
     <div id="map"></div>
+
+    <!-- Mobile floating account button -->
+    <div class="mobile-account d-md-none">
+        <button id="accountBtnMobile" class="account-btn" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" id="accountMenuMobile" aria-labelledby="accountBtnMobile">
+            <!-- Filled by JS based on auth state -->
+        </ul>
+    </div>
 
     <!-- Right-edge floating action stack -->
     <div class="fab-stack">
@@ -59,12 +73,10 @@
         <button id="fabQuery" class="fab" type="button" title="Query features" aria-pressed="false">
             <i class="bi bi-cursor"></i>
         </button>
-        <button id="fabPrimary" class="fab fab-primary" type="button" title="Add demo points">
+        <button id="fabPrimary" class="fab fab-primary" type="button" title="Add observation">
             <i class="bi bi-plus-lg"></i>
         </button>
     </div>
-
-    
 
     <!-- Query result popover -->
     <div id="queryResult" class="query-result shadow-sm d-none">
@@ -76,46 +88,48 @@
         <div id="queryResultBody" class="small"></div>
     </div>
 
-    <!-- List mode panel (slides up over map) -->
-    <section id="listPanel" class="list-panel d-none">
+    <!-- Saved mode panel -->
+    <section id="savedPanel" class="list-panel d-none">
         <div class="list-panel-header">
-            <h6 class="mb-0">Data</h6>
+            <h6 class="mb-0">Saved Observations</h6>
             <button type="button" class="btn-close btn-close-sm d-md-none"
-                    aria-label="Close list" onclick="setMode('map')"></button>
+                    aria-label="Close" onclick="setMode('map')"></button>
         </div>
-        <div class="list-panel-body small text-muted">
-            No data layer selected. Toggle a layer on to see its features here.
+        <div id="savedPanelBody" class="list-panel-body small">
+            <div class="text-muted">Loading…</div>
         </div>
     </section>
 
 </main>
 
-<!-- =========================================================
-     Mobile bottom dock
-     ========================================================= -->
-     <nav class="bottom-dock d-md-none">
-        <button class="dock-tab active" data-mode="map" type="button">
-            <i class="bi bi-map"></i>
-            <span>Map</span>
-        </button>
-        <button class="dock-tab" data-mode="layers" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#layersSheet"
-                aria-controls="layersSheet">
-            <i class="bi bi-layers"></i>
-            <span>Layers</span>
-        </button>
-        <button class="dock-tab" data-mode="list" type="button">
-            <i class="bi bi-list-ul"></i>
-            <span>List</span>
-        </button>
-    </nav>
+<!-- Mobile bottom dock -->
+<nav class="bottom-dock d-md-none">
+    <button class="dock-tab active" data-mode="map" type="button">
+        <i class="bi bi-map"></i>
+        <span>Map</span>
+    </button>
+    <button class="dock-tab" data-mode="layers" type="button"
+            data-bs-toggle="offcanvas" data-bs-target="#layersSheet"
+            aria-controls="layersSheet">
+        <i class="bi bi-layers"></i>
+        <span>Layers</span>
+    </button>
+    <button class="dock-tab" data-mode="saved" type="button">
+        <i class="bi bi-bookmark"></i>
+        <span>Saved</span>
+    </button>
+</nav>
 
-<!-- =========================================================
-     Layer panel content (rendered into desktop sidebar AND
-     mobile offcanvas via JS so both share one source of truth)
-     ========================================================= -->
+<!-- Layer panel template (rendered into desktop sidebar AND mobile offcanvas) -->
 <template id="layerPanelTemplate">
     <h6 class="text-uppercase text-muted small fw-bold mb-2">Free Layers</h6>
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-observations-CTX" data-layer-group="observations" checked>
+        <label class="form-check-label" for="layer-observations-CTX">
+            My observations
+        </label>
+    </div>
     <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-random-points-CTX" data-layer-group="random-points">
@@ -154,13 +168,13 @@
 
     <h6 class="text-uppercase text-muted small fw-bold mb-3">Demo Tools</h6>
     <div class="d-grid gap-2 mb-3">
+        <button class="btn btn-outline-secondary btn-sm js-add-random-points">
+            <i class="bi bi-shuffle"></i> Add 50 random points
+        </button>
         <button class="btn btn-outline-secondary btn-sm js-clear-demo">
             <i class="bi bi-trash"></i> Clear demo
         </button>
     </div>
-    <p class="small text-muted">
-        Use the <i class="bi bi-plus-lg"></i> button on the map to add 50 random points.
-    </p>
 
     <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Your Location</h6>
     <div class="user-location-info small text-muted">
@@ -169,8 +183,7 @@
 </template>
 
 <!-- Mobile bottom-sheet (offcanvas) -->
-<div class="offcanvas offcanvas-bottom layers-sheet" tabindex="-1" id="layersSheet"
-     aria-labelledby="layersSheetLabel">
+<div class="offcanvas offcanvas-bottom layers-sheet" tabindex="-1" id="layersSheet" aria-labelledby="layersSheetLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="layersSheetLabel">Layers &amp; Tools</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -178,6 +191,100 @@
     <div class="offcanvas-body" id="layersSheetBody">
         <!-- filled by JS -->
     </div>
+</div>
+
+<!-- Login modal -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="loginModalLabel">Sign in</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="loginForm">
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" required autocomplete="email">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" name="password" required autocomplete="current-password">
+          </div>
+          <div class="alert alert-danger d-none" id="loginError"></div>
+          <button type="submit" class="btn btn-primary w-100">Sign in</button>
+        </form>
+        <hr>
+        <p class="small text-muted text-center mb-0">
+          No account? <a href="#" id="switchToSignup">Create one</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Signup modal -->
+<div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="signupModalLabel">Create account</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="signupForm">
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" required autocomplete="email">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" name="password" required autocomplete="new-password" minlength="8">
+            <div class="form-text small">At least 8 characters.</div>
+          </div>
+          <div class="alert alert-danger d-none" id="signupError"></div>
+          <button type="submit" class="btn btn-primary w-100">Create account</button>
+        </form>
+        <hr>
+        <p class="small text-muted text-center mb-0">
+          Already have an account? <a href="#" id="switchToLogin">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New observation modal -->
+<div class="modal fade" id="observationModal" tabindex="-1" aria-labelledby="observationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="observationModalLabel">New observation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="observationForm">
+          <div class="mb-3">
+            <label class="form-label">Species</label>
+            <input type="text" class="form-control" name="species_name" placeholder="e.g. chanterelle" autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="3" placeholder="Optional"></textarea>
+          </div>
+          <div class="mb-3 small text-muted">
+            <div><strong>Location:</strong> <span id="obsLocation">acquiring GPS…</span></div>
+            <div><strong>Accuracy:</strong> <span id="obsAccuracy">—</span></div>
+            <div><strong>Time:</strong> <span id="obsTime">—</span></div>
+          </div>
+          <div class="alert alert-danger d-none" id="observationError"></div>
+          <button type="submit" class="btn btn-primary w-100" id="observationSubmit" disabled>
+            Save observation
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
