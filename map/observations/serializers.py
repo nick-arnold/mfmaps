@@ -1,4 +1,6 @@
-from rest_framework import serializers
+import json
+
+from django.contrib.gis.geos import GEOSGeometry
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from .models import Observation
@@ -30,3 +32,16 @@ class ObservationSerializer(GeoFeatureModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def create(self, validated_data):
+        # rest_framework_gis hands us `location` as a Python dict; convert to GEOS
+        loc = validated_data.get('location')
+        if isinstance(loc, dict):
+            validated_data['location'] = GEOSGeometry(json.dumps(loc))
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        loc = validated_data.get('location')
+        if isinstance(loc, dict):
+            validated_data['location'] = GEOSGeometry(json.dumps(loc))
+        return super().update(instance, validated_data)
