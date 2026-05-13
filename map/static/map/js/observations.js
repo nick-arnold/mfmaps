@@ -312,7 +312,7 @@ export function initObservationForms() {
         e.preventDefault();
         if (!pendingCoords) return;
         const fd = new FormData(e.target);
-        const id = fd.get('id');
+        const id = editingObservationId;
 
         const errEl = document.getElementById('observationError');
         errEl.classList.add('d-none');
