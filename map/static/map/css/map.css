@@ -457,3 +457,32 @@ body {
     font-size: 1.2rem;
     padding: 2px 8px;
 }
+
+/* ============================================================
+   Drag-edit floating tooltip
+   ============================================================ */
+
+   .drag-tooltip {
+    position: absolute;
+    z-index: 9;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    min-width: 280px;
+    padding: 10px 12px;
+    pointer-events: auto;
+    transform: translate(-50%, calc(-100% - 24px));
+}
+
+.drag-tooltip-arrow {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid white;
+    filter: drop-shadow(0 2px 1px rgba(0,0,0,0.1));
+}

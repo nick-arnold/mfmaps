@@ -1,5 +1,5 @@
 // =============================================================================
-// Observations: create, edit, delete, popup, draggable marker, list view
+// Observations: create, edit (with drag-tooltip), delete, popup, list view
 // =============================================================================
 
 import { state } from './state.js';
@@ -7,11 +7,14 @@ import { apiFetch, showToast, escapeHtml } from './api.js';
 
 // --- Module state ---------------------------------------------------------
 
-let observationMode = null;      // 'create' | 'edit' | null
+let observationMode = null;      // 'create' | 'edit' | 'edit-drag' | null
 let editingObservationId = null;
 let editMarker = null;
 let pendingCoords = null;        // { latitude, longitude, accuracy }
 let pendingDeleteId = null;
+
+// Form snapshot while user is in the drag phase (so we can restore on Done/Cancel)
+let editFormSnapshot = null;
 
 // --- Map click handler ----------------------------------------------------
 
@@ -129,11 +132,75 @@ function startEditObservation(feature) {
     document.getElementById('observationSubmit').disabled = false;
     document.getElementById('observationSubmit').textContent = 'Save changes';
     document.getElementById('obsEditHints').classList.remove('d-none');
-    document.getElementById('obsRecaptureWrap').classList.remove('d-none');
-
-    addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
+    document.getElementById('obsRecaptureWrap').classList.add('d-none'); // moved to tooltip
 
     new bootstrap.Modal(document.getElementById('observationModal')).show();
+}
+
+// --- Drag phase ------------------------------------------------------------
+
+function enterDragMode() {
+    if (observationMode !== 'edit') return;
+
+    // Snapshot the form so we can restore values when returning
+    const form = document.getElementById('observationForm');
+    editFormSnapshot = {
+        species_name: form.querySelector('input[name="species_name"]').value,
+        notes: form.querySelector('textarea[name="notes"]').value,
+        coords: { ...pendingCoords },  // in case the user cancels drag
+    };
+
+    observationMode = 'edit-drag';
+
+    // Hide the modal (without destroying state) and show the tooltip + draggable marker
+    const modalEl = document.getElementById('observationModal');
+    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+    addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
+    showDragTooltip();
+    state.map.flyTo({ center: [pendingCoords.longitude, pendingCoords.latitude], zoom: Math.max(state.map.getZoom(), 14) });
+}
+
+function showDragTooltip() {
+    const tooltip = document.getElementById('dragTooltip');
+    tooltip.classList.remove('d-none');
+    positionDragTooltip();
+    updateDragTooltipCoords();
+}
+
+function hideDragTooltip() {
+    document.getElementById('dragTooltip').classList.add('d-none');
+}
+
+function positionDragTooltip() {
+    if (!editMarker) return;
+    const tooltip = document.getElementById('dragTooltip');
+    const lngLat = editMarker.getLngLat();
+    const point = state.map.project(lngLat);
+    tooltip.style.left = `${point.x}px`;
+    tooltip.style.top = `${point.y}px`;
+}
+
+function updateDragTooltipCoords() {
+    if (!pendingCoords) return;
+    document.getElementById('dragTooltipCoords').textContent =
+        `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
+}
+
+function exitDragMode(commit) {
+    // commit=true → keep the new coords; false → revert to snapshot
+    if (!commit && editFormSnapshot) {
+        pendingCoords = editFormSnapshot.coords;
+    }
+    hideDragTooltip();
+    removeEditMarker();
+    observationMode = 'edit';
+
+    // Restore the modal with whatever form fields/coords we have
+    updateLocationDisplay();
+    new bootstrap.Modal(document.getElementById('observationModal')).show();
+    // Form field values are still in the DOM, no need to restore
+    editFormSnapshot = null;
 }
 
 function updateLocationDisplay() {
@@ -144,11 +211,15 @@ function updateLocationDisplay() {
         pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
 }
 
-function captureCurrentGPS() {
+// --- GPS capture -----------------------------------------------------------
+
+function captureCurrentGPS(onSuccess) {
     if (!navigator.geolocation) {
         const errEl = document.getElementById('observationError');
-        errEl.textContent = 'Geolocation unsupported in this browser.';
-        errEl.classList.remove('d-none');
+        if (errEl) {
+            errEl.textContent = 'Geolocation unsupported in this browser.';
+            errEl.classList.remove('d-none');
+        }
         return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -158,20 +229,25 @@ function captureCurrentGPS() {
                 longitude: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
             };
-            updateLocationDisplay();
-            document.getElementById('observationSubmit').disabled = false;
-            if (observationMode === 'edit' && editMarker) {
+            if (observationMode === 'edit-drag' && editMarker) {
                 editMarker.setLngLat([pendingCoords.longitude, pendingCoords.latitude]);
+                state.map.flyTo({ center: [pendingCoords.longitude, pendingCoords.latitude] });
+                positionDragTooltip();
+                updateDragTooltipCoords();
+            } else {
+                updateLocationDisplay();
+                document.getElementById('observationSubmit').disabled = false;
             }
+            if (onSuccess) onSuccess();
         },
         (err) => {
-            const errEl = document.getElementById('observationError');
-            errEl.textContent = 'Could not get your location: ' + err.message;
-            errEl.classList.remove('d-none');
+            showToast('Could not get your location: ' + err.message, 'error');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
+
+// --- Edit marker ----------------------------------------------------------
 
 function addEditMarker(lng, lat) {
     removeEditMarker();
@@ -187,15 +263,24 @@ function addEditMarker(lng, lat) {
     editMarker = new maplibregl.Marker({ element: el, draggable: true })
         .setLngLat([lng, lat])
         .addTo(state.map);
-    editMarker.on('dragend', () => {
+
+    editMarker.on('drag', () => {
         const ll = editMarker.getLngLat();
         pendingCoords = {
             latitude: ll.lat,
             longitude: ll.lng,
             accuracy: pendingCoords?.accuracy ?? null,
         };
-        updateLocationDisplay();
+        positionDragTooltip();
+        updateDragTooltipCoords();
     });
+
+    editMarker.on('dragend', () => {
+        positionDragTooltip();
+    });
+
+    // Keep tooltip glued to marker as the map moves/zooms
+    state.map.on('move', positionDragTooltip);
 }
 
 function removeEditMarker() {
@@ -203,6 +288,7 @@ function removeEditMarker() {
         editMarker.remove();
         editMarker = null;
     }
+    state.map.off('move', positionDragTooltip);
 }
 
 // --- Delete flow ----------------------------------------------------------
@@ -221,7 +307,7 @@ function startDeleteObservation(feature) {
 // --- Form wiring ----------------------------------------------------------
 
 export function initObservationForms() {
-    // Main observation form (handles both create + edit)
+    // Main form submit (create + edit)
     document.getElementById('observationForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!pendingCoords) return;
@@ -270,14 +356,25 @@ export function initObservationForms() {
         }
     });
 
-    // Re-capture GPS button (edit mode)
-    document.getElementById('obsRecaptureBtn').addEventListener('click', captureCurrentGPS);
+    // Clicking the "edit hints" area in the modal puts us into drag mode.
+    // It's the obvious affordance for "I want to move the pin".
+    document.getElementById('obsEditHints').addEventListener('click', enterDragMode);
+    document.getElementById('obsEditHints').style.cursor = 'pointer';
 
-    // Reset edit state when the modal closes
+    // Drag-mode tooltip buttons
+    document.getElementById('dragDone').addEventListener('click', () => exitDragMode(true));
+    document.getElementById('dragCancel').addEventListener('click', () => exitDragMode(false));
+    document.getElementById('dragRecapture').addEventListener('click', () => captureCurrentGPS());
+
+    // Reset state when the modal is fully dismissed
     document.getElementById('observationModal').addEventListener('hidden.bs.modal', () => {
+        // Only fully reset if we're NOT mid-drag (drag temporarily hides the modal)
+        if (observationMode === 'edit-drag') return;
         removeEditMarker();
+        hideDragTooltip();
         observationMode = null;
         editingObservationId = null;
+        editFormSnapshot = null;
     });
 
     // Delete confirmation
