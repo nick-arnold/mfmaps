@@ -316,7 +316,7 @@ export function initObservationForms() {
 
         const errEl = document.getElementById('observationError');
         errEl.classList.add('d-none');
-
+        console.log('SUBMIT DEBUG:', { observationMode, editingObservationId, id });
         const isEdit = observationMode === 'edit' && id;
         const url = isEdit ? `/api/v1/observations/${id}/` : '/api/v1/observations/';
         const method = isEdit ? 'PATCH' : 'POST';
