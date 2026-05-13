@@ -429,7 +429,6 @@ export async function loadObservations() {
 function recomputeH3() {
     const source = state.map.getSource('h3-hexes');
     if (!source) return;
-    console.log('recomputeH3 running, observations:', cachedObservations.features.length, 'zoom:', state.map.getZoom());
     const features = cachedObservations.features;
     if (!features.length) {
         source.setData({ type: 'FeatureCollection', features: [] });
@@ -457,7 +456,6 @@ function recomputeH3() {
             properties: { h3: cell, count, resolution: res },
         });
     });
-    console.log('hexFeatures count:', hexFeatures.length, hexFeatures);
     source.setData({ type: 'FeatureCollection', features: hexFeatures });
 }
 
