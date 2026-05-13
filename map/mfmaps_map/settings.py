@@ -160,6 +160,12 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_DOMAIN = '.mfmaps.com'
 CSRF_COOKIE_SECURE = True
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://mfmaps.com',
+    'https://www.mfmaps.com',
+    'https://map.mfmaps.com',
+]
+
 # --- DRF ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
