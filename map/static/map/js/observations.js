@@ -316,7 +316,6 @@ export function initObservationForms() {
 
         const errEl = document.getElementById('observationError');
         errEl.classList.add('d-none');
-        console.log('SUBMIT DEBUG:', { observationMode, editingObservationId, id });
         const isEdit = observationMode === 'edit' && id;
         const url = isEdit ? `/api/v1/observations/${id}/` : '/api/v1/observations/';
         const method = isEdit ? 'PATCH' : 'POST';
@@ -406,6 +405,15 @@ export async function loadObservations() {
     const resp = await apiFetch('/api/v1/observations/');
     if (!resp.ok) return;
     const data = await resp.json();
+
+    // MapLibre strips feature.id in queryRenderedFeatures results;
+    // copy the id into properties so we can read it back on click.
+    data.features.forEach(f => {
+        if (f.id != null && f.properties && f.properties.id == null) {
+            f.properties.id = f.id;
+        }
+    });
+
     state.map.getSource('observations')?.setData(data);
     renderSavedList(data);
 }
