@@ -226,7 +226,7 @@ function addSourcesAndLayers() {
         id: 'nhd-streams-label-large',
         type: 'symbol',
         source: 'nhd',
-        'source-layer': 'streams',
+        'source-layer': 'streams_labels',
         minzoom: 6,
         filter: ['>=', ['to-number', ['get', 'max_strahler']], 6],
         layout: {
@@ -244,7 +244,7 @@ function addSourcesAndLayers() {
         id: 'nhd-streams-label-medium',
         type: 'symbol',
         source: 'nhd',
-        'source-layer': 'streams',
+        'source-layer': 'streams_labels',
         minzoom: 9,
         filter: [
             'all',
@@ -266,7 +266,7 @@ function addSourcesAndLayers() {
         id: 'nhd-streams-label-small',
         type: 'symbol',
         source: 'nhd',
-        'source-layer': 'streams',
+        'source-layer': 'streams_labels',
         minzoom: 12,
         filter: ['<=', ['to-number', ['get', 'max_strahler']], 3],
         layout: {
