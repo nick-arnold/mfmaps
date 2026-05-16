@@ -99,7 +99,7 @@ function addSourcesAndLayers() {
     const STREAM_LABEL_LAYOUT_BASE = {
         'text-field': ['get', 'gnis_name'],
         'text-font': LABEL_FONT,
-        'symbol-placement': 'line',
+        'symbol-placement': 'line-center',
         'text-letter-spacing': 0.03,
         'symbol-spacing': 220,
         'text-max-angle': 45,
