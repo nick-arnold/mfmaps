@@ -56,6 +56,7 @@ export function initMap() {
     return new Promise((resolve) => {
         state.map.on('load', () => {
             addSourcesAndLayers();
+            wireHydroInteractions();
             resolve();
         });
     });
@@ -69,83 +70,123 @@ function addSourcesAndLayers() {
 
     // ------------------------------------------------------------------
     // NHD hydrography (PMTiles, all-US, with Strahler stream order)
-    // Added first so streams render UNDER observations, H3 grid,
-    // and the user's location hex.
     //
     // Source-layer:  NHD_AllUS_wOrder
     // Strahler key:  StreamOrde   (NHD shapefile-era truncated name)
+    //
+    // Five layers:
+    //   1. nhd-hover-halo    — soft glow under the hovered stream
+    //   2. nhd-streams-small — Strahler 1-3
+    //   3. nhd-streams-medium— Strahler 4-5
+    //   4. nhd-rivers-large  — Strahler 6+
+    //   5. nhd-selected      — bright recolor over the clicked stream
     // ------------------------------------------------------------------
     map.addSource('nhd', {
         type: 'vector',
-        // Mirror to your own DO Spaces bucket before relying on this in prod.
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/NHD_AllUS_wOrder'
     });
+
+    // Separate GeoJSON sources for hover/select state, since the PMTiles
+    // features lack stable IDs we can use with setFeatureState.
+    map.addSource('nhd-hover', { type: 'geojson', data: empty });
+    map.addSource('nhd-selected', { type: 'geojson', data: empty });
 
     const NHD_SRC_LAYER = 'NHD_AllUS_wOrder';
     const STRAHLER = 'StreamOrde';
 
-    // Small streams (Strahler 1-3): only show when zoomed in
+    // Width expression: scales continuously with both Strahler order and zoom.
+    const widthByStrahler = [
+        'interpolate', ['linear'], ['zoom'],
+        4,  ['*', 0.18, ['to-number', ['get', STRAHLER]]],
+        8,  ['*', 0.35, ['to-number', ['get', STRAHLER]]],
+        12, ['*', 0.65, ['to-number', ['get', STRAHLER]]],
+        16, ['*', 1.10, ['to-number', ['get', STRAHLER]]],
+        19, ['*', 1.80, ['to-number', ['get', STRAHLER]]]
+    ];
+
+    // --- 1. Hover halo (soft glow UNDER everything else) --------------
+    map.addLayer({
+        id: 'nhd-hover-halo',
+        type: 'line',
+        source: 'nhd-hover',
+        paint: {
+            'line-color': '#ffd24a',
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                4, 4,
+                10, 8,
+                14, 14,
+                17, 22
+            ],
+            'line-opacity': 0.55,
+            'line-blur': 4
+        }
+    });
+
+    // --- 2. Small streams (Strahler 1-3) ------------------------------
     map.addLayer({
         id: 'nhd-streams-small',
         type: 'line',
         source: 'nhd',
         'source-layer': NHD_SRC_LAYER,
-        minzoom: 11,
+        minzoom: 9,
         filter: ['<=', ['to-number', ['get', STRAHLER]], 3],
         paint: {
-            'line-color': '#8fb8d4',
-            'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                11, 0.3,
-                14, 0.8,
-                17, 1.6
-            ],
-            'line-opacity': 0.85
+            'line-color': '#7eaecf',
+            'line-width': widthByStrahler,
+            'line-opacity': 0.9
         }
     });
 
-    // Medium streams (Strahler 4-5)
+    // --- 3. Medium streams (Strahler 4-5) -----------------------------
     map.addLayer({
         id: 'nhd-streams-medium',
         type: 'line',
         source: 'nhd',
         'source-layer': NHD_SRC_LAYER,
-        minzoom: 8,
+        minzoom: 6,
         filter: [
             'all',
             ['>=', ['to-number', ['get', STRAHLER]], 4],
             ['<=', ['to-number', ['get', STRAHLER]], 5]
         ],
         paint: {
-            'line-color': '#5e9bc0',
-            'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                8, 0.5,
-                12, 1.3,
-                16, 2.8
-            ],
-            'line-opacity': 0.9
+            'line-color': '#4f8db5',
+            'line-width': widthByStrahler,
+            'line-opacity': 0.95
         }
     });
 
-    // Large rivers (Strahler 6+): visible from low zooms
+    // --- 4. Large rivers (Strahler 6+) --------------------------------
     map.addLayer({
         id: 'nhd-rivers-large',
         type: 'line',
         source: 'nhd',
         'source-layer': NHD_SRC_LAYER,
-        minzoom: 4,
+        minzoom: 3,
         filter: ['>=', ['to-number', ['get', STRAHLER]], 6],
         paint: {
-            'line-color': '#3d7ba0',
+            'line-color': '#2e6f96',
+            'line-width': widthByStrahler,
+            'line-opacity': 1.0
+        }
+    });
+
+    // --- 5. Selected highlight (bright recolor OVER the streams) ------
+    map.addLayer({
+        id: 'nhd-selected',
+        type: 'line',
+        source: 'nhd-selected',
+        paint: {
+            'line-color': '#ff7a1a',
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
-                4, 0.4,
-                8, 1.2,
-                12, 2.8,
-                16, 5.5
+                4,  ['max', 2, ['*', 0.35, ['to-number', ['get', STRAHLER]]]],
+                10, ['max', 3, ['*', 0.7,  ['to-number', ['get', STRAHLER]]]],
+                14, ['max', 4, ['*', 1.3,  ['to-number', ['get', STRAHLER]]]],
+                17, ['max', 5, ['*', 2.0,  ['to-number', ['get', STRAHLER]]]]
             ],
-            'line-opacity': 0.95
+            'line-opacity': 1.0
         }
     });
 
@@ -204,6 +245,159 @@ function addSourcesAndLayers() {
         type: 'line',
         source: 'user-h3',
         paint: { 'line-color': '#2c5530', 'line-width': 2 }
+    });
+}
+
+// --- Hydrography interactions: hover halo + click select + popup ----------
+
+const HYDRO_INTERACTIVE_LAYERS = [
+    'nhd-streams-small',
+    'nhd-streams-medium',
+    'nhd-rivers-large'
+];
+
+const HYDRO_CLICK_BUFFER_PX = 5;
+
+function queryNearbyHydroFeature(point) {
+    const map = state.map;
+    const b = HYDRO_CLICK_BUFFER_PX;
+    const bbox = [
+        [point.x - b, point.y - b],
+        [point.x + b, point.y + b]
+    ];
+    const layers = HYDRO_INTERACTIVE_LAYERS.filter(id => map.getLayer(id));
+    if (!layers.length) return null;
+    const feats = map.queryRenderedFeatures(bbox, { layers });
+    if (!feats.length) return null;
+    // Prefer larger streams when multiple overlap a single click
+    feats.sort((a, b) => {
+        const oa = Number(a.properties.StreamOrde) || 0;
+        const ob = Number(b.properties.StreamOrde) || 0;
+        return ob - oa;
+    });
+    return feats[0];
+}
+
+function setHoveredHydro(feature) {
+    const src = state.map.getSource('nhd-hover');
+    if (!src) return;
+    src.setData(feature
+        ? { type: 'FeatureCollection', features: [feature] }
+        : { type: 'FeatureCollection', features: [] }
+    );
+}
+
+function setSelectedHydro(feature) {
+    const src = state.map.getSource('nhd-selected');
+    if (!src) return;
+    src.setData(feature
+        ? { type: 'FeatureCollection', features: [feature] }
+        : { type: 'FeatureCollection', features: [] }
+    );
+}
+
+function clearSelectedHydro() {
+    setSelectedHydro(null);
+}
+
+function hydroPopupHtml(feature) {
+    const p = feature.properties || {};
+    const name = p.GNIS_Name || p.gnis_name || p.NAME || null;
+
+    const knownRows = [
+        ['Type',           p.FTYPE],
+        ['Stream order',   p.StreamOrde],
+        ['Stream level',   p.StreamLeve],
+        ['Stream calc',    p.StreamCalc],
+        ['Flow direction', p.FLOWDIR]
+    ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+
+    // Surface any unexpected attributes too, so we don't silently swallow data
+    const known = new Set(['GNIS_Name', 'gnis_name', 'NAME',
+                           'FTYPE', 'StreamOrde', 'StreamLeve',
+                           'StreamCalc', 'FLOWDIR']);
+    const extraRows = Object.entries(p)
+        .filter(([k, v]) => !known.has(k) && v !== undefined && v !== null && v !== '');
+
+    const title = name
+        ? `<div class="fw-bold mb-2">${escapeHtml(String(name))}</div>`
+        : `<div class="fw-bold mb-2 text-muted">Unnamed waterway</div>`;
+
+    const body = [...knownRows, ...extraRows].map(([k, v]) =>
+        `<div class="small d-flex justify-content-between gap-3">` +
+        `<span class="text-muted">${escapeHtml(String(k))}</span>` +
+        `<span><code>${escapeHtml(String(v))}</code></span>` +
+        `</div>`
+    ).join('');
+
+    return `<div class="hydro-popup" style="min-width: 200px;">${title}${body}</div>`;
+}
+
+function openHydroPopup(feature, lngLat) {
+    if (state.openPopup) {
+        state.openPopup.remove();
+        state.openPopup = null;
+    }
+    const popup = new maplibregl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: '320px'
+    })
+        .setLngLat(lngLat)
+        .setHTML(hydroPopupHtml(feature))
+        .addTo(state.map);
+
+    popup.on('close', () => {
+        clearSelectedHydro();
+        if (state.openPopup === popup) state.openPopup = null;
+    });
+
+    state.openPopup = popup;
+}
+
+function wireHydroInteractions() {
+    const map = state.map;
+
+    let lastHoveredKey = null;
+    map.on('mousemove', (e) => {
+        if (state.queryMode) return; // don't interfere with query mode
+        const feat = queryNearbyHydroFeature(e.point);
+        if (!feat) {
+            if (lastHoveredKey !== null) {
+                setHoveredHydro(null);
+                lastHoveredKey = null;
+                map.getCanvas().style.cursor = '';
+            }
+            return;
+        }
+        // Cheap dedupe so we're not resetting GeoJSON on every pixel of motion
+        const coords = feat.geometry.coordinates;
+        const firstPt = Array.isArray(coords[0]) ? coords[0] : coords;
+        const key = JSON.stringify(firstPt) + '|' + (feat.properties.StreamOrde ?? '');
+        if (key !== lastHoveredKey) {
+            setHoveredHydro(feat);
+            lastHoveredKey = key;
+            map.getCanvas().style.cursor = 'pointer';
+        }
+    });
+
+    map.on('click', (e) => {
+        if (state.queryMode) return; // query-mode handler takes over
+        // Don't hijack clicks on observation pins
+        if (map.getLayer('observations-layer')) {
+            const obsHit = map.queryRenderedFeatures(e.point, {
+                layers: ['observations-layer']
+            });
+            if (obsHit.length) return;
+        }
+
+        const feat = queryNearbyHydroFeature(e.point);
+        if (!feat) {
+            clearSelectedHydro();
+            return;
+        }
+        setSelectedHydro(feat);
+        openHydroPopup(feat, e.lngLat);
     });
 }
 
