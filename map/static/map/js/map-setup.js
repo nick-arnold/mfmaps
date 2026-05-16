@@ -29,9 +29,10 @@ const OSM_STYLE = {
 };
 
 // Shared color palette for hydrography
-const STREAM_COLOR = '#2e6f96';   // primary blue stroke for streams, water outlines, labels
-const WATER_FILL   = '#9ecbe0';   // slightly lighter shade for polygon fills
-const LABEL_HALO   = '#ffffff';   // halo for readability over varied basemap
+const STREAM_COLOR = '#2e6f96';
+const WATER_FILL   = '#9ecbe0';
+const LABEL_HALO   = '#ffffff';
+const LABEL_FONT   = ['Noto Sans Italic'];
 
 // --- Map init -------------------------------------------------------------
 
@@ -74,22 +75,6 @@ function addSourcesAndLayers() {
 
     // ------------------------------------------------------------------
     // NHD hydrography (Oregon, merged by GNIS_ID)
-    //
-    // Source-layers in the PMTiles:
-    //   - streams      (LineString/MultiLineString, one feature per named river)
-    //   - waterbodies  (Polygon, lakes/reservoirs/ponds)
-    //   - areas        (Polygon, wide rivers like the Columbia)
-    //
-    // Render order, bottom to top:
-    //   1. nhd-hover-halo         soft glow under hovered stream
-    //   2. nhd-streams            merged river lines
-    //   3. nhd-areas-fill         wide-river polygons (covers ArtificialPath centerlines)
-    //   4. nhd-areas-stroke
-    //   5. nhd-waterbodies-fill   lakes (covers their own centerlines too)
-    //   6. nhd-waterbodies-stroke
-    //   7. nhd-selected           orange highlight (above everything water-related)
-    //   8. nhd-streams-label      line-following river labels
-    //   9. nhd-waterbodies-label  point-placed lake labels
     // ------------------------------------------------------------------
     map.addSource('nhd', {
         type: 'vector',
@@ -99,8 +84,7 @@ function addSourcesAndLayers() {
     map.addSource('nhd-hover',    { type: 'geojson', data: empty });
     map.addSource('nhd-selected', { type: 'geojson', data: empty });
 
-    // Stream width — scaled continuously by Strahler order at the river's mouth.
-    // Tuned ~30% thinner than the previous build.
+    // Stream width — scaled by Strahler order at the river's mouth.
     const widthByStrahler = [
         'interpolate', ['linear'], ['zoom'],
         4,  ['*', 0.15, ['to-number', ['get', 'max_strahler']]],
@@ -143,7 +127,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 3. Areas fill (wide rivers as polygons; covers ArtificialPath) -
+    // --- 3. Areas fill (wide rivers as polygons) ----------------------
     map.addLayer({
         id: 'nhd-areas-fill',
         type: 'fill',
@@ -168,7 +152,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 5. Waterbodies fill (lakes/reservoirs/ponds) -----------------
+    // --- 5. Waterbodies fill -----------------------------------------
     map.addLayer({
         id: 'nhd-waterbodies-fill',
         type: 'fill',
@@ -193,7 +177,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 7. Selected highlight (above water layers, below labels) ----
+    // --- 7. Selected highlight ---------------------------------------
     map.addLayer({
         id: 'nhd-selected',
         type: 'line',
@@ -215,35 +199,29 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 8. Stream labels (curve along the line) ----------------------
-    // Zoom-tiered: only the biggest rivers at low zooms, all named at high zoom.
+    // --- 8-10. Stream labels, three tiers by Strahler order -----------
+    // Each tier is its own layer with minzoom set, so we avoid zoom-in-filter
+    // syntax that the symbol layer doesn't reliably evaluate.
+
+    // Large rivers (Strahler 6+) — visible from z6
     map.addLayer({
-        id: 'nhd-streams-label',
+        id: 'nhd-streams-label-large',
         type: 'symbol',
         source: 'nhd',
         'source-layer': 'streams',
-        minzoom: 7,
-        filter: [
-            'any',
-            ['all', ['<=', ['zoom'], 8],  ['>=', ['to-number', ['get', 'max_strahler']], 6]],
-            ['all', ['<=', ['zoom'], 10], ['>=', ['to-number', ['get', 'max_strahler']], 5]],
-            ['all', ['<=', ['zoom'], 12], ['>=', ['to-number', ['get', 'max_strahler']], 4]],
-            ['all', ['<=', ['zoom'], 14], ['>=', ['to-number', ['get', 'max_strahler']], 3]],
-            ['>', ['zoom'], 14]
-        ],
+        minzoom: 6,
+        filter: ['>=', ['to-number', ['get', 'max_strahler']], 6],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Noto Sans Italic'],
+            'text-font': LABEL_FONT,
             'symbol-placement': 'line',
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
-                7, 10,
-                12, 12,
-                16, 14
+                6, 11, 10, 13, 14, 15
             ],
             'text-letter-spacing': 0.05,
-            'symbol-spacing': 350,
-            'text-max-angle': 30,
+            'symbol-spacing': 250,
+            'text-max-angle': 40,
             'text-pitch-alignment': 'viewport'
         },
         paint: {
@@ -254,32 +232,80 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 9. Waterbody labels (one per lake) ---------------------------
+    // Medium rivers (Strahler 4-5) — visible from z9
+    map.addLayer({
+        id: 'nhd-streams-label-medium',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams',
+        minzoom: 9,
+        filter: [
+            'all',
+            ['>=', ['to-number', ['get', 'max_strahler']], 4],
+            ['<=', ['to-number', ['get', 'max_strahler']], 5]
+        ],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'symbol-placement': 'line',
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                9, 10, 12, 12, 16, 14
+            ],
+            'text-letter-spacing': 0.04,
+            'symbol-spacing': 250,
+            'text-max-angle': 40
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.5,
+            'text-halo-blur': 0.5
+        }
+    });
+
+    // Small streams (Strahler 1-3) — visible from z12
+    map.addLayer({
+        id: 'nhd-streams-label-small',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams',
+        minzoom: 12,
+        filter: ['<=', ['to-number', ['get', 'max_strahler']], 3],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'symbol-placement': 'line',
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                12, 10, 16, 13
+            ],
+            'text-letter-spacing': 0.03,
+            'symbol-spacing': 220,
+            'text-max-angle': 40
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.5,
+            'text-halo-blur': 0.5
+        }
+    });
+
+    // --- 11. Waterbody labels ----------------------------------------
     map.addLayer({
         id: 'nhd-waterbodies-label',
         type: 'symbol',
         source: 'nhd',
         'source-layer': 'waterbodies',
         minzoom: 6,
-        filter: [
-            'all',
-            ['has', 'gnis_name'],
-            [
-                'any',
-                ['all', ['<=', ['zoom'], 7],  ['>=', ['to-number', ['get', 'areasqkm']], 50]],
-                ['all', ['<=', ['zoom'], 9],  ['>=', ['to-number', ['get', 'areasqkm']], 5]],
-                ['all', ['<=', ['zoom'], 11], ['>=', ['to-number', ['get', 'areasqkm']], 0.5]],
-                ['>', ['zoom'], 11]
-            ]
-        ],
+        filter: ['has', 'gnis_name'],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Noto Sans Italic'],
+            'text-font': LABEL_FONT,
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
-                6, 11,
-                10, 13,
-                14, 15
+                6, 11, 10, 13, 14, 15
             ],
             'text-max-width': 8,
             'text-letter-spacing': 0.02
@@ -320,7 +346,7 @@ function addSourcesAndLayers() {
         layout: { visibility: 'none' }
     });
 
-    // Observations (user pins, on top of all hydrography)
+    // Observations
     map.addSource('observations', { type: 'geojson', data: empty });
     map.addLayer({
         id: 'observations-layer',
