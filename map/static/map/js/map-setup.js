@@ -12,7 +12,7 @@ const US_BOUNDS = [
 
 const OSM_STYLE = {
     version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    glyphs: 'https://tiles.openstreetmap.us/fonts/{fontstack}/{range}.pbf',
     sources: {
         'osm-raster': {
             type: 'raster',
@@ -233,7 +233,7 @@ function addSourcesAndLayers() {
         ],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Open Sans SemiBold'],
+            'text-font': ['Noto Sans Italic'],
             'symbol-placement': 'line',
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
@@ -274,7 +274,7 @@ function addSourcesAndLayers() {
         ],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Open Sans SemiBold'],
+            'text-font': ['Noto Sans Italic'],
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
                 6, 11,
