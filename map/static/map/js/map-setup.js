@@ -221,8 +221,9 @@ function addSourcesAndLayers() {
             ],
             'text-letter-spacing': 0.05,
             'symbol-spacing': 250,
-            'text-max-angle': 40,
-            'text-pitch-alignment': 'viewport'
+            'text-max-angle': 45,
+            'text-pitch-alignment': 'viewport',
+            'text-max-width': 10
         },
         paint: {
             'text-color': STREAM_COLOR,
