@@ -233,7 +233,7 @@ function addSourcesAndLayers() {
         ],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Open Sans Italic', 'Arial Unicode MS Regular'],
+            'text-font': ['Open Sans SemiBold'],
             'symbol-placement': 'line',
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
@@ -274,7 +274,7 @@ function addSourcesAndLayers() {
         ],
         layout: {
             'text-field': ['get', 'gnis_name'],
-            'text-font': ['Open Sans Italic', 'Arial Unicode MS Regular'],
+            'text-font': ['Open Sans SemiBold'],
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
                 6, 11,
