@@ -27,6 +27,10 @@ const OSM_STYLE = {
     layers: [{ id: 'osm-base', type: 'raster', source: 'osm-raster' }]
 };
 
+// Shared color palette for hydrography
+const STREAM_COLOR = '#2e6f96';   // primary blue stroke for streams and water outlines
+const WATER_FILL   = '#9ecbe0';   // slightly lighter shade for polygon fills
+
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
@@ -69,39 +73,41 @@ function addSourcesAndLayers() {
     const empty = { type: 'FeatureCollection', features: [] };
 
     // ------------------------------------------------------------------
-    // NHD hydrography (PMTiles, all-US, with Strahler stream order)
+    // NHD hydrography (Oregon, merged by GNIS_ID)
     //
-    // Source-layer:  NHD_AllUS_wOrder
-    // Strahler key:  StreamOrde   (NHD shapefile-era truncated name)
+    // Source layers in the PMTiles:
+    //   - streams      (LineString/MultiLineString, one feature per named river)
+    //   - waterbodies  (Polygon, lakes/reservoirs/ponds)
+    //   - areas        (Polygon, wide rivers like the Columbia)
     //
-    // Five layers:
-    //   1. nhd-hover-halo    — soft glow under the hovered stream
-    //   2. nhd-streams-small — Strahler 1-3
-    //   3. nhd-streams-medium— Strahler 4-5
-    //   4. nhd-rivers-large  — Strahler 6+
-    //   5. nhd-selected      — bright recolor over the clicked stream
+    // Render order, bottom to top:
+    //   1. nhd-hover-halo       (soft glow under the hovered stream)
+    //   2. nhd-areas-fill       (wide-river polygons hide ArtificialPath centerlines)
+    //   3. nhd-areas-stroke
+    //   4. nhd-waterbodies-fill (lakes hide their centerlines)
+    //   5. nhd-waterbodies-stroke
+    //   6. nhd-streams          (the merged river lines)
+    //   7. nhd-selected         (orange highlight over the clicked river)
     // ------------------------------------------------------------------
     map.addSource('nhd', {
         type: 'vector',
-        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/NHD_AllUS_wOrder'
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
     });
 
-    // Separate GeoJSON sources for hover/select state, since the PMTiles
-    // features lack stable IDs we can use with setFeatureState.
-    map.addSource('nhd-hover', { type: 'geojson', data: empty });
+    // Hover/select sources are plain GeoJSON since the PMTiles features
+    // have no stable IDs for setFeatureState.
+    map.addSource('nhd-hover',    { type: 'geojson', data: empty });
     map.addSource('nhd-selected', { type: 'geojson', data: empty });
 
-    const NHD_SRC_LAYER = 'NHD_AllUS_wOrder';
-    const STRAHLER = 'StreamOrde';
-
-    // Width expression: scales continuously with both Strahler order and zoom.
+    // Stream width expression — continuous, scaled by Strahler order at the
+    // river's mouth (max_strahler attribute on each merged stream feature).
     const widthByStrahler = [
         'interpolate', ['linear'], ['zoom'],
-        4,  ['*', 0.18, ['to-number', ['get', STRAHLER]]],
-        8,  ['*', 0.35, ['to-number', ['get', STRAHLER]]],
-        12, ['*', 0.65, ['to-number', ['get', STRAHLER]]],
-        16, ['*', 1.10, ['to-number', ['get', STRAHLER]]],
-        19, ['*', 1.80, ['to-number', ['get', STRAHLER]]]
+        4,  ['*', 0.22, ['to-number', ['get', 'max_strahler']]],
+        8,  ['*', 0.40, ['to-number', ['get', 'max_strahler']]],
+        12, ['*', 0.75, ['to-number', ['get', 'max_strahler']]],
+        16, ['*', 1.30, ['to-number', ['get', 'max_strahler']]],
+        19, ['*', 2.00, ['to-number', ['get', 'max_strahler']]]
     ];
 
     // --- 1. Hover halo (soft glow UNDER everything else) --------------
@@ -113,66 +119,81 @@ function addSourcesAndLayers() {
             'line-color': '#ffd24a',
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
-                4, 4,
-                10, 8,
-                14, 14,
-                17, 22
+                4, 4, 10, 8, 14, 14, 17, 22
             ],
             'line-opacity': 0.55,
             'line-blur': 4
         }
     });
 
-    // --- 2. Small streams (Strahler 1-3) ------------------------------
+    // --- 2. Areas fill (wide rivers as polygons) ----------------------
     map.addLayer({
-        id: 'nhd-streams-small',
+        id: 'nhd-areas-fill',
+        type: 'fill',
+        source: 'nhd',
+        'source-layer': 'areas',
+        paint: {
+            'fill-color': WATER_FILL,
+            'fill-opacity': 0.95
+        }
+    });
+
+    // --- 3. Areas stroke ---------------------------------------------
+    map.addLayer({
+        id: 'nhd-areas-stroke',
         type: 'line',
         source: 'nhd',
-        'source-layer': NHD_SRC_LAYER,
-        minzoom: 9,
-        filter: ['<=', ['to-number', ['get', STRAHLER]], 3],
+        'source-layer': 'areas',
         paint: {
-            'line-color': '#7eaecf',
-            'line-width': widthByStrahler,
+            'line-color': STREAM_COLOR,
+            'line-width': 0.8,
+            'line-opacity': 0.85
+        }
+    });
+
+    // --- 4. Waterbodies fill (lakes/reservoirs/ponds) -----------------
+    map.addLayer({
+        id: 'nhd-waterbodies-fill',
+        type: 'fill',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        paint: {
+            'fill-color': WATER_FILL,
+            'fill-opacity': 0.95
+        }
+    });
+
+    // --- 5. Waterbodies stroke ---------------------------------------
+    map.addLayer({
+        id: 'nhd-waterbodies-stroke',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        paint: {
+            'line-color': STREAM_COLOR,
+            'line-width': 0.8,
             'line-opacity': 0.9
         }
     });
 
-    // --- 3. Medium streams (Strahler 4-5) -----------------------------
+    // --- 6. Streams (merged-by-gnis_id river lines) -------------------
     map.addLayer({
-        id: 'nhd-streams-medium',
+        id: 'nhd-streams',
         type: 'line',
         source: 'nhd',
-        'source-layer': NHD_SRC_LAYER,
-        minzoom: 6,
-        filter: [
-            'all',
-            ['>=', ['to-number', ['get', STRAHLER]], 4],
-            ['<=', ['to-number', ['get', STRAHLER]], 5]
-        ],
+        'source-layer': 'streams',
         paint: {
-            'line-color': '#4f8db5',
+            'line-color': STREAM_COLOR,
             'line-width': widthByStrahler,
             'line-opacity': 0.95
+        },
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round'
         }
     });
 
-    // --- 4. Large rivers (Strahler 6+) --------------------------------
-    map.addLayer({
-        id: 'nhd-rivers-large',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': NHD_SRC_LAYER,
-        minzoom: 3,
-        filter: ['>=', ['to-number', ['get', STRAHLER]], 6],
-        paint: {
-            'line-color': '#2e6f96',
-            'line-width': widthByStrahler,
-            'line-opacity': 1.0
-        }
-    });
-
-    // --- 5. Selected highlight (bright recolor OVER the streams) ------
+    // --- 7. Selected highlight (over the streams layer) ---------------
     map.addLayer({
         id: 'nhd-selected',
         type: 'line',
@@ -181,12 +202,16 @@ function addSourcesAndLayers() {
             'line-color': '#ff7a1a',
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
-                4,  ['max', 2, ['*', 0.35, ['to-number', ['get', STRAHLER]]]],
-                10, ['max', 3, ['*', 0.7,  ['to-number', ['get', STRAHLER]]]],
-                14, ['max', 4, ['*', 1.3,  ['to-number', ['get', STRAHLER]]]],
-                17, ['max', 5, ['*', 2.0,  ['to-number', ['get', STRAHLER]]]]
+                4,  ['max', 2, ['*', 0.40, ['to-number', ['get', 'max_strahler']]]],
+                10, ['max', 3, ['*', 0.80, ['to-number', ['get', 'max_strahler']]]],
+                14, ['max', 4, ['*', 1.50, ['to-number', ['get', 'max_strahler']]]],
+                17, ['max', 5, ['*', 2.30, ['to-number', ['get', 'max_strahler']]]]
             ],
             'line-opacity': 1.0
+        },
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round'
         }
     });
 
@@ -218,7 +243,9 @@ function addSourcesAndLayers() {
         layout: { visibility: 'none' }
     });
 
-    // Observations
+    // ------------------------------------------------------------------
+    // Observations (the user's pins, on top of everything except popups)
+    // ------------------------------------------------------------------
     map.addSource('observations', { type: 'geojson', data: empty });
     map.addLayer({
         id: 'observations-layer',
@@ -250,12 +277,7 @@ function addSourcesAndLayers() {
 
 // --- Hydrography interactions: hover halo + click select + popup ----------
 
-const HYDRO_INTERACTIVE_LAYERS = [
-    'nhd-streams-small',
-    'nhd-streams-medium',
-    'nhd-rivers-large'
-];
-
+const HYDRO_INTERACTIVE_LAYERS = ['nhd-streams'];
 const HYDRO_CLICK_BUFFER_PX = 5;
 
 function queryNearbyHydroFeature(point) {
@@ -271,8 +293,8 @@ function queryNearbyHydroFeature(point) {
     if (!feats.length) return null;
     // Prefer larger streams when multiple overlap a single click
     feats.sort((a, b) => {
-        const oa = Number(a.properties.StreamOrde) || 0;
-        const ob = Number(b.properties.StreamOrde) || 0;
+        const oa = Number(a.properties.max_strahler) || 0;
+        const ob = Number(b.properties.max_strahler) || 0;
         return ob - oa;
     });
     return feats[0];
@@ -300,37 +322,60 @@ function clearSelectedHydro() {
     setSelectedHydro(null);
 }
 
+function fmtNumber(v, digits) {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(v);
+    if (!isFinite(n)) return null;
+    return n.toFixed(digits);
+}
+
 function hydroPopupHtml(feature) {
     const p = feature.properties || {};
-    const name = p.GNIS_Name || p.gnis_name || p.NAME || null;
+    const name = p.gnis_name || null;
 
-    const knownRows = [
-        ['Type',           p.FTYPE],
-        ['Stream order',   p.StreamOrde],
-        ['Stream level',   p.StreamLeve],
-        ['Stream calc',    p.StreamCalc],
-        ['Flow direction', p.FLOWDIR]
-    ].filter(([, v]) => v !== undefined && v !== null && v !== '');
+    // Build rows in priority order. Skip any that have no useful value.
+    const rows = [];
 
-    // Surface any unexpected attributes too, so we don't silently swallow data
-    const known = new Set(['GNIS_Name', 'gnis_name', 'NAME',
-                           'FTYPE', 'StreamOrde', 'StreamLeve',
-                           'StreamCalc', 'FLOWDIR']);
-    const extraRows = Object.entries(p)
-        .filter(([k, v]) => !known.has(k) && v !== undefined && v !== null && v !== '');
+    if (p.max_strahler !== undefined && p.max_strahler !== null) {
+        rows.push(['Stream order', p.max_strahler]);
+    }
+    const lenKm = fmtNumber(p.total_length_km, 1);
+    if (lenKm !== null) {
+        const lenMi = (Number(lenKm) * 0.621371).toFixed(1);
+        rows.push(['Length', `${lenKm} km (${lenMi} mi)`]);
+    }
+    const drain = fmtNumber(p.max_drainage_area_sqkm, 0);
+    if (drain !== null) {
+        rows.push(['Drainage area', `${drain} km²`]);
+    }
+    const flow = fmtNumber(p.avg_flow_cfs, 1);
+    if (flow !== null) {
+        rows.push(['Avg flow', `${flow} cfs`]);
+    }
+    const slope = fmtNumber(p.avg_slope, 4);
+    if (slope !== null) {
+        const pct = (Number(slope) * 100).toFixed(2);
+        rows.push(['Avg gradient', `${pct}%`]);
+    }
+    if (p.segment_count !== undefined && p.segment_count !== null) {
+        rows.push(['NHD segments', p.segment_count]);
+    }
+    if (p.gnis_id) {
+        rows.push(['GNIS ID', p.gnis_id]);
+    }
 
     const title = name
         ? `<div class="fw-bold mb-2">${escapeHtml(String(name))}</div>`
         : `<div class="fw-bold mb-2 text-muted">Unnamed waterway</div>`;
 
-    const body = [...knownRows, ...extraRows].map(([k, v]) =>
+    const body = rows.map(([k, v]) =>
         `<div class="small d-flex justify-content-between gap-3">` +
         `<span class="text-muted">${escapeHtml(String(k))}</span>` +
         `<span><code>${escapeHtml(String(v))}</code></span>` +
         `</div>`
     ).join('');
 
-    return `<div class="hydro-popup" style="min-width: 200px;">${title}${body}</div>`;
+    return `<div class="hydro-popup" style="min-width: 220px;">${title}${body}</div>`;
 }
 
 function openHydroPopup(feature, lngLat) {
@@ -370,10 +415,11 @@ function wireHydroInteractions() {
             }
             return;
         }
-        // Cheap dedupe so we're not resetting GeoJSON on every pixel of motion
-        const coords = feat.geometry.coordinates;
-        const firstPt = Array.isArray(coords[0]) ? coords[0] : coords;
-        const key = JSON.stringify(firstPt) + '|' + (feat.properties.StreamOrde ?? '');
+        // Dedupe — gnis_id is the natural key for merged streams; fall back to
+        // the geometry hash for unnamed water (shouldn't happen in this layer
+        // since we filtered by gnis_id during the merge, but defensive).
+        const key = feat.properties.gnis_id ||
+                    JSON.stringify(feat.geometry?.coordinates?.[0] || []);
         if (key !== lastHoveredKey) {
             setHoveredHydro(feat);
             lastHoveredKey = key;
@@ -382,7 +428,7 @@ function wireHydroInteractions() {
     });
 
     map.on('click', (e) => {
-        if (state.queryMode) return; // query-mode handler takes over
+        if (state.queryMode) return;
         // Don't hijack clicks on observation pins
         if (map.getLayer('observations-layer')) {
             const obsHit = map.queryRenderedFeatures(e.point, {
@@ -471,9 +517,13 @@ export function initQueryMode() {
 
     state.map.on('click', (e) => {
         if (!state.queryMode) return;
-        const queryable = ['observations-layer', 'h3-hexes-fill',
-                           'nhd-streams-small', 'nhd-streams-medium', 'nhd-rivers-large']
-            .filter(id => state.map.getLayer(id));
+        const queryable = [
+            'observations-layer',
+            'h3-hexes-fill',
+            'nhd-streams',
+            'nhd-waterbodies-fill',
+            'nhd-areas-fill'
+        ].filter(id => state.map.getLayer(id));
         const features = state.map.queryRenderedFeatures(e.point, { layers: queryable });
         const resultEl = document.getElementById('queryResult');
         const bodyEl = document.getElementById('queryResultBody');
@@ -523,7 +573,6 @@ export function initGeolocate() {
 
 // --- Zoom-adaptive H3 resolution ------------------------------------------
 
-// Map zoom level → H3 resolution
 export function zoomToH3Res(zoom) {
     if (zoom < 6) return 4;
     if (zoom < 8) return 5;

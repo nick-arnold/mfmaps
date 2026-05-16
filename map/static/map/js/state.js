@@ -24,9 +24,14 @@ export const state = {
 // Used by layer toggles to flip visibility on groups of related layers.
 export const LAYER_IDS = {
     'observations': ['observations-layer'],
-    'random-points': ['random-points-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
-    'hydrography': ['nhd-streams-small', 'nhd-streams-medium', 'nhd-rivers-large'],
+    'hydrography': [
+        'nhd-streams',
+        'nhd-waterbodies-fill',
+        'nhd-waterbodies-stroke',
+        'nhd-areas-fill',
+        'nhd-areas-stroke'
+    ],
 };
 
 // H3 resolution for "where am I" + demo aggregation
