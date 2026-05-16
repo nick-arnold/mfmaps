@@ -101,7 +101,7 @@ function addSourcesAndLayers() {
         'text-font': LABEL_FONT,
         'symbol-placement': 'line-center',
         'text-letter-spacing': 0.03,
-        'symbol-spacing': 220,
+        'symbol-spacing': 100,
         'text-max-angle': 45,
         'text-padding': 0,
         'text-pitch-alignment': 'viewport',
