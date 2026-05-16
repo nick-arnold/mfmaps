@@ -26,6 +26,7 @@ export const LAYER_IDS = {
     'observations': ['observations-layer'],
     'random-points': ['random-points-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
+    'hydrography': ['nhd-streams-small', 'nhd-streams-medium', 'nhd-rivers-large'],
 };
 
 // H3 resolution for "where am I" + demo aggregation

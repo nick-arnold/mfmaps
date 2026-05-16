@@ -30,6 +30,14 @@ const OSM_STYLE = {
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
+    // Register the pmtiles:// protocol with MapLibre so we can read PMTiles
+    // archives directly from object storage. Safe to call once at startup.
+    if (!state._pmtilesRegistered) {
+        const protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol('pmtiles', protocol.tile);
+        state._pmtilesRegistered = true;
+    }
+
     state.map = new maplibregl.Map({
         container: 'map',
         style: OSM_STYLE,
@@ -59,7 +67,91 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
+    // ------------------------------------------------------------------
+    // NHD hydrography (PMTiles, all-US, with Strahler stream order)
+    // Added first so streams render UNDER observations, H3 grid,
+    // and the user's location hex.
+    //
+    // Source-layer:  NHD_AllUS_wOrder
+    // Strahler key:  StreamOrde   (NHD shapefile-era truncated name)
+    // ------------------------------------------------------------------
+    map.addSource('nhd', {
+        type: 'vector',
+        // Mirror to your own DO Spaces bucket before relying on this in prod.
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/NHD_AllUS_wOrder.pmtiles'
+    });
+
+    const NHD_SRC_LAYER = 'NHD_AllUS_wOrder';
+    const STRAHLER = 'StreamOrde';
+
+    // Small streams (Strahler 1-3): only show when zoomed in
+    map.addLayer({
+        id: 'nhd-streams-small',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': NHD_SRC_LAYER,
+        minzoom: 11,
+        filter: ['<=', ['to-number', ['get', STRAHLER]], 3],
+        paint: {
+            'line-color': '#8fb8d4',
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                11, 0.3,
+                14, 0.8,
+                17, 1.6
+            ],
+            'line-opacity': 0.85
+        }
+    });
+
+    // Medium streams (Strahler 4-5)
+    map.addLayer({
+        id: 'nhd-streams-medium',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': NHD_SRC_LAYER,
+        minzoom: 8,
+        filter: [
+            'all',
+            ['>=', ['to-number', ['get', STRAHLER]], 4],
+            ['<=', ['to-number', ['get', STRAHLER]], 5]
+        ],
+        paint: {
+            'line-color': '#5e9bc0',
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                8, 0.5,
+                12, 1.3,
+                16, 2.8
+            ],
+            'line-opacity': 0.9
+        }
+    });
+
+    // Large rivers (Strahler 6+): visible from low zooms
+    map.addLayer({
+        id: 'nhd-rivers-large',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': NHD_SRC_LAYER,
+        minzoom: 4,
+        filter: ['>=', ['to-number', ['get', STRAHLER]], 6],
+        paint: {
+            'line-color': '#3d7ba0',
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                4, 0.4,
+                8, 1.2,
+                12, 2.8,
+                16, 5.5
+            ],
+            'line-opacity': 0.95
+        }
+    });
+
+    // ------------------------------------------------------------------
     // H3 hexes (computed from observations, layered BELOW the pins)
+    // ------------------------------------------------------------------
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
     map.addLayer({
         id: 'h3-hexes-fill',
@@ -185,7 +277,8 @@ export function initQueryMode() {
 
     state.map.on('click', (e) => {
         if (!state.queryMode) return;
-        const queryable = ['observations-layer', 'h3-hexes-fill']
+        const queryable = ['observations-layer', 'h3-hexes-fill',
+                           'nhd-streams-small', 'nhd-streams-medium', 'nhd-rivers-large']
             .filter(id => state.map.getLayer(id));
         const features = state.map.queryRenderedFeatures(e.point, { layers: queryable });
         const resultEl = document.getElementById('queryResult');

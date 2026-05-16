@@ -147,7 +147,16 @@
 </nav>
 
 <template id="layerPanelTemplate">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2">Free Layers</h6>
+    <h6 class="text-uppercase text-muted small fw-bold mb-2">Reference</h6>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
+        <label class="form-check-label" for="layer-hydrography-CTX">
+            Streams &amp; rivers
+        </label>
+    </div>
+
+    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Free Layers</h6>
     <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-observations-CTX" data-layer-group="observations" checked>
@@ -327,6 +336,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
 <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
 <script type="module" src="{% static 'map/js/app.js' %}"></script>
 </body>
