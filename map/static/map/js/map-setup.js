@@ -12,7 +12,7 @@ const US_BOUNDS = [
 
 const OSM_STYLE = {
     version: 8,
-    glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
         'osm-raster': {
             type: 'raster',
