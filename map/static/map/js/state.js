@@ -27,8 +27,10 @@ export const LAYER_IDS = {
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
     'hydrography': [
         'nhd-streams',
+        'nhd-streams-label',
         'nhd-waterbodies-fill',
         'nhd-waterbodies-stroke',
+        'nhd-waterbodies-label',
         'nhd-areas-fill',
         'nhd-areas-stroke'
     ],

@@ -28,14 +28,13 @@ const OSM_STYLE = {
 };
 
 // Shared color palette for hydrography
-const STREAM_COLOR = '#2e6f96';   // primary blue stroke for streams and water outlines
+const STREAM_COLOR = '#2e6f96';   // primary blue stroke for streams, water outlines, labels
 const WATER_FILL   = '#9ecbe0';   // slightly lighter shade for polygon fills
+const LABEL_HALO   = '#ffffff';   // halo for readability over varied basemap
 
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
-    // Register the pmtiles:// protocol with MapLibre so we can read PMTiles
-    // archives directly from object storage. Safe to call once at startup.
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
@@ -75,39 +74,39 @@ function addSourcesAndLayers() {
     // ------------------------------------------------------------------
     // NHD hydrography (Oregon, merged by GNIS_ID)
     //
-    // Source layers in the PMTiles:
+    // Source-layers in the PMTiles:
     //   - streams      (LineString/MultiLineString, one feature per named river)
     //   - waterbodies  (Polygon, lakes/reservoirs/ponds)
     //   - areas        (Polygon, wide rivers like the Columbia)
     //
     // Render order, bottom to top:
-    //   1. nhd-hover-halo       (soft glow under the hovered stream)
-    //   2. nhd-areas-fill       (wide-river polygons hide ArtificialPath centerlines)
-    //   3. nhd-areas-stroke
-    //   4. nhd-waterbodies-fill (lakes hide their centerlines)
-    //   5. nhd-waterbodies-stroke
-    //   6. nhd-streams          (the merged river lines)
-    //   7. nhd-selected         (orange highlight over the clicked river)
+    //   1. nhd-hover-halo         soft glow under hovered stream
+    //   2. nhd-streams            merged river lines
+    //   3. nhd-areas-fill         wide-river polygons (covers ArtificialPath centerlines)
+    //   4. nhd-areas-stroke
+    //   5. nhd-waterbodies-fill   lakes (covers their own centerlines too)
+    //   6. nhd-waterbodies-stroke
+    //   7. nhd-selected           orange highlight (above everything water-related)
+    //   8. nhd-streams-label      line-following river labels
+    //   9. nhd-waterbodies-label  point-placed lake labels
     // ------------------------------------------------------------------
     map.addSource('nhd', {
         type: 'vector',
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
     });
 
-    // Hover/select sources are plain GeoJSON since the PMTiles features
-    // have no stable IDs for setFeatureState.
     map.addSource('nhd-hover',    { type: 'geojson', data: empty });
     map.addSource('nhd-selected', { type: 'geojson', data: empty });
 
-    // Stream width expression — continuous, scaled by Strahler order at the
-    // river's mouth (max_strahler attribute on each merged stream feature).
+    // Stream width — scaled continuously by Strahler order at the river's mouth.
+    // Tuned ~30% thinner than the previous build.
     const widthByStrahler = [
         'interpolate', ['linear'], ['zoom'],
-        4,  ['*', 0.22, ['to-number', ['get', 'max_strahler']]],
-        8,  ['*', 0.40, ['to-number', ['get', 'max_strahler']]],
-        12, ['*', 0.75, ['to-number', ['get', 'max_strahler']]],
-        16, ['*', 1.30, ['to-number', ['get', 'max_strahler']]],
-        19, ['*', 2.00, ['to-number', ['get', 'max_strahler']]]
+        4,  ['*', 0.15, ['to-number', ['get', 'max_strahler']]],
+        8,  ['*', 0.28, ['to-number', ['get', 'max_strahler']]],
+        12, ['*', 0.52, ['to-number', ['get', 'max_strahler']]],
+        16, ['*', 0.90, ['to-number', ['get', 'max_strahler']]],
+        19, ['*', 1.40, ['to-number', ['get', 'max_strahler']]]
     ];
 
     // --- 1. Hover halo (soft glow UNDER everything else) --------------
@@ -126,57 +125,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 2. Areas fill (wide rivers as polygons) ----------------------
-    map.addLayer({
-        id: 'nhd-areas-fill',
-        type: 'fill',
-        source: 'nhd',
-        'source-layer': 'areas',
-        paint: {
-            'fill-color': WATER_FILL,
-            'fill-opacity': 0.95
-        }
-    });
-
-    // --- 3. Areas stroke ---------------------------------------------
-    map.addLayer({
-        id: 'nhd-areas-stroke',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': 'areas',
-        paint: {
-            'line-color': STREAM_COLOR,
-            'line-width': 0.8,
-            'line-opacity': 0.85
-        }
-    });
-
-    // --- 4. Waterbodies fill (lakes/reservoirs/ponds) -----------------
-    map.addLayer({
-        id: 'nhd-waterbodies-fill',
-        type: 'fill',
-        source: 'nhd',
-        'source-layer': 'waterbodies',
-        paint: {
-            'fill-color': WATER_FILL,
-            'fill-opacity': 0.95
-        }
-    });
-
-    // --- 5. Waterbodies stroke ---------------------------------------
-    map.addLayer({
-        id: 'nhd-waterbodies-stroke',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': 'waterbodies',
-        paint: {
-            'line-color': STREAM_COLOR,
-            'line-width': 0.8,
-            'line-opacity': 0.9
-        }
-    });
-
-    // --- 6. Streams (merged-by-gnis_id river lines) -------------------
+    // --- 2. Streams (merged-by-gnis_id river lines) -------------------
     map.addLayer({
         id: 'nhd-streams',
         type: 'line',
@@ -193,7 +142,57 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 7. Selected highlight (over the streams layer) ---------------
+    // --- 3. Areas fill (wide rivers as polygons; covers ArtificialPath) -
+    map.addLayer({
+        id: 'nhd-areas-fill',
+        type: 'fill',
+        source: 'nhd',
+        'source-layer': 'areas',
+        paint: {
+            'fill-color': WATER_FILL,
+            'fill-opacity': 0.95
+        }
+    });
+
+    // --- 4. Areas stroke ---------------------------------------------
+    map.addLayer({
+        id: 'nhd-areas-stroke',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': 'areas',
+        paint: {
+            'line-color': STREAM_COLOR,
+            'line-width': 0.8,
+            'line-opacity': 0.85
+        }
+    });
+
+    // --- 5. Waterbodies fill (lakes/reservoirs/ponds) -----------------
+    map.addLayer({
+        id: 'nhd-waterbodies-fill',
+        type: 'fill',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        paint: {
+            'fill-color': WATER_FILL,
+            'fill-opacity': 0.95
+        }
+    });
+
+    // --- 6. Waterbodies stroke ---------------------------------------
+    map.addLayer({
+        id: 'nhd-waterbodies-stroke',
+        type: 'line',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        paint: {
+            'line-color': STREAM_COLOR,
+            'line-width': 0.8,
+            'line-opacity': 0.9
+        }
+    });
+
+    // --- 7. Selected highlight (above water layers, below labels) ----
     map.addLayer({
         id: 'nhd-selected',
         type: 'line',
@@ -202,16 +201,93 @@ function addSourcesAndLayers() {
             'line-color': '#ff7a1a',
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
-                4,  ['max', 2, ['*', 0.40, ['to-number', ['get', 'max_strahler']]]],
-                10, ['max', 3, ['*', 0.80, ['to-number', ['get', 'max_strahler']]]],
-                14, ['max', 4, ['*', 1.50, ['to-number', ['get', 'max_strahler']]]],
-                17, ['max', 5, ['*', 2.30, ['to-number', ['get', 'max_strahler']]]]
+                4,  ['max', 2, ['*', 0.30, ['to-number', ['get', 'max_strahler']]]],
+                10, ['max', 3, ['*', 0.60, ['to-number', ['get', 'max_strahler']]]],
+                14, ['max', 4, ['*', 1.10, ['to-number', ['get', 'max_strahler']]]],
+                17, ['max', 5, ['*', 1.80, ['to-number', ['get', 'max_strahler']]]]
             ],
             'line-opacity': 1.0
         },
         layout: {
             'line-cap': 'round',
             'line-join': 'round'
+        }
+    });
+
+    // --- 8. Stream labels (curve along the line) ----------------------
+    // Zoom-tiered: only the biggest rivers at low zooms, all named at high zoom.
+    map.addLayer({
+        id: 'nhd-streams-label',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams',
+        minzoom: 7,
+        filter: [
+            'any',
+            ['all', ['<=', ['zoom'], 8],  ['>=', ['to-number', ['get', 'max_strahler']], 6]],
+            ['all', ['<=', ['zoom'], 10], ['>=', ['to-number', ['get', 'max_strahler']], 5]],
+            ['all', ['<=', ['zoom'], 12], ['>=', ['to-number', ['get', 'max_strahler']], 4]],
+            ['all', ['<=', ['zoom'], 14], ['>=', ['to-number', ['get', 'max_strahler']], 3]],
+            ['>', ['zoom'], 14]
+        ],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': ['Open Sans Italic', 'Arial Unicode MS Regular'],
+            'symbol-placement': 'line',
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                7, 10,
+                12, 12,
+                16, 14
+            ],
+            'text-letter-spacing': 0.05,
+            'symbol-spacing': 350,
+            'text-max-angle': 30,
+            'text-pitch-alignment': 'viewport'
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.5,
+            'text-halo-blur': 0.5
+        }
+    });
+
+    // --- 9. Waterbody labels (one per lake) ---------------------------
+    map.addLayer({
+        id: 'nhd-waterbodies-label',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        minzoom: 6,
+        filter: [
+            'all',
+            ['has', 'gnis_name'],
+            [
+                'any',
+                ['all', ['<=', ['zoom'], 7],  ['>=', ['to-number', ['get', 'areasqkm']], 50]],
+                ['all', ['<=', ['zoom'], 9],  ['>=', ['to-number', ['get', 'areasqkm']], 5]],
+                ['all', ['<=', ['zoom'], 11], ['>=', ['to-number', ['get', 'areasqkm']], 0.5]],
+                ['>', ['zoom'], 11]
+            ]
+        ],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': ['Open Sans Italic', 'Arial Unicode MS Regular'],
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                6, 11,
+                10, 13,
+                14, 15
+            ],
+            'text-max-width': 8,
+            'text-letter-spacing': 0.02
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.8,
+            'text-halo-blur': 0.5
         }
     });
 
@@ -243,9 +319,7 @@ function addSourcesAndLayers() {
         layout: { visibility: 'none' }
     });
 
-    // ------------------------------------------------------------------
-    // Observations (the user's pins, on top of everything except popups)
-    // ------------------------------------------------------------------
+    // Observations (user pins, on top of all hydrography)
     map.addSource('observations', { type: 'geojson', data: empty });
     map.addLayer({
         id: 'observations-layer',
@@ -291,7 +365,6 @@ function queryNearbyHydroFeature(point) {
     if (!layers.length) return null;
     const feats = map.queryRenderedFeatures(bbox, { layers });
     if (!feats.length) return null;
-    // Prefer larger streams when multiple overlap a single click
     feats.sort((a, b) => {
         const oa = Number(a.properties.max_strahler) || 0;
         const ob = Number(b.properties.max_strahler) || 0;
@@ -333,7 +406,6 @@ function hydroPopupHtml(feature) {
     const p = feature.properties || {};
     const name = p.gnis_name || null;
 
-    // Build rows in priority order. Skip any that have no useful value.
     const rows = [];
 
     if (p.max_strahler !== undefined && p.max_strahler !== null) {
@@ -405,7 +477,7 @@ function wireHydroInteractions() {
 
     let lastHoveredKey = null;
     map.on('mousemove', (e) => {
-        if (state.queryMode) return; // don't interfere with query mode
+        if (state.queryMode) return;
         const feat = queryNearbyHydroFeature(e.point);
         if (!feat) {
             if (lastHoveredKey !== null) {
@@ -415,9 +487,6 @@ function wireHydroInteractions() {
             }
             return;
         }
-        // Dedupe — gnis_id is the natural key for merged streams; fall back to
-        // the geometry hash for unnamed water (shouldn't happen in this layer
-        // since we filtered by gnis_id during the merge, but defensive).
         const key = feat.properties.gnis_id ||
                     JSON.stringify(feat.geometry?.coordinates?.[0] || []);
         if (key !== lastHoveredKey) {
@@ -429,7 +498,6 @@ function wireHydroInteractions() {
 
     map.on('click', (e) => {
         if (state.queryMode) return;
-        // Don't hijack clicks on observation pins
         if (map.getLayer('observations-layer')) {
             const obsHit = map.queryRenderedFeatures(e.point, {
                 layers: ['observations-layer']
