@@ -94,7 +94,29 @@ function addSourcesAndLayers() {
         19, ['*', 1.40, ['to-number', ['get', 'max_strahler']]]
     ];
 
-    // --- 1. Hover halo (soft glow UNDER everything else) --------------
+    // Shared label-placement options used by all three stream label tiers.
+    // Aggressive settings to maximize the number of streams that get labels.
+    const STREAM_LABEL_LAYOUT_BASE = {
+        'text-field': ['get', 'gnis_name'],
+        'text-font': LABEL_FONT,
+        'symbol-placement': 'line',
+        'text-letter-spacing': 0.03,
+        'symbol-spacing': 220,
+        'text-max-angle': 45,
+        'text-padding': 0,
+        'text-pitch-alignment': 'viewport',
+        'text-max-width': 10,
+        'symbol-avoid-edges': false
+    };
+
+    const STREAM_LABEL_PAINT = {
+        'text-color': STREAM_COLOR,
+        'text-halo-color': LABEL_HALO,
+        'text-halo-width': 1.5,
+        'text-halo-blur': 0.5
+    };
+
+    // --- 1. Hover halo ------------------------------------------------
     map.addLayer({
         id: 'nhd-hover-halo',
         type: 'line',
@@ -110,7 +132,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 2. Streams (merged-by-gnis_id river lines) -------------------
+    // --- 2. Streams ---------------------------------------------------
     map.addLayer({
         id: 'nhd-streams',
         type: 'line',
@@ -127,7 +149,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 3. Areas fill (wide rivers as polygons) ----------------------
+    // --- 3. Areas fill -----------------------------------------------
     map.addLayer({
         id: 'nhd-areas-fill',
         type: 'fill',
@@ -199,11 +221,7 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 8-10. Stream labels, three tiers by Strahler order -----------
-    // Each tier is its own layer with minzoom set, so we avoid zoom-in-filter
-    // syntax that the symbol layer doesn't reliably evaluate.
-
-    // Large rivers (Strahler 6+) — visible from z6
+    // --- 8. Stream labels - large (Strahler 6+) -----------------------
     map.addLayer({
         id: 'nhd-streams-label-large',
         type: 'symbol',
@@ -212,28 +230,16 @@ function addSourcesAndLayers() {
         minzoom: 6,
         filter: ['>=', ['to-number', ['get', 'max_strahler']], 6],
         layout: {
-            'text-field': ['get', 'gnis_name'],
-            'text-font': LABEL_FONT,
-            'symbol-placement': 'line',
+            ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
                 6, 11, 10, 13, 14, 15
-            ],
-            'text-letter-spacing': 0.05,
-            'symbol-spacing': 250,
-            'text-max-angle': 45,
-            'text-pitch-alignment': 'viewport',
-            'text-max-width': 10
+            ]
         },
-        paint: {
-            'text-color': STREAM_COLOR,
-            'text-halo-color': LABEL_HALO,
-            'text-halo-width': 1.5,
-            'text-halo-blur': 0.5
-        }
+        paint: STREAM_LABEL_PAINT
     });
 
-    // Medium rivers (Strahler 4-5) — visible from z9
+    // --- 9. Stream labels - medium (Strahler 4-5) ---------------------
     map.addLayer({
         id: 'nhd-streams-label-medium',
         type: 'symbol',
@@ -246,26 +252,16 @@ function addSourcesAndLayers() {
             ['<=', ['to-number', ['get', 'max_strahler']], 5]
         ],
         layout: {
-            'text-field': ['get', 'gnis_name'],
-            'text-font': LABEL_FONT,
-            'symbol-placement': 'line',
+            ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
                 9, 10, 12, 12, 16, 14
-            ],
-            'text-letter-spacing': 0.04,
-            'symbol-spacing': 250,
-            'text-max-angle': 40
+            ]
         },
-        paint: {
-            'text-color': STREAM_COLOR,
-            'text-halo-color': LABEL_HALO,
-            'text-halo-width': 1.5,
-            'text-halo-blur': 0.5
-        }
+        paint: STREAM_LABEL_PAINT
     });
 
-    // Small streams (Strahler 1-3) — visible from z12
+    // --- 10. Stream labels - small (Strahler 1-3) ---------------------
     map.addLayer({
         id: 'nhd-streams-label-small',
         type: 'symbol',
@@ -274,23 +270,13 @@ function addSourcesAndLayers() {
         minzoom: 12,
         filter: ['<=', ['to-number', ['get', 'max_strahler']], 3],
         layout: {
-            'text-field': ['get', 'gnis_name'],
-            'text-font': LABEL_FONT,
-            'symbol-placement': 'line',
+            ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': [
                 'interpolate', ['linear'], ['zoom'],
                 12, 10, 16, 13
-            ],
-            'text-letter-spacing': 0.03,
-            'symbol-spacing': 220,
-            'text-max-angle': 40
+            ]
         },
-        paint: {
-            'text-color': STREAM_COLOR,
-            'text-halo-color': LABEL_HALO,
-            'text-halo-width': 1.5,
-            'text-halo-blur': 0.5
-        }
+        paint: STREAM_LABEL_PAINT
     });
 
     // --- 11. Waterbody labels ----------------------------------------
@@ -309,7 +295,8 @@ function addSourcesAndLayers() {
                 6, 11, 10, 13, 14, 15
             ],
             'text-max-width': 8,
-            'text-letter-spacing': 0.02
+            'text-letter-spacing': 0.02,
+            'text-padding': 0
         },
         paint: {
             'text-color': STREAM_COLOR,
@@ -320,7 +307,7 @@ function addSourcesAndLayers() {
     });
 
     // ------------------------------------------------------------------
-    // H3 hexes (computed from observations, layered BELOW the pins)
+    // H3 hexes
     // ------------------------------------------------------------------
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
     map.addLayer({
