@@ -78,7 +78,7 @@ function addSourcesAndLayers() {
     map.addSource('nhd', {
         type: 'vector',
         // Mirror to your own DO Spaces bucket before relying on this in prod.
-        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/NHD_AllUS_wOrder.pmtiles'
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/NHD_AllUS_wOrder'
     });
 
     const NHD_SRC_LAYER = 'NHD_AllUS_wOrder';
