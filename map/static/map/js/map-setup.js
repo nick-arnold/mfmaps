@@ -75,7 +75,6 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
-    // NHD hydrography (Oregon, merged by GNIS_ID)
     map.addSource('nhd', {
         type: 'vector',
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
@@ -112,17 +111,6 @@ function addSourcesAndLayers() {
         'text-halo-width': 1.5,
         'text-halo-blur': 0.5
     };
-
-    // RENDER ORDER (bottom to top):
-    //   1. Line hover halo   - glows UNDER streams
-    //   2. Streams
-    //   3. Areas fill + stroke
-    //   4. Waterbodies fill + stroke
-    //   5. Polygon hover     - OVER lakes so hover is visible
-    //   6-7. Selected line + polygon
-    //   8-10. Stream labels (3 tiers)
-    //  11. Waterbody labels
-    //  12. Selected feature labels (line + point)
 
     // --- 1. Line hover halo (UNDER, glows behind stream) --------------
     map.addLayer({
@@ -448,16 +436,44 @@ function setHoveredHydro(feature) {
     );
 }
 
-function setSelectedHydro(feature) {
+function setSelectedHydro(featureOrArray) {
     const src = state.map.getSource('nhd-selected');
     if (!src) return;
-    src.setData(feature
-        ? { type: 'FeatureCollection', features: [feature] }
-        : { type: 'FeatureCollection', features: [] }
-    );
+    if (!featureOrArray) {
+        src.setData({ type: 'FeatureCollection', features: [] });
+        return;
+    }
+    const features = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    src.setData({ type: 'FeatureCollection', features });
 }
 
 function clearSelectedHydro() { setSelectedHydro(null); }
+
+// Find every feature with this gnis_id in the same source-layer, so the
+// highlight covers the whole logical river / lake even if it exists as
+// multiple separate features (whether due to tile fragmentation or because
+// the source data has multiple polygons/segments sharing a gnis_id).
+function findAllFragments(clickedFeature) {
+    const map = state.map;
+    const gnisId = clickedFeature.properties?.gnis_id;
+    if (!gnisId) return [clickedFeature];
+
+    const layerId = clickedFeature.layer?.id;
+    let sourceLayer;
+    if (layerId === 'nhd-streams') sourceLayer = 'streams';
+    else if (layerId === 'nhd-waterbodies-fill') sourceLayer = 'waterbodies';
+    else if (layerId === 'nhd-areas-fill') sourceLayer = 'areas';
+    else return [clickedFeature];
+
+    // querySourceFeatures returns every feature in loaded tiles matching the
+    // filter. Use a string comparison since gnis_id is stored as a string.
+    const matches = map.querySourceFeatures('nhd', {
+        sourceLayer,
+        filter: ['==', ['get', 'gnis_id'], gnisId]
+    });
+
+    return matches.length ? matches : [clickedFeature];
+}
 
 function fmtNumber(v, digits) {
     if (v === undefined || v === null || v === '') return null;
@@ -620,7 +636,8 @@ function wireHydroInteractions() {
             clearSelectedHydro();
             return;
         }
-        setSelectedHydro(feat);
+        // Highlight every feature with the same gnis_id, not just the clicked one
+        setSelectedHydro(findAllFragments(feat));
         openHydroPopup(feat, e.lngLat);
     });
 }
@@ -628,8 +645,6 @@ function wireHydroInteractions() {
 // =============================================================================
 // Crosshair pick mode — used by the New Observation flow
 // =============================================================================
-// Returns a Promise that resolves to {longitude, latitude} on confirm or
-// null on cancel. While active, hover and click on the map are suppressed.
 
 let crosshairResolver = null;
 
