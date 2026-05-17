@@ -11,6 +11,7 @@ import {
     initQueryMode,
     initGeolocate,
     initModeTabs,
+    initCrosshair,
 } from './map-setup.js';
 import {
     wireMapClicks,
@@ -31,6 +32,7 @@ async function main() {
     initLayerPanels();
     initQueryMode();
     initGeolocate();
+    initCrosshair();
     wireMapClicks();
     wireFabs(startObservation);
     initModeTabs(loadObservations);

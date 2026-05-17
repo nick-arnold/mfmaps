@@ -54,6 +54,30 @@
 
     <div id="map"></div>
 
+    <!-- Crosshair pick mode overlay -->
+    <div id="crosshairOverlay" class="crosshair-overlay d-none" aria-hidden="true">
+        <div class="crosshair-ring"></div>
+        <div class="crosshair-dot"></div>
+    </div>
+
+    <!-- Crosshair confirm/cancel bar -->
+    <div id="crosshairBar" class="crosshair-bar d-none">
+        <div class="crosshair-bar-inner">
+            <div class="crosshair-help">
+                <i class="bi bi-info-circle"></i>
+                Pan the map to position the crosshair, then confirm.
+            </div>
+            <div class="crosshair-buttons">
+                <button type="button" id="crosshairCancel" class="btn btn-outline-secondary">
+                    Cancel
+                </button>
+                <button type="button" id="crosshairConfirm" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Confirm location
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile floating account button -->
     <div class="mobile-account d-md-none">
         <button id="accountBtnMobile" class="account-btn" type="button"
@@ -99,26 +123,28 @@
             <div class="text-muted">Loading…</div>
         </div>
     </section>
-<!-- Drag-edit floating tooltip -->
-<div id="dragTooltip" class="drag-tooltip d-none">
-    <div class="drag-tooltip-arrow"></div>
-    <div class="drag-tooltip-body">
-        <div class="small fw-bold mb-1">Drag the pin to a new location</div>
-        <div class="small text-muted mb-2" id="dragTooltipCoords">—</div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="dragCancel">
-                Cancel
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="dragRecapture">
-                <i class="bi bi-geo-alt"></i> GPS
-            </button>
-            <button type="button" class="btn btn-sm btn-primary flex-fill" id="dragDone">
-                Done
-            </button>
+
+    <!-- Drag-edit floating tooltip -->
+    <div id="dragTooltip" class="drag-tooltip d-none">
+        <div class="drag-tooltip-arrow"></div>
+        <div class="drag-tooltip-body">
+            <div class="small fw-bold mb-1">Drag the pin to a new location</div>
+            <div class="small text-muted mb-2" id="dragTooltipCoords">—</div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="dragCancel">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="dragRecapture">
+                    <i class="bi bi-geo-alt"></i> GPS
+                </button>
+                <button type="button" class="btn btn-sm btn-primary flex-fill" id="dragDone">
+                    Done
+                </button>
+            </div>
         </div>
     </div>
-</div>
 </main>
+
 <!-- Toast container -->
 <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 1080;">
     <div id="appToast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -128,6 +154,7 @@
         </div>
     </div>
 </div>
+
 <!-- Mobile bottom dock -->
 <nav class="bottom-dock d-md-none">
     <button class="dock-tab active" data-mode="map" type="button">
@@ -282,35 +309,55 @@
         <div class="modal-body">
           <form id="observationForm">
             <input type="hidden" name="id" value="">
-            <div class="mb-3">
-              <label class="form-label">Species</label>
-              <input type="text" class="form-control" name="species_name" placeholder="e.g. chanterelle" autocomplete="off">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Notes</label>
-              <textarea class="form-control" name="notes" rows="3" placeholder="Optional"></textarea>
-            </div>
-            <div class="mb-3 small text-muted">
-              <div><strong>Location:</strong> <span id="obsLocation">acquiring GPS…</span></div>
-              <div><strong>Accuracy:</strong> <span id="obsAccuracy">—</span></div>
-              <div><strong>Time:</strong> <span id="obsTime">—</span></div>
-            </div>
-            <div id="obsEditHints" class="small text-muted mb-3 d-none px-3 py-2 rounded border" style="background: #f8f9fa;">
-                <i class="bi bi-arrows-move"></i>
-                <strong>Click here to move the pin</strong> on the map.
-            </div>
-            <div class="d-grid gap-2 mb-3 d-none" id="obsRecaptureWrap">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="obsRecaptureBtn">
-                <i class="bi bi-geo-alt"></i> Re-capture from current GPS
+
+            <!-- Location chooser (visible in create mode only, before location is set) -->
+            <div id="obsLocationChooser" class="d-none">
+              <p class="text-muted mb-3">How would you like to set the location?</p>
+
+              <button type="button"
+                      id="obsChooseGPS"
+                      class="btn btn-outline-primary w-100 d-flex align-items-center gap-3 p-3 mb-2 text-start">
+                <i class="bi bi-crosshair2 fs-3"></i>
+                <div>
+                  <div class="fw-bold">Use my GPS location</div>
+                  <div class="small text-muted">Mark where you are right now</div>
+                </div>
+              </button>
+
+              <button type="button"
+                      id="obsChooseMap"
+                      class="btn btn-outline-primary w-100 d-flex align-items-center gap-3 p-3 text-start">
+                <i class="bi bi-pin-map-fill fs-3"></i>
+                <div>
+                  <div class="fw-bold">Pick on map</div>
+                  <div class="small text-muted">Pan the map and drop a pin manually</div>
+                </div>
               </button>
             </div>
-            <div class="d-grid gap-2 mb-3 d-none" id="obsPickOnMapWrap">
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="obsPickOnMapBtn">
-                  <i class="bi bi-geo-fill"></i> Pick location on map instead
-                </button>
+
+            <!-- Form body (visible after location is set, or in edit mode) -->
+            <div id="obsFormBody" class="d-none">
+              <div class="mb-3">
+                <label class="form-label">Species</label>
+                <input type="text" class="form-control" name="species_name" placeholder="e.g. chanterelle" autocomplete="off">
               </div>
-            <div class="alert alert-danger d-none" id="observationError"></div>
-            <button type="submit" class="btn btn-primary w-100" id="observationSubmit" disabled>
+              <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" name="notes" rows="3" placeholder="Optional"></textarea>
+              </div>
+              <div class="mb-3 small text-muted">
+                <div><strong>Location:</strong> <span id="obsLocation">—</span></div>
+                <div><strong>Accuracy:</strong> <span id="obsAccuracy">—</span></div>
+                <div><strong>Time:</strong> <span id="obsTime">—</span></div>
+              </div>
+              <div id="obsEditHints" class="small text-muted mb-3 d-none px-3 py-2 rounded border" style="background: #f8f9fa;">
+                  <i class="bi bi-arrows-move"></i>
+                  <strong>Click here to move the pin</strong> on the map.
+              </div>
+              <div class="alert alert-danger d-none" id="observationError"></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 d-none" id="observationSubmit" disabled>
               Save observation
             </button>
           </form>
@@ -318,7 +365,7 @@
       </div>
     </div>
   </div>
-  
+
   <!-- Delete confirmation modal -->
   <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

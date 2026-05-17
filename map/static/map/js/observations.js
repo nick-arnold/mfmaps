@@ -4,18 +4,17 @@
 
 import { state } from './state.js';
 import { apiFetch, showToast, escapeHtml } from './api.js';
-import { zoomToH3Res, isLayerGroupVisible } from './map-setup.js';
+import { zoomToH3Res, isLayerGroupVisible, enterCrosshairMode } from './map-setup.js';
 
 // --- Module state ---------------------------------------------------------
 
-let observationMode = null;      // 'create' | 'create-drag' | 'edit' | 'edit-drag' | null
+let observationMode = null;      // 'create' | 'edit' | 'edit-drag' | null
 let editingObservationId = null;
 let editMarker = null;
 let pendingCoords = null;        // { latitude, longitude, accuracy }
 let pendingDeleteId = null;
 let editFormSnapshot = null;
 
-// Latest observations cached locally so we can recompute H3 aggregation on zoom
 let cachedObservations = { type: 'FeatureCollection', features: [] };
 
 // --- Map click + zoom handlers -------------------------------------------
@@ -23,25 +22,26 @@ let cachedObservations = { type: 'FeatureCollection', features: [] };
 export function wireMapClicks() {
     state.map.on('click', 'observations-layer', (e) => {
         if (state.queryMode) return;
+        if (state.crosshairMode) return;
         if (!e.features?.length) return;
         showObservationPopup(e.features[0]);
     });
 
     state.map.on('mouseenter', 'observations-layer', () => {
-        if (!state.queryMode) state.map.getCanvas().style.cursor = 'pointer';
+        if (!state.queryMode && !state.crosshairMode) {
+            state.map.getCanvas().style.cursor = 'pointer';
+        }
     });
     state.map.on('mouseleave', 'observations-layer', () => {
-        if (!state.queryMode) state.map.getCanvas().style.cursor = '';
-    });
-
-    // Recompute H3 aggregation when zoom changes
-    state.map.on('zoomend', () => {
-        if (isLayerGroupVisible('h3-hexes')) {
-            recomputeH3();
+        if (!state.queryMode && !state.crosshairMode) {
+            state.map.getCanvas().style.cursor = '';
         }
     });
 
-    // Recompute H3 when the toggle is flipped on
+    state.map.on('zoomend', () => {
+        if (isLayerGroupVisible('h3-hexes')) recomputeH3();
+    });
+
     document.body.addEventListener('change', (e) => {
         if (e.target.matches('.layer-toggle[data-layer-group="h3-hexes"]') && e.target.checked) {
             recomputeH3();
@@ -94,7 +94,7 @@ function showObservationPopup(feature) {
     });
 }
 
-// --- Create mode ----------------------------------------------------------
+// --- Create flow: chooser → location → form ------------------------------
 
 export function startObservation() {
     if (!state.currentUser) {
@@ -110,20 +110,60 @@ export function startObservation() {
     form.querySelector('input[name="id"]').value = '';
     document.getElementById('observationModalLabel').textContent = 'New observation';
     document.getElementById('observationError').classList.add('d-none');
-    document.getElementById('obsLocation').textContent = 'acquiring GPS…';
-    document.getElementById('obsAccuracy').textContent = '—';
     document.getElementById('obsTime').textContent = new Date().toLocaleString();
     document.getElementById('observationSubmit').disabled = true;
     document.getElementById('observationSubmit').textContent = 'Save observation';
     document.getElementById('obsEditHints').classList.add('d-none');
-
-    // Show the manual-pick option in create mode, hide GPS recapture
-    setLocationControlVisibility('create');
-
     removeEditMarker();
 
+    showLocationChooser();
+
     new bootstrap.Modal(document.getElementById('observationModal')).show();
+}
+
+function showLocationChooser() {
+    document.getElementById('obsLocationChooser')?.classList.remove('d-none');
+    document.getElementById('obsFormBody')?.classList.add('d-none');
+    document.getElementById('observationSubmit')?.classList.add('d-none');
+}
+
+function showFormBody() {
+    document.getElementById('obsLocationChooser')?.classList.add('d-none');
+    document.getElementById('obsFormBody')?.classList.remove('d-none');
+    document.getElementById('observationSubmit')?.classList.remove('d-none');
+}
+
+// User picked "Use GPS"
+function chooseGPS() {
+    showFormBody();
+    document.getElementById('obsLocation').textContent = 'acquiring GPS…';
+    document.getElementById('obsAccuracy').textContent = '—';
     captureCurrentGPS();
+}
+
+// User picked "Pick on map"
+async function chooseMap() {
+    const modalEl = document.getElementById('observationModal');
+    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+    const coords = await enterCrosshairMode();
+
+    if (!coords) {
+        // User canceled — discard create flow
+        observationMode = null;
+        return;
+    }
+
+    pendingCoords = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: null,  // manual pick has no accuracy
+    };
+
+    showFormBody();
+    updateLocationDisplay();
+    document.getElementById('observationSubmit').disabled = false;
+    new bootstrap.Modal(modalEl).show();
 }
 
 // --- Edit mode ------------------------------------------------------------
@@ -145,6 +185,9 @@ function startEditObservation(feature) {
 
     document.getElementById('observationModalLabel').textContent = 'Edit observation';
     document.getElementById('observationError').classList.add('d-none');
+
+    // Edit mode skips the chooser
+    showFormBody();
     updateLocationDisplay();
     document.getElementById('obsTime').textContent =
         new Date(feature.properties.recorded_at).toLocaleString();
@@ -152,72 +195,30 @@ function startEditObservation(feature) {
     document.getElementById('observationSubmit').textContent = 'Save changes';
     document.getElementById('obsEditHints').classList.remove('d-none');
 
-    setLocationControlVisibility('edit');
-
     new bootstrap.Modal(document.getElementById('observationModal')).show();
 }
 
-// --- Location controls visibility ----------------------------------------
-
-// Shows/hides the GPS-recapture and manual-pick controls based on mode.
-function setLocationControlVisibility(mode) {
-    const recaptureWrap = document.getElementById('obsRecaptureWrap');
-    const pickWrap = document.getElementById('obsPickOnMapWrap');
-
-    if (mode === 'create') {
-        // In create mode: hide the GPS-recapture (we just got GPS),
-        // show the pick-on-map option.
-        recaptureWrap?.classList.add('d-none');
-        pickWrap?.classList.remove('d-none');
-    } else if (mode === 'edit') {
-        // In edit mode: existing edit-hints take over for relocation.
-        recaptureWrap?.classList.add('d-none');
-        pickWrap?.classList.add('d-none');
-    } else {
-        recaptureWrap?.classList.add('d-none');
-        pickWrap?.classList.add('d-none');
-    }
-}
-
-// --- Drag phase -----------------------------------------------------------
+// --- Edit drag flow -------------------------------------------------------
 
 function enterDragMode() {
-    // Allow drag-to-relocate from either edit or create mode.
-    if (observationMode !== 'edit' && observationMode !== 'create') return;
+    if (observationMode !== 'edit') return;
 
     const form = document.getElementById('observationForm');
     editFormSnapshot = {
         species_name: form.querySelector('input[name="species_name"]').value,
         notes: form.querySelector('textarea[name="notes"]').value,
-        coords: pendingCoords ? { ...pendingCoords } : null,
-        // Remember which non-drag mode to return to on commit/cancel
-        returnMode: observationMode,
+        coords: { ...pendingCoords },
     };
 
-    observationMode = observationMode === 'edit' ? 'edit-drag' : 'create-drag';
+    observationMode = 'edit-drag';
 
     const modalEl = document.getElementById('observationModal');
     bootstrap.Modal.getInstance(modalEl)?.hide();
 
-    // Pick a starting position for the pin:
-    //   - If we already have pendingCoords (GPS arrived or edit feature), use that
-    //   - Otherwise drop the pin at the current map center
-    let startLng, startLat;
-    if (pendingCoords) {
-        startLng = pendingCoords.longitude;
-        startLat = pendingCoords.latitude;
-    } else {
-        const center = state.map.getCenter();
-        startLng = center.lng;
-        startLat = center.lat;
-        // Pre-populate pendingCoords so the tooltip has something to show
-        pendingCoords = { longitude: startLng, latitude: startLat, accuracy: null };
-    }
-
-    addEditMarker(startLng, startLat);
+    addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
     showDragTooltip();
     state.map.flyTo({
-        center: [startLng, startLat],
+        center: [pendingCoords.longitude, pendingCoords.latitude],
         zoom: Math.max(state.map.getZoom(), 14),
     });
 }
@@ -249,26 +250,13 @@ function updateDragTooltipCoords() {
 }
 
 function exitDragMode(commit) {
-    const returnMode = editFormSnapshot?.returnMode || 'edit';
-
     if (!commit && editFormSnapshot) {
-        // Cancel — restore coords from snapshot (may be null in create mode)
         pendingCoords = editFormSnapshot.coords;
     }
-    // If commit and we have valid coords, pendingCoords is already current
-    // because the drag handlers update it live.
-
     hideDragTooltip();
     removeEditMarker();
-    observationMode = returnMode;
+    observationMode = 'edit';
     updateLocationDisplay();
-
-    // Re-enable submit if we have coords (any mode), keep disabled otherwise
-    const submitBtn = document.getElementById('observationSubmit');
-    if (submitBtn) {
-        submitBtn.disabled = !pendingCoords;
-    }
-
     new bootstrap.Modal(document.getElementById('observationModal')).show();
     editFormSnapshot = null;
 }
@@ -281,13 +269,10 @@ function updateLocationDisplay() {
         if (accEl) accEl.textContent = '—';
         return;
     }
-    if (locEl) {
-        locEl.textContent = `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
-    }
-    if (accEl) {
-        accEl.textContent =
-            pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
-    }
+    if (locEl) locEl.textContent =
+        `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
+    if (accEl) accEl.textContent =
+        pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
 }
 
 // --- GPS capture ----------------------------------------------------------
@@ -304,8 +289,7 @@ function captureCurrentGPS() {
                 longitude: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
             };
-            const isDrag = observationMode === 'edit-drag' || observationMode === 'create-drag';
-            if (isDrag && editMarker) {
+            if (observationMode === 'edit-drag' && editMarker) {
                 editMarker.setLngLat([pendingCoords.longitude, pendingCoords.latitude]);
                 state.map.flyTo({ center: [pendingCoords.longitude, pendingCoords.latitude] });
                 positionDragTooltip();
@@ -426,23 +410,21 @@ export function initObservationForms() {
         }
     });
 
-    // Edit-hints box → drag mode (works in edit mode)
+    // Chooser buttons (create mode)
+    document.getElementById('obsChooseGPS')?.addEventListener('click', chooseGPS);
+    document.getElementById('obsChooseMap')?.addEventListener('click', chooseMap);
+
+    // Edit-mode drag
     document.getElementById('obsEditHints').addEventListener('click', enterDragMode);
     document.getElementById('obsEditHints').style.cursor = 'pointer';
-
-    // Pick-on-map button → drag mode (works in create mode)
-    const pickBtn = document.getElementById('obsPickOnMapBtn');
-    if (pickBtn) {
-        pickBtn.addEventListener('click', enterDragMode);
-    }
 
     document.getElementById('dragDone').addEventListener('click', () => exitDragMode(true));
     document.getElementById('dragCancel').addEventListener('click', () => exitDragMode(false));
     document.getElementById('dragRecapture').addEventListener('click', () => captureCurrentGPS());
 
     document.getElementById('observationModal').addEventListener('hidden.bs.modal', () => {
-        // Don't reset mode if we're mid-drag (modal is intentionally hidden)
-        if (observationMode === 'edit-drag' || observationMode === 'create-drag') return;
+        if (observationMode === 'edit-drag') return;
+        if (state.crosshairMode) return;
         removeEditMarker();
         hideDragTooltip();
         observationMode = null;
@@ -469,7 +451,6 @@ export function initObservationForms() {
 // --- Load + render --------------------------------------------------------
 
 export async function loadObservations() {
-    // Close any open popup so it doesn't show stale data after edits
     if (state.openPopup) {
         state.openPopup.remove();
         state.openPopup = null;
@@ -487,8 +468,6 @@ export async function loadObservations() {
     if (!resp.ok) return;
     const data = await resp.json();
 
-    // MapLibre strips feature.id in queryRenderedFeatures results;
-    // copy it into properties so we can read it back on click.
     data.features.forEach(f => {
         if (f.id != null && f.properties && f.properties.id == null) {
             f.properties.id = f.id;
@@ -501,7 +480,7 @@ export async function loadObservations() {
     renderSavedList(data);
 }
 
-// --- H3 aggregation from observations -------------------------------------
+// --- H3 aggregation -------------------------------------------------------
 
 function recomputeH3() {
     const source = state.map.getSource('h3-hexes');
@@ -513,7 +492,6 @@ function recomputeH3() {
     }
 
     const res = zoomToH3Res(state.map.getZoom());
-
     const cellCounts = new Map();
     for (const f of features) {
         const fineCell = f.properties.h3_cell_res_10;
