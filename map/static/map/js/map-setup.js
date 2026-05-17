@@ -427,13 +427,15 @@ function queryNearbyHydroFeature(point) {
     return feats[0];
 }
 
-function setHoveredHydro(feature) {
+function setHoveredHydro(featureOrArray) {
     const src = state.map.getSource('nhd-hover');
     if (!src) return;
-    src.setData(feature
-        ? { type: 'FeatureCollection', features: [feature] }
-        : { type: 'FeatureCollection', features: [] }
-    );
+    if (!featureOrArray) {
+        src.setData({ type: 'FeatureCollection', features: [] });
+        return;
+    }
+    const features = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    src.setData({ type: 'FeatureCollection', features });
 }
 
 function setSelectedHydro(featureOrArray) {
@@ -618,7 +620,7 @@ function wireHydroInteractions() {
         const key = feat.properties.gnis_id ||
                     (feat.layer.id + ':' + JSON.stringify(feat.geometry?.coordinates?.[0] || []));
         if (key !== lastHoveredKey) {
-            setHoveredHydro(feat);
+            setHoveredHydro(findAllFragments(feat));
             lastHoveredKey = key;
             map.getCanvas().style.cursor = 'pointer';
         }
