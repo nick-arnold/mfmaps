@@ -8,7 +8,7 @@ import { zoomToH3Res, isLayerGroupVisible } from './map-setup.js';
 
 // --- Module state ---------------------------------------------------------
 
-let observationMode = null;      // 'create' | 'edit' | 'edit-drag' | null
+let observationMode = null;      // 'create' | 'create-drag' | 'edit' | 'edit-drag' | null
 let editingObservationId = null;
 let editMarker = null;
 let pendingCoords = null;        // { latitude, longitude, accuracy }
@@ -116,6 +116,10 @@ export function startObservation() {
     document.getElementById('observationSubmit').disabled = true;
     document.getElementById('observationSubmit').textContent = 'Save observation';
     document.getElementById('obsEditHints').classList.add('d-none');
+
+    // Show the manual-pick option in create mode, hide GPS recapture
+    setLocationControlVisibility('create');
+
     removeEditMarker();
 
     new bootstrap.Modal(document.getElementById('observationModal')).show();
@@ -148,30 +152,72 @@ function startEditObservation(feature) {
     document.getElementById('observationSubmit').textContent = 'Save changes';
     document.getElementById('obsEditHints').classList.remove('d-none');
 
+    setLocationControlVisibility('edit');
+
     new bootstrap.Modal(document.getElementById('observationModal')).show();
+}
+
+// --- Location controls visibility ----------------------------------------
+
+// Shows/hides the GPS-recapture and manual-pick controls based on mode.
+function setLocationControlVisibility(mode) {
+    const recaptureWrap = document.getElementById('obsRecaptureWrap');
+    const pickWrap = document.getElementById('obsPickOnMapWrap');
+
+    if (mode === 'create') {
+        // In create mode: hide the GPS-recapture (we just got GPS),
+        // show the pick-on-map option.
+        recaptureWrap?.classList.add('d-none');
+        pickWrap?.classList.remove('d-none');
+    } else if (mode === 'edit') {
+        // In edit mode: existing edit-hints take over for relocation.
+        recaptureWrap?.classList.add('d-none');
+        pickWrap?.classList.add('d-none');
+    } else {
+        recaptureWrap?.classList.add('d-none');
+        pickWrap?.classList.add('d-none');
+    }
 }
 
 // --- Drag phase -----------------------------------------------------------
 
 function enterDragMode() {
-    if (observationMode !== 'edit') return;
+    // Allow drag-to-relocate from either edit or create mode.
+    if (observationMode !== 'edit' && observationMode !== 'create') return;
 
     const form = document.getElementById('observationForm');
     editFormSnapshot = {
         species_name: form.querySelector('input[name="species_name"]').value,
         notes: form.querySelector('textarea[name="notes"]').value,
-        coords: { ...pendingCoords },
+        coords: pendingCoords ? { ...pendingCoords } : null,
+        // Remember which non-drag mode to return to on commit/cancel
+        returnMode: observationMode,
     };
 
-    observationMode = 'edit-drag';
+    observationMode = observationMode === 'edit' ? 'edit-drag' : 'create-drag';
 
     const modalEl = document.getElementById('observationModal');
     bootstrap.Modal.getInstance(modalEl)?.hide();
 
-    addEditMarker(pendingCoords.longitude, pendingCoords.latitude);
+    // Pick a starting position for the pin:
+    //   - If we already have pendingCoords (GPS arrived or edit feature), use that
+    //   - Otherwise drop the pin at the current map center
+    let startLng, startLat;
+    if (pendingCoords) {
+        startLng = pendingCoords.longitude;
+        startLat = pendingCoords.latitude;
+    } else {
+        const center = state.map.getCenter();
+        startLng = center.lng;
+        startLat = center.lat;
+        // Pre-populate pendingCoords so the tooltip has something to show
+        pendingCoords = { longitude: startLng, latitude: startLat, accuracy: null };
+    }
+
+    addEditMarker(startLng, startLat);
     showDragTooltip();
     state.map.flyTo({
-        center: [pendingCoords.longitude, pendingCoords.latitude],
+        center: [startLng, startLat],
         zoom: Math.max(state.map.getZoom(), 14),
     });
 }
@@ -203,23 +249,45 @@ function updateDragTooltipCoords() {
 }
 
 function exitDragMode(commit) {
+    const returnMode = editFormSnapshot?.returnMode || 'edit';
+
     if (!commit && editFormSnapshot) {
+        // Cancel — restore coords from snapshot (may be null in create mode)
         pendingCoords = editFormSnapshot.coords;
     }
+    // If commit and we have valid coords, pendingCoords is already current
+    // because the drag handlers update it live.
+
     hideDragTooltip();
     removeEditMarker();
-    observationMode = 'edit';
+    observationMode = returnMode;
     updateLocationDisplay();
+
+    // Re-enable submit if we have coords (any mode), keep disabled otherwise
+    const submitBtn = document.getElementById('observationSubmit');
+    if (submitBtn) {
+        submitBtn.disabled = !pendingCoords;
+    }
+
     new bootstrap.Modal(document.getElementById('observationModal')).show();
     editFormSnapshot = null;
 }
 
 function updateLocationDisplay() {
-    if (!pendingCoords) return;
-    document.getElementById('obsLocation').textContent =
-        `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
-    document.getElementById('obsAccuracy').textContent =
-        pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
+    const locEl = document.getElementById('obsLocation');
+    const accEl = document.getElementById('obsAccuracy');
+    if (!pendingCoords) {
+        if (locEl) locEl.textContent = 'no location yet';
+        if (accEl) accEl.textContent = '—';
+        return;
+    }
+    if (locEl) {
+        locEl.textContent = `${pendingCoords.latitude.toFixed(5)}, ${pendingCoords.longitude.toFixed(5)}`;
+    }
+    if (accEl) {
+        accEl.textContent =
+            pendingCoords.accuracy != null ? `${Math.round(pendingCoords.accuracy)} m` : '—';
+    }
 }
 
 // --- GPS capture ----------------------------------------------------------
@@ -236,7 +304,8 @@ function captureCurrentGPS() {
                 longitude: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
             };
-            if (observationMode === 'edit-drag' && editMarker) {
+            const isDrag = observationMode === 'edit-drag' || observationMode === 'create-drag';
+            if (isDrag && editMarker) {
                 editMarker.setLngLat([pendingCoords.longitude, pendingCoords.latitude]);
                 state.map.flyTo({ center: [pendingCoords.longitude, pendingCoords.latitude] });
                 positionDragTooltip();
@@ -357,15 +426,23 @@ export function initObservationForms() {
         }
     });
 
+    // Edit-hints box → drag mode (works in edit mode)
     document.getElementById('obsEditHints').addEventListener('click', enterDragMode);
     document.getElementById('obsEditHints').style.cursor = 'pointer';
+
+    // Pick-on-map button → drag mode (works in create mode)
+    const pickBtn = document.getElementById('obsPickOnMapBtn');
+    if (pickBtn) {
+        pickBtn.addEventListener('click', enterDragMode);
+    }
 
     document.getElementById('dragDone').addEventListener('click', () => exitDragMode(true));
     document.getElementById('dragCancel').addEventListener('click', () => exitDragMode(false));
     document.getElementById('dragRecapture').addEventListener('click', () => captureCurrentGPS());
 
     document.getElementById('observationModal').addEventListener('hidden.bs.modal', () => {
-        if (observationMode === 'edit-drag') return;
+        // Don't reset mode if we're mid-drag (modal is intentionally hidden)
+        if (observationMode === 'edit-drag' || observationMode === 'create-drag') return;
         removeEditMarker();
         hideDragTooltip();
         observationMode = null;
@@ -437,7 +514,6 @@ function recomputeH3() {
 
     const res = zoomToH3Res(state.map.getZoom());
 
-    // Aggregate each observation's res-10 cell up to the current display resolution
     const cellCounts = new Map();
     for (const f of features) {
         const fineCell = f.properties.h3_cell_res_10;

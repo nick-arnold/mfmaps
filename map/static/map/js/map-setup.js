@@ -28,11 +28,13 @@ const OSM_STYLE = {
     layers: [{ id: 'osm-base', type: 'raster', source: 'osm-raster' }]
 };
 
-// Shared color palette for hydrography
-const STREAM_COLOR = '#2e6f96';
-const WATER_FILL   = '#9ecbe0';
-const LABEL_HALO   = '#ffffff';
-const LABEL_FONT   = ['Noto Sans Italic'];
+// Shared color palette
+const STREAM_COLOR   = '#2e6f96';
+const WATER_FILL     = '#9ecbe0';
+const LABEL_HALO     = '#ffffff';
+const LABEL_FONT     = ['Noto Sans Italic'];
+const HOVER_COLOR    = '#ffb300';
+const SELECTED_COLOR = '#ff7a1a';
 
 // --- Map init -------------------------------------------------------------
 
@@ -73,9 +75,7 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
-    // ------------------------------------------------------------------
     // NHD hydrography (Oregon, merged by GNIS_ID)
-    // ------------------------------------------------------------------
     map.addSource('nhd', {
         type: 'vector',
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
@@ -94,12 +94,10 @@ function addSourcesAndLayers() {
         19, ['*', 1.40, ['to-number', ['get', 'max_strahler']]]
     ];
 
-    // Shared label-placement options used by all three stream label tiers.
-    // Aggressive settings to maximize the number of streams that get labels.
     const STREAM_LABEL_LAYOUT_BASE = {
         'text-field': ['get', 'gnis_name'],
         'text-font': LABEL_FONT,
-        'symbol-placement': 'line-center',
+        'symbol-placement': 'line',
         'text-letter-spacing': 0.03,
         'symbol-spacing': 100,
         'text-max-angle': 45,
@@ -116,19 +114,43 @@ function addSourcesAndLayers() {
         'text-halo-blur': 0.5
     };
 
-    // --- 1. Hover halo ------------------------------------------------
+    // --- 1. Hover halo for LINES (streams) ----------------------------
     map.addLayer({
         id: 'nhd-hover-halo',
         type: 'line',
         source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'LineString'],
         paint: {
-            'line-color': '#ffd24a',
+            'line-color': HOVER_COLOR,
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
-                4, 4, 10, 8, 14, 14, 17, 22
+                4, 6, 10, 12, 14, 20, 17, 30
             ],
-            'line-opacity': 0.55,
-            'line-blur': 4
+            'line-opacity': 0.75,
+            'line-blur': 2
+        }
+    });
+
+    // --- 1b. Hover for POLYGONS (lakes) -------------------------------
+    map.addLayer({
+        id: 'nhd-hover-polygon-fill',
+        type: 'fill',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: {
+            'fill-color': HOVER_COLOR,
+            'fill-opacity': 0.3
+        }
+    });
+    map.addLayer({
+        id: 'nhd-hover-polygon-stroke',
+        type: 'line',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: {
+            'line-color': HOVER_COLOR,
+            'line-width': 3,
+            'line-opacity': 0.85
         }
     });
 
@@ -155,10 +177,7 @@ function addSourcesAndLayers() {
         type: 'fill',
         source: 'nhd',
         'source-layer': 'areas',
-        paint: {
-            'fill-color': WATER_FILL,
-            'fill-opacity': 0.95
-        }
+        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
     });
 
     // --- 4. Areas stroke ---------------------------------------------
@@ -167,11 +186,7 @@ function addSourcesAndLayers() {
         type: 'line',
         source: 'nhd',
         'source-layer': 'areas',
-        paint: {
-            'line-color': STREAM_COLOR,
-            'line-width': 0.8,
-            'line-opacity': 0.85
-        }
+        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.85 }
     });
 
     // --- 5. Waterbodies fill -----------------------------------------
@@ -180,10 +195,7 @@ function addSourcesAndLayers() {
         type: 'fill',
         source: 'nhd',
         'source-layer': 'waterbodies',
-        paint: {
-            'fill-color': WATER_FILL,
-            'fill-opacity': 0.95
-        }
+        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
     });
 
     // --- 6. Waterbodies stroke ---------------------------------------
@@ -192,20 +204,17 @@ function addSourcesAndLayers() {
         type: 'line',
         source: 'nhd',
         'source-layer': 'waterbodies',
-        paint: {
-            'line-color': STREAM_COLOR,
-            'line-width': 0.8,
-            'line-opacity': 0.9
-        }
+        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
     });
 
-    // --- 7. Selected highlight ---------------------------------------
+    // --- 7. Selected highlight: LINE (streams) ------------------------
     map.addLayer({
         id: 'nhd-selected',
         type: 'line',
         source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'LineString'],
         paint: {
-            'line-color': '#ff7a1a',
+            'line-color': SELECTED_COLOR,
             'line-width': [
                 'interpolate', ['linear'], ['zoom'],
                 4,  ['max', 2, ['*', 0.30, ['to-number', ['get', 'max_strahler']]]],
@@ -215,9 +224,29 @@ function addSourcesAndLayers() {
             ],
             'line-opacity': 1.0
         },
-        layout: {
-            'line-cap': 'round',
-            'line-join': 'round'
+        layout: { 'line-cap': 'round', 'line-join': 'round' }
+    });
+
+    // --- 7b. Selected highlight: POLYGON (lakes) ----------------------
+    map.addLayer({
+        id: 'nhd-selected-polygon-fill',
+        type: 'fill',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: {
+            'fill-color': SELECTED_COLOR,
+            'fill-opacity': 0.3
+        }
+    });
+    map.addLayer({
+        id: 'nhd-selected-polygon-stroke',
+        type: 'line',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: {
+            'line-color': SELECTED_COLOR,
+            'line-width': 3,
+            'line-opacity': 1.0
         }
     });
 
@@ -306,6 +335,64 @@ function addSourcesAndLayers() {
         }
     });
 
+    // --- 12. Selected-feature label (line-following, for streams) -----
+    // Re-renders the selected feature's gnis_name in the highlight color,
+    // over the regular labels. Reads from nhd-selected source.
+    map.addLayer({
+        id: 'nhd-selected-label-line',
+        type: 'symbol',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'symbol-placement': 'line',
+            'text-letter-spacing': 0.03,
+            'symbol-spacing': 100,
+            'text-max-angle': 45,
+            'text-padding': 0,
+            'text-max-width': 10,
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                6, 12, 10, 14, 14, 16
+            ],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true
+        },
+        paint: {
+            'text-color': SELECTED_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 2,
+            'text-halo-blur': 0.3
+        }
+    });
+
+    // --- 12b. Selected-feature label (point, for lakes) ---------------
+    map.addLayer({
+        id: 'nhd-selected-label-point',
+        type: 'symbol',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'text-size': [
+                'interpolate', ['linear'], ['zoom'],
+                6, 13, 10, 15, 14, 17
+            ],
+            'text-max-width': 8,
+            'text-letter-spacing': 0.02,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true
+        },
+        paint: {
+            'text-color': SELECTED_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 2,
+            'text-halo-blur': 0.3
+        }
+    });
+
     // ------------------------------------------------------------------
     // H3 hexes
     // ------------------------------------------------------------------
@@ -366,7 +453,14 @@ function addSourcesAndLayers() {
 
 // --- Hydrography interactions: hover halo + click select + popup ----------
 
-const HYDRO_INTERACTIVE_LAYERS = ['nhd-streams'];
+// Layers eligible for hover/click. Order matters: topmost first wins.
+// Polygons (lakes) are rendered above streams, so they appear first here.
+const HYDRO_INTERACTIVE_LAYERS = [
+    'nhd-waterbodies-fill',
+    'nhd-areas-fill',
+    'nhd-streams'
+];
+
 const HYDRO_CLICK_BUFFER_PX = 5;
 
 function queryNearbyHydroFeature(point) {
@@ -380,11 +474,8 @@ function queryNearbyHydroFeature(point) {
     if (!layers.length) return null;
     const feats = map.queryRenderedFeatures(bbox, { layers });
     if (!feats.length) return null;
-    feats.sort((a, b) => {
-        const oa = Number(a.properties.max_strahler) || 0;
-        const ob = Number(b.properties.max_strahler) || 0;
-        return ob - oa;
-    });
+    // queryRenderedFeatures returns features in top-to-bottom render order.
+    // First hit is the topmost — exactly what we want.
     return feats[0];
 }
 
@@ -417,7 +508,19 @@ function fmtNumber(v, digits) {
     return n.toFixed(digits);
 }
 
-function hydroPopupHtml(feature) {
+// Detect what kind of feature we're dealing with so we can show the right popup.
+function featureKind(feature) {
+    // The streams source-layer is the only line-type hydro layer.
+    if (feature.layer && feature.layer.id === 'nhd-streams') return 'stream';
+    if (feature.layer && feature.layer.id === 'nhd-waterbodies-fill') return 'waterbody';
+    if (feature.layer && feature.layer.id === 'nhd-areas-fill') return 'area';
+    // Fallback by geometry type
+    const gt = feature.geometry?.type;
+    if (gt === 'LineString' || gt === 'MultiLineString') return 'stream';
+    return 'waterbody';
+}
+
+function streamPopupHtml(feature) {
     const p = feature.properties || {};
     const name = p.gnis_name || null;
 
@@ -455,14 +558,82 @@ function hydroPopupHtml(feature) {
         ? `<div class="fw-bold mb-2">${escapeHtml(String(name))}</div>`
         : `<div class="fw-bold mb-2 text-muted">Unnamed waterway</div>`;
 
+    return wrapPopup(title, rows);
+}
+
+// NHD waterbody FTYPE codes → human labels (subset relevant to fishing)
+const WATERBODY_FTYPE_LABELS = {
+    390: 'Lake/Pond',
+    436: 'Reservoir',
+    361: 'Playa',
+    378: 'Ice mass',
+    466: 'Swamp/Marsh'
+};
+
+const AREA_FTYPE_LABELS = {
+    460: 'Stream/River',
+    537: 'Sea/Ocean',
+    312: 'Bay/Inlet',
+    445: 'Rapids',
+    487: 'Wash'
+};
+
+function waterbodyPopupHtml(feature, isArea) {
+    const p = feature.properties || {};
+    const name = p.gnis_name || null;
+
+    const ftypeLabels = isArea ? AREA_FTYPE_LABELS : WATERBODY_FTYPE_LABELS;
+    const typeLabel = ftypeLabels[p.ftype] || (p.ftype != null ? `FTYPE ${p.ftype}` : null);
+
+    const rows = [];
+
+    if (typeLabel) rows.push(['Type', typeLabel]);
+
+    const areaKm = fmtNumber(p.areasqkm, 3);
+    if (areaKm !== null) {
+        const km = Number(areaKm);
+        const acres = (km * 247.105).toFixed(0);
+        rows.push(['Area', `${areaKm} km² (${acres} acres)`]);
+    }
+
+    const elev = fmtNumber(p.elevation, 0);
+    if (elev !== null) {
+        const ft = (Number(elev) * 3.28084).toFixed(0);
+        rows.push(['Elevation', `${elev} m (${ft} ft)`]);
+    }
+
+    if (p.purpcode) {
+        rows.push(['Purpose', p.purpcode]);
+    }
+    if (p.reachcode) {
+        rows.push(['Reach code', p.reachcode]);
+    }
+    if (p.gnis_id) {
+        rows.push(['GNIS ID', p.gnis_id]);
+    }
+
+    const title = name
+        ? `<div class="fw-bold mb-2">${escapeHtml(String(name))}</div>`
+        : `<div class="fw-bold mb-2 text-muted">Unnamed ${isArea ? 'water' : 'lake'}</div>`;
+
+    return wrapPopup(title, rows);
+}
+
+function wrapPopup(title, rows) {
     const body = rows.map(([k, v]) =>
         `<div class="small d-flex justify-content-between gap-3">` +
         `<span class="text-muted">${escapeHtml(String(k))}</span>` +
         `<span><code>${escapeHtml(String(v))}</code></span>` +
         `</div>`
     ).join('');
-
     return `<div class="hydro-popup" style="min-width: 220px;">${title}${body}</div>`;
+}
+
+function hydroPopupHtml(feature) {
+    const kind = featureKind(feature);
+    if (kind === 'stream') return streamPopupHtml(feature);
+    if (kind === 'area')   return waterbodyPopupHtml(feature, true);
+    return waterbodyPopupHtml(feature, false);
 }
 
 function openHydroPopup(feature, lngLat) {
@@ -502,8 +673,10 @@ function wireHydroInteractions() {
             }
             return;
         }
+        // Dedupe by gnis_id (works for both streams and lakes since both
+        // have it). Fall back to geometry hash for anything unnamed.
         const key = feat.properties.gnis_id ||
-                    JSON.stringify(feat.geometry?.coordinates?.[0] || []);
+                    (feat.layer.id + ':' + JSON.stringify(feat.geometry?.coordinates?.[0] || []));
         if (key !== lastHoveredKey) {
             setHoveredHydro(feat);
             lastHoveredKey = key;
@@ -513,6 +686,7 @@ function wireHydroInteractions() {
 
     map.on('click', (e) => {
         if (state.queryMode) return;
+        // Don't hijack clicks on observation pins
         if (map.getLayer('observations-layer')) {
             const obsHit = map.queryRenderedFeatures(e.point, {
                 layers: ['observations-layer']
