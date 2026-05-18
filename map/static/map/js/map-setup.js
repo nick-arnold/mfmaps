@@ -77,7 +77,8 @@ function addSourcesAndLayers() {
 
     map.addSource('nhd', {
         type: 'vector',
-        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
+        //url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
     });
 
     map.addSource('nhd-hover',    { type: 'geojson', data: empty });
