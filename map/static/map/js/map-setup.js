@@ -77,7 +77,6 @@ function addSourcesAndLayers() {
 
     map.addSource('nhd', {
         type: 'vector',
-        //url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/oregon_hydro.pmtiles'
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
     });
 
@@ -113,7 +112,7 @@ function addSourcesAndLayers() {
         'text-halo-blur': 0.5
     };
 
-    // --- 1. Line hover halo (UNDER, glows behind stream) --------------
+    // --- 1. Line hover halo -------------------------------------------
     map.addLayer({
         id: 'nhd-hover-halo',
         type: 'line',
@@ -228,7 +227,7 @@ function addSourcesAndLayers() {
         paint: { 'line-color': SELECTED_COLOR, 'line-width': 3, 'line-opacity': 1.0 }
     });
 
-    // --- 8. Stream labels - large (Strahler 6+) -----------------------
+    // --- 8. Stream labels - large -------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-large',
         type: 'symbol',
@@ -243,7 +242,7 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     });
 
-    // --- 9. Stream labels - medium (Strahler 4-5) ---------------------
+    // --- 9. Stream labels - medium ------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-medium',
         type: 'symbol',
@@ -262,7 +261,7 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     });
 
-    // --- 10. Stream labels - small (Strahler 1-3) ---------------------
+    // --- 10. Stream labels - small ------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-small',
         type: 'symbol',
@@ -409,9 +408,11 @@ function addSourcesAndLayers() {
 
 // --- Hydrography interactions: hover + click select + popup --------------
 
+// Removed nhd-areas-fill — those polygons span multiple drainages and clicking
+// them was producing confusing selections. Click passes through to whatever
+// stream is underneath instead.
 const HYDRO_INTERACTIVE_LAYERS = [
     'nhd-waterbodies-fill',
-    'nhd-areas-fill',
     'nhd-streams'
 ];
 
@@ -452,10 +453,10 @@ function setSelectedHydro(featureOrArray) {
 
 function clearSelectedHydro() { setSelectedHydro(null); }
 
-// Find every feature with this gnis_id in the same source-layer, so the
-// highlight covers the whole logical river / lake even if it exists as
-// multiple separate features (whether due to tile fragmentation or because
-// the source data has multiple polygons/segments sharing a gnis_id).
+// Find every feature with this gnis_id in the same source-layer. For polygon
+// layers, union the matched geometries with Turf so the highlight renders as
+// one unified shape with one label (instead of N separate fragments each
+// getting their own label placement).
 function findAllFragments(clickedFeature) {
     const map = state.map;
     const gnisId = clickedFeature.properties?.gnis_id;
@@ -468,14 +469,32 @@ function findAllFragments(clickedFeature) {
     else if (layerId === 'nhd-areas-fill') sourceLayer = 'areas';
     else return [clickedFeature];
 
-    // querySourceFeatures returns every feature in loaded tiles matching the
-    // filter. Use a string comparison since gnis_id is stored as a string.
     const matches = map.querySourceFeatures('nhd', {
         sourceLayer,
         filter: ['==', ['get', 'gnis_id'], gnisId]
     });
 
-    return matches.length ? matches : [clickedFeature];
+    if (!matches.length) return [clickedFeature];
+
+    // Polygon layers: union into single feature so we get one label / one
+    // continuous outline. Lines: keep all fragments — line highlight benefits
+    // from per-tile precision.
+    const isPolygonLayer = (sourceLayer === 'waterbodies' || sourceLayer === 'areas');
+    if (isPolygonLayer && matches.length > 1 && typeof turf !== 'undefined') {
+        try {
+            const fc = turf.featureCollection(matches);
+            const unioned = turf.union(fc);
+            if (unioned) {
+                unioned.properties = { ...matches[0].properties };
+                return [unioned];
+            }
+        } catch (err) {
+            // Union can fail on invalid geometries — fall back to fragments
+            console.warn('Polygon union failed, falling back to fragments:', err);
+        }
+    }
+
+    return matches;
 }
 
 function fmtNumber(v, digits) {
@@ -621,6 +640,7 @@ function wireHydroInteractions() {
         const key = feat.properties.gnis_id ||
                     (feat.layer.id + ':' + JSON.stringify(feat.geometry?.coordinates?.[0] || []));
         if (key !== lastHoveredKey) {
+            // Hover uses findAllFragments too so the entire river/lake glows
             setHoveredHydro(findAllFragments(feat));
             lastHoveredKey = key;
             map.getCanvas().style.cursor = 'pointer';
@@ -639,14 +659,13 @@ function wireHydroInteractions() {
             clearSelectedHydro();
             return;
         }
-        // Highlight every feature with the same gnis_id, not just the clicked one
         setSelectedHydro(findAllFragments(feat));
         openHydroPopup(feat, e.lngLat);
     });
 }
 
 // =============================================================================
-// Crosshair pick mode — used by the New Observation flow
+// Crosshair pick mode
 // =============================================================================
 
 let crosshairResolver = null;
