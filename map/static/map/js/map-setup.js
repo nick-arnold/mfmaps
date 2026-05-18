@@ -781,7 +781,7 @@ export function initQueryMode() {
         if (!state.queryMode) return;
         const queryable = [
             'observations-layer', 'h3-hexes-fill',
-            'nhd-streams', 'nhd-waterbodies-fill', 'nhd-areas-fill'
+            'nhd-streams', 'nhd-waterbodies-fill'
         ].filter(id => state.map.getLayer(id));
         const features = state.map.queryRenderedFeatures(e.point, { layers: queryable });
         const resultEl = document.getElementById('queryResult');
