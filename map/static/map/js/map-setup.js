@@ -107,21 +107,22 @@ function addSourcesAndLayers() {
                 'hillshade-exaggeration': 0.5
             }
         });
-        // --- Terrain edge mask: hides hillshade outside US data coverage ---
-        map.addSource('us-mask', {
-            type: 'vector',
-            url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/masks/us_mask.pmtiles'
-        });
-        map.addLayer({
-            id: 'us-mask-fill',
-            type: 'fill',
-            source: 'us-mask',
-            'source-layer': 'mask',
-            paint: {
-                'fill-color': '#a9d3e0',
-                'fill-opacity': 1
-            }
-        });
+    });
+
+    // --- Terrain edge mask: hides hillshade outside US data coverage ---
+    map.addSource('us-mask', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/masks/us_mask.pmtiles'
+    });
+    map.addLayer({
+        id: 'us-mask-fill',
+        type: 'fill',
+        source: 'us-mask',
+        'source-layer': 'mask',
+        paint: {
+            'fill-color': '#a9d3e0',
+            'fill-opacity': 1
+        }
     });
 
     map.addSource('nhd', {
