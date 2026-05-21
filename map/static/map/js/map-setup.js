@@ -75,6 +75,40 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
+    // --- Terrain hillshade (CONUS) ------------------------------------
+    // Four resolution tiers, each scoped to the zoom range it was encoded for.
+    const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
+
+    const terrainTiers = [
+        { id: 'terrain-z3-4',   file: 'conus_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
+        { id: 'terrain-z5-7',   file: 'conus_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
+        { id: 'terrain-z8-10',  file: 'conus_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
+        { id: 'terrain-z11-12', file: 'conus_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
+    ];
+
+    terrainTiers.forEach(tier => {
+        map.addSource(tier.id, {
+            type: 'raster-dem',
+            url: `pmtiles://${TERRAIN_BASE}/${tier.file}`,
+            encoding: 'mapbox',
+            tileSize: 512
+        });
+        map.addLayer({
+            id: `${tier.id}-hillshade`,
+            type: 'hillshade',
+            source: tier.id,
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            paint: {
+                'hillshade-method': 'combined',
+                'hillshade-shadow-color': '#3a2a18',
+                'hillshade-highlight-color': 'rgba(0,0,0,0)',
+                'hillshade-accent-color': 'rgba(0,0,0,0)',
+                'hillshade-exaggeration': 0.5
+            }
+        });
+    });
+
     map.addSource('nhd', {
         type: 'vector',
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'

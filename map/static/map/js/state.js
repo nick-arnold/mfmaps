@@ -25,6 +25,12 @@ export const state = {
 export const LAYER_IDS = {
     'observations': ['observations-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
+    terrain: [
+        'terrain-z3-4-hillshade',
+        'terrain-z5-7-hillshade',
+        'terrain-z8-10-hillshade',
+        'terrain-z11-12-hillshade'
+    ],
     'hydrography': [
         'nhd-streams',
         'nhd-streams-label-large',
