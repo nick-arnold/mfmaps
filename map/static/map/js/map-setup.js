@@ -479,6 +479,16 @@ function queryNearbyHydroFeature(point) {
     return feats[0];
 }
 
+// MapLibre v5 rejects non-plain feature objects (and turf's class-y output)
+// when passed to geojson setData. Deep-clone to plain GeoJSON first.
+function toPlainFeature(f) {
+    return {
+        type: 'Feature',
+        geometry: JSON.parse(JSON.stringify(f.geometry)),
+        properties: f.properties ? { ...f.properties } : {}
+    };
+}
+
 function setHoveredHydro(featureOrArray) {
     const src = state.map.getSource('nhd-hover');
     if (!src) return;
@@ -486,7 +496,8 @@ function setHoveredHydro(featureOrArray) {
         src.setData({ type: 'FeatureCollection', features: [] });
         return;
     }
-    const features = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    const arr = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    const features = arr.map(toPlainFeature);
     src.setData({ type: 'FeatureCollection', features });
 }
 
@@ -497,7 +508,8 @@ function setSelectedHydro(featureOrArray) {
         src.setData({ type: 'FeatureCollection', features: [] });
         return;
     }
-    const features = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    const arr = Array.isArray(featureOrArray) ? featureOrArray : [featureOrArray];
+    const features = arr.map(toPlainFeature);
     src.setData({ type: 'FeatureCollection', features });
 }
 
