@@ -104,7 +104,7 @@ function addSourcesAndLayers() {
                 'hillshade-shadow-color': '#3a2a18',
                 'hillshade-highlight-color': 'rgba(0,0,0,0)',
                 'hillshade-accent-color': 'rgba(0,0,0,0)',
-                'hillshade-exaggeration': 0.5
+                'hillshade-exaggeration': 0.35
             }
         });
     });
