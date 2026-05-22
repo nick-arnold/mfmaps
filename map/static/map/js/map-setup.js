@@ -87,7 +87,11 @@ function addSourcesAndLayers() {
         { id: 'alaska-z3-4',   file: 'alaska_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
         { id: 'alaska-z5-7',   file: 'alaska_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
         { id: 'alaska-z8-10',  file: 'alaska_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
-        { id: 'alaska-z11-12', file: 'alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
+        { id: 'alaska-z11-12', file: 'alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 15 },
+        { id: 'hawaii-z3-4',   file: 'hawaii_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
+        { id: 'hawaii-z5-7',   file: 'hawaii_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
+        { id: 'hawaii-z8-10',  file: 'hawaii_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
+        { id: 'hawaii-z11-12', file: 'hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
     ];
 
     terrainTiers.forEach(tier => {
