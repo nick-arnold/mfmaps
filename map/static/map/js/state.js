@@ -29,7 +29,15 @@ export const LAYER_IDS = {
         'terrain-z3-4-hillshade',
         'terrain-z5-7-hillshade',
         'terrain-z8-10-hillshade',
-        'terrain-z11-12-hillshade'
+        'terrain-z11-12-hillshade',
+        'alaska-z3-4-hillshade',
+        'alaska-z5-7-hillshade',
+        'alaska-z8-10-hillshade',
+        'alaska-z11-12-hillshade',
+        'hawaii-z3-4-hillshade',
+        'hawaii-z5-7-hillshade',
+        'hawaii-z8-10-hillshade',
+        'hawaii-z11-12-hillshade'
     ],
     'hydrography': [
         'nhd-streams',
