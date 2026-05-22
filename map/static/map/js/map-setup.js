@@ -36,6 +36,10 @@ const LABEL_FONT     = ['Noto Sans Italic'];
 const HOVER_COLOR    = '#ffb300';
 const SELECTED_COLOR = '#ff7a1a';
 
+// Contour palette (shared across all region/zoom tiers)
+const CONTOUR_INTERMEDIATE_COLOR = '#9a7b4f';
+const CONTOUR_INDEX_COLOR        = '#7a5f3a';
+
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
@@ -133,40 +137,77 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- Contours (z13+ detail tier, 50ft / 250ft index) --------------
-    map.addSource('contours', {
-        type: 'vector',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours/hawaii_contour_50ft_z13.pmtiles'
-    });
+    // --- Contours (per-region, per-zoom tiers) ------------------------
+    // Each region has single-zoom tiers; the contour interval coarsens as you
+    // zoom out so dense terrain stays readable. Files follow the convention
+    //   {region}_contour_{interval}_{zoom}.pmtiles
+    // matching the per-region hillshade pattern above. Tiers whose files are
+    // not yet uploaded simply won't render — adding them later is just an
+    // upload, no code change.
+    //
+    // Zoom ladder (interval / index):
+    //   z13+  50ft / 250ft   (10m DEM)  -- detail floor, overzooms to 15
+    //   z12  100ft / 500ft   (10m DEM)
+    //   z11  150ft / 750ft   (30m DEM)
+    //   z10  250ft / 1000ft  (30m DEM)
+    //   z9   500ft / 2500ft  (100m DEM)
+    //   z8   750ft / 3000ft  (100m DEM)
+    const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
+    const CONTOUR_REGIONS = ['hawaii', 'alaska', 'conus'];
 
-    // Intermediate lines (thin) — idx = 0
-    map.addLayer({
-        id: 'contour-intermediate',
-        type: 'line',
-        source: 'contours',
-        'source-layer': 'contours',
-        filter: ['==', ['get', 'idx'], 0],
-        minzoom: 13,
-        paint: {
-            'line-color': '#9a7b4f',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 15, 0.9],
-            'line-opacity': 0.5
-        }
-    });
+    // Each tier owns one zoom level. The z13 detail tier overzooms upward
+    // (maxzoom 15) so it keeps rendering as the user zooms past 13.
+    const CONTOUR_TIERS = [
+        { interval: '750ft', zoom: 8,  minzoom: 8,  maxzoom: 9,  wIntermediate: 0.4, wIndex: 0.9 },
+        { interval: '500ft', zoom: 9,  minzoom: 9,  maxzoom: 10, wIntermediate: 0.4, wIndex: 0.9 },
+        { interval: '250ft', zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.4, wIndex: 1.0 },
+        { interval: '150ft', zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.4, wIndex: 1.1 },
+        { interval: '100ft', zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.4, wIndex: 1.2 },
+        { interval: '50ft',  zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.5, wIndex: 1.4 }
+    ];
 
-    // Index lines (thick) — idx = 1
-    map.addLayer({
-        id: 'contour-index',
-        type: 'line',
-        source: 'contours',
-        'source-layer': 'contours',
-        filter: ['==', ['get', 'idx'], 1],
-        minzoom: 13,
-        paint: {
-            'line-color': '#7a5f3a',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.9, 15, 1.8],
-            'line-opacity': 0.7
-        }
+    CONTOUR_REGIONS.forEach(region => {
+        CONTOUR_TIERS.forEach(tier => {
+            const srcId = `contours-${region}-z${tier.zoom}`;
+            const file  = `${region}_contour_${tier.interval}_z${tier.zoom}.pmtiles`;
+
+            map.addSource(srcId, {
+                type: 'vector',
+                url: `pmtiles://${CONTOUR_BASE}/${file}`
+            });
+
+            // Intermediate lines (thin) — idx = 0
+            map.addLayer({
+                id: `contour-intermediate-${region}-z${tier.zoom}`,
+                type: 'line',
+                source: srcId,
+                'source-layer': 'contours',
+                filter: ['==', ['get', 'idx'], 0],
+                minzoom: tier.minzoom,
+                maxzoom: tier.maxzoom,
+                paint: {
+                    'line-color': CONTOUR_INTERMEDIATE_COLOR,
+                    'line-width': tier.wIntermediate,
+                    'line-opacity': 0.5
+                }
+            });
+
+            // Index lines (thick) — idx = 1
+            map.addLayer({
+                id: `contour-index-${region}-z${tier.zoom}`,
+                type: 'line',
+                source: srcId,
+                'source-layer': 'contours',
+                filter: ['==', ['get', 'idx'], 1],
+                minzoom: tier.minzoom,
+                maxzoom: tier.maxzoom,
+                paint: {
+                    'line-color': CONTOUR_INDEX_COLOR,
+                    'line-width': tier.wIndex,
+                    'line-opacity': 0.7
+                }
+            });
+        });
     });
 
     map.addSource('nhd', {
