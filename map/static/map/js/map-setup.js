@@ -133,6 +133,42 @@ function addSourcesAndLayers() {
         }
     });
 
+    // --- Contours (Hawaii proof tier, z11+) ---------------------------
+    map.addSource('contours', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours/hawaii_contour_z11.pmtiles'
+    });
+
+    // Intermediate lines (thin) — idx = 0
+    map.addLayer({
+        id: 'contour-intermediate',
+        type: 'line',
+        source: 'contours',
+        'source-layer': 'contours',
+        filter: ['==', ['get', 'idx'], 0],
+        minzoom: 11,
+        paint: {
+            'line-color': '#9a7b4f',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.4, 14, 0.8],
+            'line-opacity': 0.5
+        }
+    });
+
+    // Index lines (thick) — idx = 1
+    map.addLayer({
+        id: 'contour-index',
+        type: 'line',
+        source: 'contours',
+        'source-layer': 'contours',
+        filter: ['==', ['get', 'idx'], 1],
+        minzoom: 11,
+        paint: {
+            'line-color': '#7a5f3a',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.9, 14, 1.6],
+            'line-opacity': 0.7
+        }
+    });
+
     map.addSource('nhd', {
         type: 'vector',
         url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
