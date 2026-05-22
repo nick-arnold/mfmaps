@@ -133,10 +133,10 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- Contours (Hawaii proof tier, z11+) ---------------------------
+    // --- Contours (z13+ detail tier, 50ft / 250ft index) --------------
     map.addSource('contours', {
         type: 'vector',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours/hawaii_contour_z11.pmtiles'
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours/hawaii_contour_50ft_z13.pmtiles'
     });
 
     // Intermediate lines (thin) — idx = 0
@@ -146,10 +146,10 @@ function addSourcesAndLayers() {
         source: 'contours',
         'source-layer': 'contours',
         filter: ['==', ['get', 'idx'], 0],
-        minzoom: 11,
+        minzoom: 13,
         paint: {
             'line-color': '#9a7b4f',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.4, 14, 0.8],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.4, 15, 0.9],
             'line-opacity': 0.5
         }
     });
@@ -161,10 +161,10 @@ function addSourcesAndLayers() {
         source: 'contours',
         'source-layer': 'contours',
         filter: ['==', ['get', 'idx'], 1],
-        minzoom: 11,
+        minzoom: 13,
         paint: {
             'line-color': '#7a5f3a',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.9, 14, 1.6],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.9, 15, 1.8],
             'line-opacity': 0.7
         }
     });
