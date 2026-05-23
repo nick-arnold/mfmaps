@@ -153,23 +153,26 @@ function addSourcesAndLayers() {
     //   z9   500ft / 2500ft  (100m DEM)
     //   z8   750ft / 3000ft  (100m DEM)
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
-    const CONTOUR_REGIONS = ['hawaii', 'alaska', 'conus'];
+    const CONTOUR_REGION_INTERVALS = {
+        hawaii: { 8: '750ft', 9: '500ft', 10: '250ft', 11: '150ft', 12: '100ft', 13: '50ft' },
+        alaska: { 8: '1000ft', 9: '500ft', 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' },
+        conus:  { 8: '750ft', 9: '500ft', 10: '250ft', 11: '150ft', 12: '100ft', 13: '50ft' }
+    };
 
-    // Each tier owns one zoom level. The z13 detail tier overzooms upward
-    // (maxzoom 15) so it keeps rendering as the user zooms past 13.
-    const CONTOUR_TIERS = [
-        { interval: '750ft', zoom: 8,  minzoom: 8,  maxzoom: 9,  wIntermediate: 0.4, wIndex: 0.9 },
-        { interval: '500ft', zoom: 9,  minzoom: 9,  maxzoom: 10, wIntermediate: 0.4, wIndex: 0.9 },
-        { interval: '250ft', zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.4, wIndex: 1.0 },
-        { interval: '150ft', zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.4, wIndex: 1.1 },
-        { interval: '100ft', zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.4, wIndex: 1.2 },
-        { interval: '50ft',  zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.5, wIndex: 1.4 }
+    const CONTOUR_ZOOM_TIERS = [
+        { zoom: 8,  minzoom: 8,  maxzoom: 9,  wIntermediate: 0.4, wIndex: 0.9 },
+        { zoom: 9,  minzoom: 9,  maxzoom: 10, wIntermediate: 0.4, wIndex: 0.9 },
+        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.4, wIndex: 1.0 },
+        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.4, wIndex: 1.1 },
+        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.4, wIndex: 1.2 },
+        { zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.5, wIndex: 1.4 }
     ];
 
-    CONTOUR_REGIONS.forEach(region => {
-        CONTOUR_TIERS.forEach(tier => {
+    Object.keys(CONTOUR_REGION_INTERVALS).forEach(region => {
+        CONTOUR_ZOOM_TIERS.forEach(tier => {
+            const interval = CONTOUR_REGION_INTERVALS[region][tier.zoom];
             const srcId = `contours-${region}-z${tier.zoom}`;
-            const file  = `${region}_contour_${tier.interval}_z${tier.zoom}.pmtiles`;
+            const file  = `${region}_contour_${interval}_z${tier.zoom}.pmtiles`;
 
             map.addSource(srcId, {
                 type: 'vector',
