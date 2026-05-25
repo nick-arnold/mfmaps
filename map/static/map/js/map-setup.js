@@ -160,12 +160,12 @@ function addSourcesAndLayers() {
     };
 
     const CONTOUR_ZOOM_TIERS = [
-        { zoom: 8,  minzoom: 8,  maxzoom: 9,  wIntermediate: 0.4, wIndex: 0.9 },
-        { zoom: 9,  minzoom: 9,  maxzoom: 10, wIntermediate: 0.4, wIndex: 0.9 },
-        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.4, wIndex: 1.0 },
-        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.4, wIndex: 1.1 },
-        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.4, wIndex: 1.2 },
-        { zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.5, wIndex: 1.4 }
+        { zoom: 8,  minzoom: 8,  maxzoom: 9,  wIntermediate: 0.6, wIndex: 1.0 },
+        { zoom: 9,  minzoom: 9,  maxzoom: 10, wIntermediate: 0.6, wIndex: 1.0 },
+        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
+        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
+        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
+        { zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.8, wIndex: 1.2 }
     ];
 
     Object.keys(CONTOUR_REGION_INTERVALS).forEach(region => {
