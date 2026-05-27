@@ -63,6 +63,13 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
+    // Anchor for inserting our terrain layers into Bright's stack.
+    // Everything inserted before this id renders beneath Bright's transportation,
+    // railway, bridge, label, and POI layers — but on top of Bright's landcover,
+    // landuse, water, and buildings. That places hillshade and contours where
+    // they cartographically belong: above the fills, below the lines.
+    const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
+
     // --- Terrain hillshade (CONUS) ------------------------------------
     // Four resolution tiers, each scoped to the zoom range it was encoded for.
     const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
@@ -102,7 +109,7 @@ function addSourcesAndLayers() {
                 'hillshade-accent-color': 'rgba(0,0,0,0)',
                 'hillshade-exaggeration': 0.35
             }
-        });
+        }, BASEMAP_LINE_ANCHOR);
     });
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
@@ -177,7 +184,7 @@ function addSourcesAndLayers() {
                     'line-width': tier.wIntermediate,
                     'line-opacity': 0.5
                 }
-            });
+            }, BASEMAP_LINE_ANCHOR);
 
             // Index lines (thick) — idx = 1
             map.addLayer({
@@ -193,7 +200,7 @@ function addSourcesAndLayers() {
                     'line-width': tier.wIndex,
                     'line-opacity': 0.7
                 }
-            });
+            }, BASEMAP_LINE_ANCHOR);
         });
     });
 
