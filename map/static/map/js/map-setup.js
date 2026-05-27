@@ -35,7 +35,7 @@ export function initMap() {
 
     state.map = new maplibregl.Map({
         container: 'map',
-        style: '/static/map/styles/positron-mfmaps.json',
+        style: '/static/map/styles/bright-mfmaps.json',
         bounds: US_BOUNDS,
         fitBoundsOptions: { padding: 40 }
     });

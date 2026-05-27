@@ -24,11 +24,11 @@
   "sources": {
     "openmaptiles": {
       "type": "vector",
-      "url": "https://api.maptiler.com/tiles/v3-openmaptiles/tiles.json?key={key}"
+      "url": "pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/basemap/north-america-20260524.pmtiles"
     }
   },
   "sprite": "https://openmaptiles.github.io/osm-bright-gl-style/sprite",
-  "glyphs": "https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key={key}",
+  "glyphs": "https://tiles.openstreetmap.us/fonts/{fontstack}/{range}.pbf",
   "layers": [
     {
       "id": "background",
