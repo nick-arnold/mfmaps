@@ -1086,29 +1086,6 @@
       }
     },
     {
-      "id": "mfmaps-path-casing",
-      "type": "line",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "minzoom": 9,
-      "filter": [
-        "all",
-        ["==", "$type", "LineString"],
-        ["!in", "brunnel", "bridge", "tunnel"],
-        ["==", "class", "path"],
-        ["!=", "subclass", "steps"]
-      ],
-      "layout": {"line-join": "round", "line-cap": "round"},
-      "paint": {
-        "line-color": "#faf7f0",
-        "line-width": {
-          "base": 1.4,
-          "stops": [[9, 1.5], [12, 2.5], [15, 4.0], [18, 6.5]]
-        },
-        "line-opacity": 0.85
-      }
-    },
-    {
       "id": "mfmaps-path",
       "type": "line",
       "source": "openmaptiles",
