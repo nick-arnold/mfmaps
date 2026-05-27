@@ -10,23 +10,7 @@ const US_BOUNDS = [
     [-66.5, 49.5]
 ];
 
-const OSM_STYLE = {
-    version: 8,
-    glyphs: 'https://tiles.openstreetmap.us/fonts/{fontstack}/{range}.pbf',
-    sources: {
-        'osm-raster': {
-            type: 'raster',
-            tiles: [
-                'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-            ],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
-        }
-    },
-    layers: [{ id: 'osm-base', type: 'raster', source: 'osm-raster' }]
-};
+
 
 // Shared color palette
 const STREAM_COLOR   = '#2e6f96';
@@ -51,7 +35,7 @@ export function initMap() {
 
     state.map = new maplibregl.Map({
         container: 'map',
-        style: OSM_STYLE,
+        style: '/static/map/styles/positron-mfmaps.json',
         bounds: US_BOUNDS,
         fitBoundsOptions: { padding: 40 }
     });
