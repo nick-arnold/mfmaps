@@ -104,7 +104,7 @@ function addSourcesAndLayers() {
             }
         });
     });
-
+/*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
     map.addSource('us-mask', {
         type: 'vector',
@@ -120,7 +120,7 @@ function addSourcesAndLayers() {
             'fill-opacity': 1
         }
     });
-
+*/
     // --- Contours (per-region, per-zoom tiers) ------------------------
     // Each region has single-zoom tiers; the contour interval coarsens as you
     // zoom out so dense terrain stays readable. Files follow the convention
