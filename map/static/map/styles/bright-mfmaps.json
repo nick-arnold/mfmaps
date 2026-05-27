@@ -1142,12 +1142,12 @@
       ],
       "layout": {"line-join": "round", "line-cap": "butt"},
       "paint": {
-        "line-color": "#4a7c3a",
+        "line-color": "#1f6b3a",
         "line-width": {
           "base": 1.4,
-          "stops": [[9, 1.0], [12, 1.8], [15, 3.0], [18, 5.0]]
+          "stops": [[9, 1.2], [12, 2.0], [15, 3.5], [18, 5.5]]
         },
-        "line-dasharray": [2, 2],
+        "line-dasharray": [1.5, 1.5],
         "line-opacity": 1.0
       }
     },
