@@ -899,6 +899,13 @@ export function wireFabs(onAddObservation) {
 }
 
 // --- Query mode -----------------------------------------------------------
+//
+// Click anywhere on the map (with query mode active) and get every rendered
+// feature at that point, grouped by style-layer id. Each group is a
+// collapsible <details> block — click the layer header to expand and see the
+// source-layer + properties for each feature in that group. Useful for
+// styling work: click a trail, see exactly which OMT source-layer and
+// class/subclass it has, then go write the filter in the style JSON.
 
 export function initQueryMode() {
     const btn = document.getElementById('fabQuery');
@@ -913,21 +920,45 @@ export function initQueryMode() {
 
     state.map.on('click', (e) => {
         if (!state.queryMode) return;
-        const queryable = [
-            'observations-layer', 'h3-hexes-fill',
-            'nhd-streams', 'nhd-waterbodies-fill'
-        ].filter(id => state.map.getLayer(id));
-        const features = state.map.queryRenderedFeatures(e.point, { layers: queryable });
+
+        // Unfiltered: every rendered feature at this point, across every layer
+        const features = state.map.queryRenderedFeatures(e.point);
+
         const resultEl = document.getElementById('queryResult');
         const bodyEl = document.getElementById('queryResultBody');
+
         if (features.length === 0) {
             bodyEl.innerHTML = '<em class="text-muted">No features at this location.</em>';
         } else {
-            bodyEl.innerHTML = features.map(f => {
-                const props = JSON.stringify(f.properties, null, 2);
-                return `<div class="mb-2"><strong>${f.layer.id}</strong>` +
-                       `<pre class="small mb-0">${escapeHtml(props)}</pre></div>`;
-            }).join('');
+            // Group by style-layer id, preserving first-seen order
+            const groups = new Map();
+            for (const f of features) {
+                const key = f.layer.id;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(f);
+            }
+
+            const blocks = [];
+            for (const [layerId, feats] of groups) {
+                const items = feats.map(f => {
+                    const props = JSON.stringify(f.properties, null, 2);
+                    const src = f.sourceLayer
+                        ? `<div class="small text-muted">source-layer: <code>${escapeHtml(f.sourceLayer)}</code></div>`
+                        : '';
+                    return `<div class="mb-2">${src}<pre class="small mb-0">${escapeHtml(props)}</pre></div>`;
+                }).join('');
+
+                blocks.push(
+                    `<details class="mb-2">` +
+                    `<summary class="fw-semibold" style="cursor: pointer;">` +
+                    `${escapeHtml(layerId)} ` +
+                    `<span class="text-muted small">(${feats.length})</span>` +
+                    `</summary>` +
+                    `<div class="ps-2 mt-1">${items}</div>` +
+                    `</details>`
+                );
+            }
+            bodyEl.innerHTML = blocks.join('');
         }
         resultEl.classList.remove('d-none');
     });
