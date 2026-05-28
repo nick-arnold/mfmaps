@@ -167,6 +167,10 @@ body {
 
 .fab-primary:hover { background: #244526; border-color: #244526; }
 
+#fabCompass i {
+    transition: transform 0.1s ease-out;
+    transform-origin: center;
+}
 
 
 /* ============================================================

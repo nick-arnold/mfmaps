@@ -47,6 +47,11 @@ export function initMap() {
     });
     state.map.addControl(state.geolocate, 'top-right');
     state.map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+    state.map.addControl(new maplibregl.NavigationControl({
+        showCompass: true,
+        showZoom: false,
+        visualizePitch: true
+    }), 'bottom-right');
 
     return new Promise((resolve) => {
         state.map.on('load', () => {
@@ -903,6 +908,18 @@ export function wireFabs(onAddObservation) {
         state.geolocate.trigger();
     });
     document.getElementById('fabPrimary').addEventListener('click', onAddObservation);
+
+    // Compass: click resets bearing to north; icon rotates as map rotates
+    const compassBtn = document.getElementById('fabCompass');
+    const compassIcon = compassBtn.querySelector('i');
+    compassBtn.addEventListener('click', () => {
+        state.map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
+    });
+    state.map.on('rotate', () => {
+        // The compass icon points "up" (north). When the map's bearing rotates,
+        // we counter-rotate the icon so it keeps pointing to actual north.
+        compassIcon.style.transform = `rotate(${-state.map.getBearing()}deg)`;
+    });
 }
 
 // --- Query mode -----------------------------------------------------------
