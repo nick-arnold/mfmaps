@@ -78,7 +78,7 @@ export function initMap() {
 
     const mapOpts = {
         container: 'map',
-        style: '/static/map/styles/bright-mfmaps.json',
+        style: window.MFMAPS_STYLE_URL || '/static/map/styles/bright-mfmaps.json',
     };
 
     if (hashState) {

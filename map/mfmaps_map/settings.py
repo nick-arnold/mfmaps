@@ -140,6 +140,8 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+
+
 # --- Sites framework ---
 SITE_ID = 1
 
