@@ -255,6 +255,33 @@ function addSourcesAndLayers() {
             }, BASEMAP_LINE_ANCHOR);
         });
     });
+    
+    // --- Trails (OSM path family, extracted to dedicated PMTiles) ----
+    // Data floors at z11 by build (tippecanoe --minimum-zoom=11). Source-layer
+    // is named 'trails', containing highway=path/track/footway/bridleway/
+    // cycleway/steps. No class/subclass filter needed — the tileset is
+    // already only trails by construction.
+    map.addSource('trails', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/trails/trails-na-20260524.pmtiles'
+    });
+
+    map.addLayer({
+        id: 'trails-line',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        layout: { 'line-join': 'round', 'line-cap': 'butt' },
+        paint: {
+            'line-color': '#1f6b3a',
+            'line-width': [
+                'interpolate', ['exponential', 1.4], ['zoom'],
+                11, 1.2, 12, 2.0, 15, 3.5, 18, 5.5
+            ],
+            'line-dasharray': [1.5, 1.5],
+            'line-opacity': 1.0
+        }
+    }, BASEMAP_LINE_ANCHOR);
 
     map.addSource('nhd', {
         type: 'vector',
