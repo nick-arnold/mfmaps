@@ -24,6 +24,47 @@ const SELECTED_COLOR = '#ff7a1a';
 const CONTOUR_INTERMEDIATE_COLOR = '#9a7b4f';
 const CONTOUR_INDEX_COLOR        = '#7a5f3a';
 
+// --- URL hash <-> map state ----------------------------------------------
+//
+// Format: #z/lat/lng   e.g.  #11.5/44.0531/-122.8642
+// On load, if a valid hash is present the map opens there; otherwise it falls
+// back to US_BOUNDS. As the user pans/zooms, the hash is rewritten on moveend
+// using replaceState (no history spam, back button still leaves the app).
+
+function parseUrlHash() {
+    const h = window.location.hash;
+    if (!h || h.length < 2) return null;
+
+    const parts = h.slice(1).split('/');
+    if (parts.length !== 3) return null;
+
+    const zoom = parseFloat(parts[0]);
+    const lat  = parseFloat(parts[1]);
+    const lng  = parseFloat(parts[2]);
+
+    if (!isFinite(zoom) || !isFinite(lat) || !isFinite(lng)) return null;
+    if (lat < -90 || lat > 90) return null;
+    if (lng < -180 || lng > 180) return null;
+    if (zoom < 0 || zoom > 24) return null;
+
+    return { zoom, lat, lng };
+}
+
+function wireUrlSync() {
+    const update = () => {
+        const c = state.map.getCenter();
+        const z = state.map.getZoom();
+        const hash = `#${z.toFixed(1)}/${c.lat.toFixed(4)}/${c.lng.toFixed(4)}`;
+        // replaceState rather than location.hash assignment: no per-pan history
+        // entry, and no 'hashchange' event firing back at us.
+        window.history.replaceState(null, '', hash);
+    };
+
+    state.map.on('moveend', update);
+    // Write the initial hash so a fresh load immediately has a shareable URL.
+    update();
+}
+
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
@@ -33,12 +74,22 @@ export function initMap() {
         state._pmtilesRegistered = true;
     }
 
-    state.map = new maplibregl.Map({
+    const hashState = parseUrlHash();
+
+    const mapOpts = {
         container: 'map',
         style: '/static/map/styles/bright-mfmaps.json',
-        bounds: US_BOUNDS,
-        fitBoundsOptions: { padding: 40 }
-    });
+    };
+
+    if (hashState) {
+        mapOpts.center = [hashState.lng, hashState.lat]; // MapLibre wants [lng, lat]
+        mapOpts.zoom = hashState.zoom;
+    } else {
+        mapOpts.bounds = US_BOUNDS;
+        mapOpts.fitBoundsOptions = { padding: 40 };
+    }
+
+    state.map = new maplibregl.Map(mapOpts);
 
     state.geolocate = new maplibregl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
@@ -47,16 +98,12 @@ export function initMap() {
     });
     state.map.addControl(state.geolocate, 'top-right');
     state.map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
-    state.map.addControl(new maplibregl.NavigationControl({
-        showCompass: true,
-        showZoom: false,
-        visualizePitch: true
-    }), 'bottom-right');
 
     return new Promise((resolve) => {
         state.map.on('load', () => {
             addSourcesAndLayers();
             wireHydroInteractions();
+            wireUrlSync();
             resolve();
         });
     });
