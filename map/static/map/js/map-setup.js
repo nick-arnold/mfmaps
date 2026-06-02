@@ -508,6 +508,130 @@ function addSourcesAndLayers() {
         }
     });
 
+    // ====================================================================
+    // ALASKA HYDROGRAPHY (separate PMTiles, drainage-area-based styling)
+    // ====================================================================
+    // CONUS uses Strahler order (rank, 1-10). AK has no Strahler in NHD —
+    // we computed drainage area from a DEM flow accumulation instead.
+    // Width expression is log-scaled because drainage area spans 5 orders
+    // of magnitude (headwater ~0.01 km² → Yukon ~477,000 km²).
+    //
+    // Layer names: nhd-ak-*  — referenced by LAYER_IDS.nhd_ak in state.js
+    // and toggled independently via the "Alaska hydrography" switch.
+
+    map.addSource('nhd_ak', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak.pmtiles'
+    });
+
+    // Log10-scaled width by drainage area. max(1, ...) avoids log of 0/null.
+    // log10(1) = 0 (tiny creek), log10(477000) ≈ 5.7 (Yukon mainstem).
+    const widthByDrainage = [
+        'interpolate', ['linear'], ['zoom'],
+        4,  ['*', 0.25, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]],
+        8,  ['*', 0.45, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]],
+        12, ['*', 0.80, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]],
+        16, ['*', 1.40, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]],
+        19, ['*', 2.20, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]]
+    ];
+
+    // --- AK streams ---------------------------------------------------
+    map.addLayer({
+        id: 'nhd-ak-streams',
+        type: 'line',
+        source: 'nhd_ak',
+        'source-layer': 'streams',
+        paint: {
+            'line-color': STREAM_COLOR,
+            'line-width': widthByDrainage,
+            'line-opacity': 0.95
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' }
+    });
+
+    // --- AK waterbodies fill / stroke ---------------------------------
+    map.addLayer({
+        id: 'nhd-ak-waterbodies-fill',
+        type: 'fill',
+        source: 'nhd_ak',
+        'source-layer': 'waterbodies',
+        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
+    });
+    map.addLayer({
+        id: 'nhd-ak-waterbodies-stroke',
+        type: 'line',
+        source: 'nhd_ak',
+        'source-layer': 'waterbodies',
+        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
+    });
+
+    // --- AK stream labels: three tiers, one per pre-simplified source-layer
+    // Each source-layer was simplified at a different tolerance during the
+    // pipeline (0.1° / 0.01° / 0.002°) so labels lay cleanly along the line
+    // at each zoom range.
+    map.addLayer({
+        id: 'nhd-ak-streams-label-high',
+        type: 'symbol',
+        source: 'nhd_ak',
+        'source-layer': 'streams_labels_high',
+        minzoom: 5,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 13, 12, 15]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    map.addLayer({
+        id: 'nhd-ak-streams-label-mid',
+        type: 'symbol',
+        source: 'nhd_ak',
+        'source-layer': 'streams_labels_mid',
+        minzoom: 9,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12, 16, 14]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    map.addLayer({
+        id: 'nhd-ak-streams-label-low',
+        type: 'symbol',
+        source: 'nhd_ak',
+        'source-layer': 'streams_labels_low',
+        minzoom: 12,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 13]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    // --- AK waterbody labels ------------------------------------------
+    map.addLayer({
+        id: 'nhd-ak-waterbodies-label',
+        type: 'symbol',
+        source: 'nhd_ak',
+        'source-layer': 'waterbodies',
+        minzoom: 6,
+        filter: ['has', 'gnis_name'],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15],
+            'text-max-width': 8,
+            'text-letter-spacing': 0.02,
+            'text-padding': 0
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.8,
+            'text-halo-blur': 0.5
+        }
+    });
+
     // --- 12. Selected-feature label (line, for streams) ---------------
     map.addLayer({
         id: 'nhd-selected-label-line',

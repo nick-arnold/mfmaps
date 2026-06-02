@@ -50,6 +50,15 @@ export const LAYER_IDS = {
         'nhd-areas-fill',
         'nhd-areas-stroke'
     ],
+    'nhd_ak': [
+        'nhd-ak-streams',
+        'nhd-ak-waterbodies-fill',
+        'nhd-ak-waterbodies-stroke',
+        'nhd-ak-streams-label-high',
+        'nhd-ak-streams-label-mid',
+        'nhd-ak-streams-label-low',
+        'nhd-ak-waterbodies-label'
+    ],
 };
 
 // H3 resolution for "where am I" + demo aggregation
