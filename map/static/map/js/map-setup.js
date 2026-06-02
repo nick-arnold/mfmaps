@@ -522,7 +522,8 @@ function addSourcesAndLayers() {
     map.addSource('nhd_ak', {
         type: 'vector',
         //url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak.pmtiles'
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v2.pmtiles'
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v3.pmtiles',
+        maxzoom: 13
     });
 
     // Log10-scaled width by drainage area. max(1, ...) avoids log of 0/null.
