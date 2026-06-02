@@ -522,7 +522,7 @@ function addSourcesAndLayers() {
     map.addSource('nhd_ak', {
         type: 'vector',
         //url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak.pmtiles'
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v3.pmtiles',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v4.pmtiles',
         maxzoom: 13
     });
 
