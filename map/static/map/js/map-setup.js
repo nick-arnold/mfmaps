@@ -636,7 +636,123 @@ function addSourcesAndLayers() {
             'text-halo-blur': 0.5
         }
     });
+    // ====================================================================
+    // CONUS+HI HYDROGRAPHY (NHDPlus HR, streamleve-based classification)
+    // ====================================================================
+    // CONUS has full NHDPlus VAA — streamleve, streamorde, arbolatesu,
+    // totdasqkm baked in by USGS. _minzoom cascades follow streamleve.
+    // Width scales by log10(arbolatesu) for smooth visual continuity.
 
+    map.addSource('nhd_conus', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v1.pmtiles',
+        maxzoom: 13
+    });
+
+    // Log10-scaled width by cumulative upstream km (arbolatesu).
+    // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
+    const widthByArbolate = [
+        'interpolate', ['linear'], ['zoom'],
+        3,  ['*', 0.18, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        6,  ['*', 0.30, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        10, ['*', 0.55, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        14, ['*', 1.00, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        19, ['*', 1.80, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]]
+    ];
+
+    // --- CONUS streams ------------------------------------------------
+    map.addLayer({
+        id: 'nhd-conus-streams',
+        type: 'line',
+        source: 'nhd_conus',
+        'source-layer': 'streams',
+        paint: {
+            'line-color': STREAM_COLOR,
+            'line-width': widthByArbolate,
+            'line-opacity': 0.95
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' }
+    });
+
+    // --- CONUS waterbodies fill / stroke ------------------------------
+    map.addLayer({
+        id: 'nhd-conus-waterbodies-fill',
+        type: 'fill',
+        source: 'nhd_conus',
+        'source-layer': 'waterbodies',
+        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
+    });
+    map.addLayer({
+        id: 'nhd-conus-waterbodies-stroke',
+        type: 'line',
+        source: 'nhd_conus',
+        'source-layer': 'waterbodies',
+        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
+    });
+
+    // --- CONUS stream labels: three tiers (longest-LineString + simplified)
+    map.addLayer({
+        id: 'nhd-conus-streams-label-high',
+        type: 'symbol',
+        source: 'nhd_conus',
+        'source-layer': 'streams_labels_high',
+        minzoom: 3,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 10, 15]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    map.addLayer({
+        id: 'nhd-conus-streams-label-mid',
+        type: 'symbol',
+        source: 'nhd_conus',
+        'source-layer': 'streams_labels_mid',
+        minzoom: 6,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 14, 14]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    map.addLayer({
+        id: 'nhd-conus-streams-label-low',
+        type: 'symbol',
+        source: 'nhd_conus',
+        'source-layer': 'streams_labels_low',
+        minzoom: 10,
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 14, 13]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    // --- CONUS waterbody labels --------------------------------------
+    map.addLayer({
+        id: 'nhd-conus-waterbodies-label',
+        type: 'symbol',
+        source: 'nhd_conus',
+        'source-layer': 'waterbodies',
+        minzoom: 5,
+        filter: ['has', 'gnis_name'],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 13, 14, 15],
+            'text-max-width': 8,
+            'text-letter-spacing': 0.02,
+            'text-padding': 0
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.8,
+            'text-halo-blur': 0.5
+        }
+    });
     // --- 12. Selected-feature label (line, for streams) ---------------
     map.addLayer({
         id: 'nhd-selected-label-line',

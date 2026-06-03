@@ -3,25 +3,13 @@
 // =============================================================================
 
 export const state = {
-    // The MapLibre map instance, populated by map-setup.js after init
     map: null,
-
-    // The MapLibre GeolocateControl instance
     geolocate: null,
-
-    // Currently logged-in user, populated by auth.js after fetchAuthState()
-    // Shape: { email, id } when logged in, null otherwise
     currentUser: null,
-
-    // Whether the cursor is in "query mode" (next click reads features)
     queryMode: false,
-
-    // The currently open MapLibre Popup, so we can close before opening another
     openPopup: null,
 };
 
-// Layer group → list of MapLibre layer IDs
-// Used by layer toggles to flip visibility on groups of related layers.
 export const LAYER_IDS = {
     'observations': ['observations-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
@@ -59,7 +47,15 @@ export const LAYER_IDS = {
         'nhd-ak-streams-label-low',
         'nhd-ak-waterbodies-label'
     ],
+    'nhd_conus': [
+        'nhd-conus-streams',
+        'nhd-conus-waterbodies-fill',
+        'nhd-conus-waterbodies-stroke',
+        'nhd-conus-streams-label-high',
+        'nhd-conus-streams-label-mid',
+        'nhd-conus-streams-label-low',
+        'nhd-conus-waterbodies-label'
+    ],
 };
 
-// H3 resolution for "where am I" + demo aggregation
 export const H3_RES = 8;
