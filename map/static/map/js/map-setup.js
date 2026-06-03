@@ -543,6 +543,10 @@ function addSourcesAndLayers() {
         type: 'line',
         source: 'nhd_ak',
         'source-layer': 'streams',
+        filter: ['any',
+            ['has', 'gnis_name'],
+            ['>=', ['to-number', ['get', 'max_totdasqkm']], 100]
+        ],
         paint: {
             'line-color': STREAM_COLOR,
             'line-width': widthByDrainage,
