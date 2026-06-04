@@ -671,6 +671,10 @@ function addSourcesAndLayers() {
             'line-width': widthByArbolate,
             'line-opacity': 0.95
         },
+        filter: ['any',
+            ['>=', ['zoom'], 9],
+            ['>=', ['to-number', ['get', 'lengthkm']], 10]
+        ],
         layout: { 'line-cap': 'round', 'line-join': 'round' }
     });
 
