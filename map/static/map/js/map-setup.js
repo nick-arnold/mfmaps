@@ -543,8 +543,19 @@ function addSourcesAndLayers() {
         type: 'line',
         source: 'nhd_ak',
         'source-layer': 'streams',
-        filter: ['any',
+        filter: ['all',
             ['has', 'gnis_name'],
+            ['>=',
+                ['to-number', ['get', 'total_lengthkm']],
+                ['step', ['zoom'],
+                    100,    // z < 5: 100 km+ only
+                    5, 50,  // z5-6
+                    7, 20,  // z7-8
+                    9, 10,  // z9-10
+                    11, 3,  // z11-12
+                    13, 0   // z13+: anything
+                ]
+            ]
         ],
         paint: {
             'line-color': STREAM_COLOR,
