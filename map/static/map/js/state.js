@@ -51,9 +51,9 @@ export const LAYER_IDS = {
         'nhd-conus-streams',
         'nhd-conus-waterbodies-fill',
         'nhd-conus-waterbodies-stroke',
-        'nhd-conus-streams-label-high',
-        'nhd-conus-streams-label-mid',
-        'nhd-conus-streams-label-low',
+        'nhd-conus-streams-label-large',
+        'nhd-conus-streams-label-medium',
+        'nhd-conus-streams-label-small',
         'nhd-conus-waterbodies-label'
     ],
 };
