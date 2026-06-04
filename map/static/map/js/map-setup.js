@@ -712,6 +712,15 @@ function addSourcesAndLayers() {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 10, 15]
         },
+        // On nhd-conus-streams-label-high:
+        filter: ['>=',
+            ['to-number', ['get', 'lengthkm']],
+            ['step', ['zoom'],
+                500,    // z < 5: very long only
+                5, 200, // z5-6
+                7, 100  // z7+: 100km min
+            ]
+        ],
         paint: STREAM_LABEL_PAINT
     });
 
@@ -725,6 +734,15 @@ function addSourcesAndLayers() {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 14, 14]
         },
+        // On nhd-conus-streams-label-mid:
+        filter: ['>=',
+            ['to-number', ['get', 'lengthkm']],
+            ['step', ['zoom'],
+                100,    // z < 8: 100km min
+                8, 30,  // z8-9
+                10, 10  // z10+: 10km min
+            ]
+        ],
         paint: STREAM_LABEL_PAINT
     });
 
@@ -738,6 +756,15 @@ function addSourcesAndLayers() {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 14, 13]
         },
+        // On nhd-conus-streams-label-low:
+        filter: ['>=',
+            ['to-number', ['get', 'lengthkm']],
+            ['step', ['zoom'],
+                20,     // z < 12: 20km min
+                12, 5,  // z12+: 5km min
+                14, 0   // z14+: anything
+            ]
+        ],
         paint: STREAM_LABEL_PAINT
     });
 
