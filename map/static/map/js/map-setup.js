@@ -674,7 +674,12 @@ function addSourcesAndLayers() {
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v2.pmtiles',
         maxzoom: 13
     });
-
+    // NEW source — add right after
+    map.addSource('nhd_conus_labels', {
+        type: 'vector',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_labels_v1.pmtiles',
+        maxzoom: 13
+    });
     // Log10-scaled width by cumulative upstream km (arbolatesu).
     // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
     const widthByArbolate = [
@@ -759,7 +764,7 @@ function addSourcesAndLayers() {
     map.addLayer({
         id: 'nhd-conus-streams-label-high',
         type: 'symbol',
-        source: 'nhd_conus',
+        source: 'nhd_conus_labels',
         'source-layer': 'streams_labels_high',
         minzoom: 3,
         layout: {
@@ -774,7 +779,7 @@ function addSourcesAndLayers() {
     map.addLayer({
         id: 'nhd-conus-streams-label-mid',
         type: 'symbol',
-        source: 'nhd_conus',
+        source: 'nhd_conus_labels',
         'source-layer': 'streams_labels_mid',
         minzoom: 6,
         layout: {
@@ -788,7 +793,7 @@ function addSourcesAndLayers() {
     map.addLayer({
         id: 'nhd-conus-streams-label-low',
         type: 'symbol',
-        source: 'nhd_conus',
+        source: 'nhd_conus_labels',
         'source-layer': 'streams_labels_low',
         minzoom: 10,
         layout: {
