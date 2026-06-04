@@ -697,12 +697,12 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    500,
-                    5, 100,
-                    7, 20,
-                    9, 2,
-                    11, 0.1,
-                    13, 0
+                    100,    // z < 5: 100 km²+ (still lots — many lakes survive)
+                    5, 20,  // z5-6: 20 km²+
+                    7, 5,   // z7-8: 5 km²+
+                    9, 0.5, // z9-10: 0.5 km²+
+                    11, 0.05, // z11-12: 0.05 km²+ (~12 acres)
+                    13, 0   // z13+: anything
                 ]
             ]
         ]
@@ -718,12 +718,12 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    500,
-                    5, 100,
-                    7, 20,
-                    9, 2,
-                    11, 0.1,
-                    13, 0
+                    100,    // z < 5: 100 km²+ (still lots — many lakes survive)
+                    5, 20,  // z5-6: 20 km²+
+                    7, 5,   // z7-8: 5 km²+
+                    9, 0.5, // z9-10: 0.5 km²+
+                    11, 0.05, // z11-12: 0.05 km²+ (~12 acres)
+                    13, 0   // z13+: anything
                 ]
             ]
         ]
