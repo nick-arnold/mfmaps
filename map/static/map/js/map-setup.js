@@ -642,7 +642,7 @@ function addSourcesAndLayers() {
                     7, 5,     // z7: 5 km²+ (was 10)
                     8, 1.5,   // z8: 1.5 km²+ (was 3)
                     9, 0.5,   // z9: 0.5 km²+ (was 1)
-                    10, 0.2,
+                    10, 0.02,
                     12, 0
                 ]
             ]
