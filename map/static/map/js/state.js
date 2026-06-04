@@ -28,15 +28,10 @@ export const LAYER_IDS = {
         'hawaii-z11-12-hillshade'
     ],
     'hydrography': [
-        'nhd-streams',
         'nhd-streams-label-large',
         'nhd-streams-label-medium',
         'nhd-streams-label-small',
-        'nhd-waterbodies-fill',
-        'nhd-waterbodies-stroke',
         'nhd-waterbodies-label',
-        'nhd-areas-fill',
-        'nhd-areas-stroke'
     ],
     'nhd_ak': [
         'nhd-ak-streams',
@@ -51,9 +46,6 @@ export const LAYER_IDS = {
         'nhd-conus-streams',
         'nhd-conus-waterbodies-fill',
         'nhd-conus-waterbodies-stroke',
-        'nhd-conus-streams-label-high',
-        'nhd-conus-streams-label-mid',
-        'nhd-conus-streams-label-low',
         'nhd-conus-waterbodies-label'
     ],
 };

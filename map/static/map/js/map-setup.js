@@ -337,52 +337,6 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 2. Streams ---------------------------------------------------
-    map.addLayer({
-        id: 'nhd-streams',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': 'streams',
-        paint: {
-            'line-color': STREAM_COLOR,
-            'line-width': widthByStrahler,
-            'line-opacity': 0.95
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' }
-    });
-
-    // --- 3. Areas fill / stroke ---------------------------------------
-    map.addLayer({
-        id: 'nhd-areas-fill',
-        type: 'fill',
-        source: 'nhd',
-        'source-layer': 'areas',
-        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
-    });
-    map.addLayer({
-        id: 'nhd-areas-stroke',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': 'areas',
-        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.85 }
-    });
-
-    // --- 4. Waterbodies fill / stroke ---------------------------------
-    map.addLayer({
-        id: 'nhd-waterbodies-fill',
-        type: 'fill',
-        source: 'nhd',
-        'source-layer': 'waterbodies',
-        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
-    });
-    map.addLayer({
-        id: 'nhd-waterbodies-stroke',
-        type: 'line',
-        source: 'nhd',
-        'source-layer': 'waterbodies',
-        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
-    });
-
     // --- 5. Polygon hover (OVER lakes) --------------------------------
     map.addLayer({
         id: 'nhd-hover-polygon-fill',
@@ -674,12 +628,7 @@ function addSourcesAndLayers() {
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v2.pmtiles',
         maxzoom: 13
     });
-    // NEW source — add right after
-    map.addSource('nhd_conus_labels', {
-        type: 'vector',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_labels_v1.pmtiles',
-        maxzoom: 13
-    });
+    
     // Log10-scaled width by cumulative upstream km (arbolatesu).
     // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
     const widthByArbolate = [
@@ -760,91 +709,6 @@ function addSourcesAndLayers() {
         ]
     });
 
-    // --- CONUS stream labels: three tiers (longest-LineString + simplified)
-    map.addLayer({
-        id: 'nhd-conus-streams-label-high',
-        type: 'symbol',
-        source: 'nhd_conus_labels',
-        'source-layer': 'streams_labels_high',
-        minzoom: 3,
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 10, 15]
-        },
-        // On nhd-conus-streams-label-high:
-        
-        paint: STREAM_LABEL_PAINT
-    });
-
-    map.addLayer({
-        id: 'nhd-conus-streams-label-mid',
-        type: 'symbol',
-        source: 'nhd_conus_labels',
-        'source-layer': 'streams_labels_mid',
-        minzoom: 6,
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 14, 14]
-        },
-        
-        paint: STREAM_LABEL_PAINT
-    });
-
-    map.addLayer({
-        id: 'nhd-conus-streams-label-low',
-        type: 'symbol',
-        source: 'nhd_conus_labels',
-        'source-layer': 'streams_labels_low',
-        minzoom: 10,
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 14, 13]
-        },
-        
-        paint: STREAM_LABEL_PAINT
-    });
-
-    // --- CONUS waterbody labels --------------------------------------
-    map.addLayer({
-        id: 'nhd-conus-waterbodies-label',
-        type: 'symbol',
-        source: 'nhd_conus',
-        'source-layer': 'waterbodies',
-        minzoom: 5,
-        filter: ['all',
-            ['has', 'gnis_name'],
-            ['!=', ['get', 'ftype'], 361],
-            ['!=', ['get', 'ftype'], 378],
-            ['!=', ['get', 'ftype'], 466],
-            ['>=',
-                ['to-number', ['get', 'areasqkm']],
-                ['step', ['zoom'],
-                    500,
-                    5, 200,   // z5: 200 km²+ (was 20)
-                    6, 100,   // z6: 100 km²+ (was 20) - thins z6
-                    7, 30,    // z7: 30 km²+ (was 5) - thins z7
-                    8, 5,     // z8: 5 km²+ (where you said density is fine)
-                    9, 0.5,
-                    11, 0.05,
-                    13, 0
-                ]
-            ]
-        ],
-        layout: {
-            'text-field': ['get', 'gnis_name'],
-            'text-font': LABEL_FONT,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 13, 14, 15],
-            'text-max-width': 8,
-            'text-letter-spacing': 0.02,
-            'text-padding': 0
-        },
-        paint: {
-            'text-color': STREAM_COLOR,
-            'text-halo-color': LABEL_HALO,
-            'text-halo-width': 1.8,
-            'text-halo-blur': 0.5
-        }
-    });
     // --- 12. Selected-feature label (line, for streams) ---------------
     map.addLayer({
         id: 'nhd-selected-label-line',
