@@ -645,7 +645,7 @@ function addSourcesAndLayers() {
 
     map.addSource('nhd_conus', {
         type: 'vector',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v1.pmtiles',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v2.pmtiles',
         maxzoom: 13
     });
 
