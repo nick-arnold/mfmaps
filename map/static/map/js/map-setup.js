@@ -756,9 +756,9 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                500,    // z < 5: very long only
-                5, 200, // z5-6
-                7, 100  // z7+: 100km min
+                500,    // z<5: only label very long rivers
+                5, 200, // z5-6: 200+ km
+                7, 100  // z7+: match line filter
             ]
         ],
         paint: STREAM_LABEL_PAINT
@@ -778,9 +778,10 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                100,    // z < 8: 100km min
-                8, 30,  // z8-9
-                10, 10  // z10+: 10km min
+                100,    // z<7: 100 km+
+                7, 80,  // z7-8: 80+
+                9, 30,  // z9-10: 30+
+                11, 15  // z11+: 15+
             ]
         ],
         paint: STREAM_LABEL_PAINT
@@ -800,9 +801,9 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                20,     // z < 12: 20km min
-                12, 5,  // z12+: 5km min
-                14, 0   // z14+: anything
+                15,
+                11, 8,
+                13, 0
             ]
         ],
         paint: STREAM_LABEL_PAINT
@@ -823,9 +824,11 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    100,
-                    5, 20,
-                    7, 5,
+                    500,
+                    5, 200,   // z5: 200 km²+ (was 20)
+                    6, 100,   // z6: 100 km²+ (was 20) - thins z6
+                    7, 30,    // z7: 30 km²+ (was 5) - thins z7
+                    8, 5,     // z8: 5 km²+ (where you said density is fine)
                     9, 0.5,
                     11, 0.05,
                     13, 0
