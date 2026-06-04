@@ -637,12 +637,12 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    1000,
-                    6, 100,   // z6: only 200+ km² (just the giants)
-                    7, 50,
-                    8, 10,
-                    9, 2,
-                    10, 0.5,
+                    200,
+                    6, 30,    // z6: 30 km²+
+                    7, 10,
+                    8, 3,
+                    9, 1,
+                    10, 0.2,
                     12, 0
                 ]
             ]
