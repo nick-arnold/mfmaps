@@ -632,7 +632,21 @@ function addSourcesAndLayers() {
         source: 'nhd_ak',
         'source-layer': 'waterbodies',
         minzoom: 6,
-        filter: ['has', 'gnis_name'],
+        filter: ['all',
+            ['has', 'gnis_name'],
+            ['>=',
+                ['to-number', ['get', 'areasqkm']],
+                ['step', ['zoom'],
+                    1000,
+                    6, 200,   // z6: only 200+ km² (just the giants)
+                    7, 50,
+                    8, 10,
+                    9, 2,
+                    10, 0.5,
+                    12, 0
+                ]
+            ]
+        ],
         layout: {
             'text-field': ['get', 'gnis_name'],
             'text-font': LABEL_FONT,
