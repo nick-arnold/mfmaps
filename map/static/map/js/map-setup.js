@@ -674,11 +674,12 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                50,    // z < first stop: require >= 50 km
-                5, 20, // at z5+: require >= 20 km
-                7, 10, // at z7+: require >= 10 km
-                9, 3,  // at z9+: require >= 3 km
-                11, 0  // at z11+: no length filter (0 passes everything)
+                200,   // z < 5: require >= 200 km
+                5, 100, // z5-6: require >= 100 km
+                7, 50,  // z7-8: require >= 50 km
+                9, 15,  // z9-10: require >= 15 km
+                11, 5,  // z11+: require >= 5 km
+                13, 0   // z13+: no filter
             ]
         ],
         layout: { 'line-cap': 'round', 'line-join': 'round' }
