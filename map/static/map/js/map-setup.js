@@ -638,10 +638,10 @@ function addSourcesAndLayers() {
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
                     200,
-                    6, 30,    // z6: 30 km²+
-                    7, 10,
-                    8, 3,
-                    9, 1,
+                    6, 15,    // z6: 15 km²+ (was 30)
+                    7, 5,     // z7: 5 km²+ (was 10)
+                    8, 1.5,   // z8: 1.5 km²+ (was 3)
+                    9, 0.5,   // z9: 0.5 km²+ (was 1)
                     10, 0.2,
                     12, 0
                 ]
