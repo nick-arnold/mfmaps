@@ -405,6 +405,7 @@ function addSourcesAndLayers() {
         source: 'nhd_ak',
         'source-layer': 'streams_labels_high',
         minzoom: 5,
+        maxzoom: 9,
         layout: {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 13, 12, 15]
@@ -759,7 +760,7 @@ function addSourcesAndLayers() {
             'text-halo-blur': 0.5
         }
     });
-    
+
     // H3 hexes
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
     map.addLayer({
