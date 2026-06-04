@@ -320,147 +320,6 @@ function addSourcesAndLayers() {
         'text-halo-blur': 0.5
     };
 
-    // --- 1. Line hover halo -------------------------------------------
-    map.addLayer({
-        id: 'nhd-hover-halo',
-        type: 'line',
-        source: 'nhd-hover',
-        filter: ['==', ['geometry-type'], 'LineString'],
-        paint: {
-            'line-color': HOVER_COLOR,
-            'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                4, 6, 10, 12, 14, 20, 17, 30
-            ],
-            'line-opacity': 0.75,
-            'line-blur': 4
-        }
-    });
-
-    // --- 5. Polygon hover (OVER lakes) --------------------------------
-    map.addLayer({
-        id: 'nhd-hover-polygon-fill',
-        type: 'fill',
-        source: 'nhd-hover',
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'fill-color': HOVER_COLOR, 'fill-opacity': 0.3 }
-    });
-    map.addLayer({
-        id: 'nhd-hover-polygon-stroke',
-        type: 'line',
-        source: 'nhd-hover',
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'line-color': HOVER_COLOR, 'line-width': 3, 'line-opacity': 0.9 }
-    });
-
-    // --- 6. Selected line (streams) -----------------------------------
-    map.addLayer({
-        id: 'nhd-selected',
-        type: 'line',
-        source: 'nhd-selected',
-        filter: ['==', ['geometry-type'], 'LineString'],
-        paint: {
-            'line-color': SELECTED_COLOR,
-            'line-width': [
-                'interpolate', ['linear'], ['zoom'],
-                4,  ['max', 2, ['*', 0.30, ['to-number', ['get', 'max_strahler']]]],
-                10, ['max', 3, ['*', 0.60, ['to-number', ['get', 'max_strahler']]]],
-                14, ['max', 4, ['*', 1.10, ['to-number', ['get', 'max_strahler']]]],
-                17, ['max', 5, ['*', 1.80, ['to-number', ['get', 'max_strahler']]]]
-            ],
-            'line-opacity': 1.0
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' }
-    });
-
-    // --- 7. Selected polygon (lakes) ----------------------------------
-    map.addLayer({
-        id: 'nhd-selected-polygon-fill',
-        type: 'fill',
-        source: 'nhd-selected',
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'fill-color': SELECTED_COLOR, 'fill-opacity': 0.3 }
-    });
-    map.addLayer({
-        id: 'nhd-selected-polygon-stroke',
-        type: 'line',
-        source: 'nhd-selected',
-        filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'line-color': SELECTED_COLOR, 'line-width': 3, 'line-opacity': 1.0 }
-    });
-
-    // --- 8. Stream labels - large -------------------------------------
-    map.addLayer({
-        id: 'nhd-streams-label-large',
-        type: 'symbol',
-        source: 'nhd',
-        'source-layer': 'streams_labels',
-        minzoom: 6,
-        filter: ['>=', ['to-number', ['get', 'max_strahler']], 6],
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15]
-        },
-        paint: STREAM_LABEL_PAINT
-    });
-
-    // --- 9. Stream labels - medium ------------------------------------
-    map.addLayer({
-        id: 'nhd-streams-label-medium',
-        type: 'symbol',
-        source: 'nhd',
-        'source-layer': 'streams_labels',
-        minzoom: 9,
-        filter: [
-            'all',
-            ['>=', ['to-number', ['get', 'max_strahler']], 4],
-            ['<=', ['to-number', ['get', 'max_strahler']], 5]
-        ],
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12, 16, 14]
-        },
-        paint: STREAM_LABEL_PAINT
-    });
-
-    // --- 10. Stream labels - small ------------------------------------
-    map.addLayer({
-        id: 'nhd-streams-label-small',
-        type: 'symbol',
-        source: 'nhd',
-        'source-layer': 'streams_labels',
-        minzoom: 12,
-        filter: ['<=', ['to-number', ['get', 'max_strahler']], 3],
-        layout: {
-            ...STREAM_LABEL_LAYOUT_BASE,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 13]
-        },
-        paint: STREAM_LABEL_PAINT
-    });
-
-    // --- 11. Waterbody labels ----------------------------------------
-    map.addLayer({
-        id: 'nhd-waterbodies-label',
-        type: 'symbol',
-        source: 'nhd',
-        'source-layer': 'waterbodies',
-        minzoom: 6,
-        filter: ['has', 'gnis_name'],
-        layout: {
-            'text-field': ['get', 'gnis_name'],
-            'text-font': LABEL_FONT,
-            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15],
-            'text-max-width': 8,
-            'text-letter-spacing': 0.02,
-            'text-padding': 0
-        },
-        paint: {
-            'text-color': STREAM_COLOR,
-            'text-halo-color': LABEL_HALO,
-            'text-halo-width': 1.8,
-            'text-halo-blur': 0.5
-        }
-    });
 
     // ====================================================================
     // ALASKA HYDROGRAPHY (separate PMTiles, drainage-area-based styling)
@@ -759,6 +618,148 @@ function addSourcesAndLayers() {
         }
     });
 
+    // --- 1. Line hover halo -------------------------------------------
+    map.addLayer({
+        id: 'nhd-hover-halo',
+        type: 'line',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: {
+            'line-color': HOVER_COLOR,
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                4, 6, 10, 12, 14, 20, 17, 30
+            ],
+            'line-opacity': 0.75,
+            'line-blur': 4
+        }
+    });
+
+    // --- 5. Polygon hover (OVER lakes) --------------------------------
+    map.addLayer({
+        id: 'nhd-hover-polygon-fill',
+        type: 'fill',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': HOVER_COLOR, 'fill-opacity': 0.3 }
+    });
+    map.addLayer({
+        id: 'nhd-hover-polygon-stroke',
+        type: 'line',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'line-color': HOVER_COLOR, 'line-width': 3, 'line-opacity': 0.9 }
+    });
+
+    // --- 6. Selected line (streams) -----------------------------------
+    map.addLayer({
+        id: 'nhd-selected',
+        type: 'line',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: {
+            'line-color': SELECTED_COLOR,
+            'line-width': [
+                'interpolate', ['linear'], ['zoom'],
+                4,  ['max', 2, ['*', 0.30, ['to-number', ['get', 'max_strahler']]]],
+                10, ['max', 3, ['*', 0.60, ['to-number', ['get', 'max_strahler']]]],
+                14, ['max', 4, ['*', 1.10, ['to-number', ['get', 'max_strahler']]]],
+                17, ['max', 5, ['*', 1.80, ['to-number', ['get', 'max_strahler']]]]
+            ],
+            'line-opacity': 1.0
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' }
+    });
+
+    // --- 7. Selected polygon (lakes) ----------------------------------
+    map.addLayer({
+        id: 'nhd-selected-polygon-fill',
+        type: 'fill',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': SELECTED_COLOR, 'fill-opacity': 0.3 }
+    });
+    map.addLayer({
+        id: 'nhd-selected-polygon-stroke',
+        type: 'line',
+        source: 'nhd-selected',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'line-color': SELECTED_COLOR, 'line-width': 3, 'line-opacity': 1.0 }
+    });
+
+    // --- 8. Stream labels - large -------------------------------------
+    map.addLayer({
+        id: 'nhd-streams-label-large',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams_labels',
+        minzoom: 6,
+        filter: ['>=', ['to-number', ['get', 'max_strahler']], 6],
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    // --- 9. Stream labels - medium ------------------------------------
+    map.addLayer({
+        id: 'nhd-streams-label-medium',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams_labels',
+        minzoom: 9,
+        filter: [
+            'all',
+            ['>=', ['to-number', ['get', 'max_strahler']], 4],
+            ['<=', ['to-number', ['get', 'max_strahler']], 5]
+        ],
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12, 16, 14]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    // --- 10. Stream labels - small ------------------------------------
+    map.addLayer({
+        id: 'nhd-streams-label-small',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'streams_labels',
+        minzoom: 12,
+        filter: ['<=', ['to-number', ['get', 'max_strahler']], 3],
+        layout: {
+            ...STREAM_LABEL_LAYOUT_BASE,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 13]
+        },
+        paint: STREAM_LABEL_PAINT
+    });
+
+    // --- 11. Waterbody labels ----------------------------------------
+    map.addLayer({
+        id: 'nhd-waterbodies-label',
+        type: 'symbol',
+        source: 'nhd',
+        'source-layer': 'waterbodies',
+        minzoom: 6,
+        filter: ['has', 'gnis_name'],
+        layout: {
+            'text-field': ['get', 'gnis_name'],
+            'text-font': LABEL_FONT,
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15],
+            'text-max-width': 8,
+            'text-letter-spacing': 0.02,
+            'text-padding': 0
+        },
+        paint: {
+            'text-color': STREAM_COLOR,
+            'text-halo-color': LABEL_HALO,
+            'text-halo-width': 1.8,
+            'text-halo-blur': 0.5
+        }
+    });
+    
     // H3 hexes
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
     map.addLayer({
