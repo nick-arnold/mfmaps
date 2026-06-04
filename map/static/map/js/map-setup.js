@@ -548,12 +548,13 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'total_lengthkm']],
                 ['step', ['zoom'],
-                    100,    // z < 5: 100 km+ only
-                    5, 50,  // z5-6
-                    7, 20,  // z7-8
-                    9, 10,  // z9-10
-                    11, 3,  // z11-12
-                    13, 0   // z13+: anything
+                    100,
+                    5, 100,  // z5: 100 km+ (raise this until z5 looks right)
+                    6, 50,   // z6: 50 km+ (current — looks good)
+                    7, 20,
+                    9, 10,
+                    11, 3,
+                    13, 0
                 ]
             ]
         ],
