@@ -700,7 +700,7 @@ function addSourcesAndLayers() {
                 7, 20,  // z7-8: >= 20 km²
                 9, 2,   // z9-10: >= 2 km²
                 11, 0.1, // z11-12: >= 0.1 km²
-                13, 0   // z13+: anything
+                13, 0.008   // z13+: anything
             ]
         ]
     });
@@ -718,7 +718,7 @@ function addSourcesAndLayers() {
                 7, 20,  // z7-8: >= 20 km²
                 9, 2,   // z9-10: >= 2 km²
                 11, 0.1, // z11-12: >= 0.1 km²
-                13, 0   // z13+: anything
+                13, 0.008   // z13+: anything
             ]
         ]
     });
