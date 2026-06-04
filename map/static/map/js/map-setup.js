@@ -811,14 +811,12 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    500,    // z < 5: 500 km² and up only (Great Lakes)
-                    5, 100, // z5-6: 100 km²+
-                    7, 30,  // z7-8: 30 km²+
-                    9, 5,   // z9-10: 5 km²+
-                    11, 0.5, // z11-12: 0.5 km²+ (~125 acres)
-                    13, 0.05, // z13: 0.05 km²+ (~12 acres)
-                    14, 0.008, // z14: 2 acres
-                    15, 0   // z15+: anything
+                    100,
+                    5, 20,
+                    7, 5,
+                    9, 0.5,
+                    11, 0.05,
+                    13, 0
                 ]
             ]
         ],
