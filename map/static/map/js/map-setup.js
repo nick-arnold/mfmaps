@@ -671,9 +671,15 @@ function addSourcesAndLayers() {
             'line-width': widthByArbolate,
             'line-opacity': 0.95
         },
-        filter: ['any',
-            ['>=', ['zoom'], 9],
-            ['>=', ['to-number', ['get', 'lengthkm']], 10]
+        filter: ['>=',
+            ['to-number', ['get', 'lengthkm']],
+            ['step', ['zoom'],
+                50,    // z < first stop: require >= 50 km
+                5, 20, // at z5+: require >= 20 km
+                7, 10, // at z7+: require >= 10 km
+                9, 3,  // at z9+: require >= 3 km
+                11, 0  // at z11+: no length filter (0 passes everything)
+            ]
         ],
         layout: { 'line-cap': 'round', 'line-join': 'round' }
     });
