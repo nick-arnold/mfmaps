@@ -762,14 +762,6 @@ function addSourcesAndLayers() {
         source: 'nhd_conus',
         'source-layer': 'streams_labels_high',
         minzoom: 3,
-        filter: ['>=',
-            ['to-number', ['get', 'lengthkm']],
-            ['step', ['zoom'],
-                300,   // z<5: 300+ km (was 500)
-                5, 100, // z5-6: 100+ (was 200)
-                7, 50   // z7+: 50+ (was 100)
-            ]
-        ],
         layout: {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 10, 15]
@@ -785,16 +777,6 @@ function addSourcesAndLayers() {
         source: 'nhd_conus',
         'source-layer': 'streams_labels_mid',
         minzoom: 6,
-        // On nhd-conus-streams-label-mid:
-        filter: ['>=',
-            ['to-number', ['get', 'lengthkm']],
-            ['step', ['zoom'],
-                50,    // z<7: 50 km+
-                7, 30, // z7-8: 30+
-                9, 15, // z9-10: 15+
-                11, 5  // z11+: 5+
-            ]
-        ],
         layout: {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12, 14, 14]
@@ -809,15 +791,6 @@ function addSourcesAndLayers() {
         source: 'nhd_conus',
         'source-layer': 'streams_labels_low',
         minzoom: 10,
-        // On nhd-conus-streams-label-low:
-        filter: ['>=',
-            ['to-number', ['get', 'lengthkm']],
-            ['step', ['zoom'],
-                5,
-                12, 2,
-                14, 0
-            ]
-        ],
         layout: {
             ...STREAM_LABEL_LAYOUT_BASE,
             'text-size': ['interpolate', ['linear'], ['zoom'], 10, 10, 14, 13]
