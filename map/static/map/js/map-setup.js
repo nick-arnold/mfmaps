@@ -797,19 +797,7 @@ function addSourcesAndLayers() {
         source: 'nhd_conus',
         'source-layer': 'waterbodies',
         minzoom: 5,
-        filter: ['all',
-            ['has', 'gnis_name'],
-            ['>=',
-                ['to-number', ['get', 'areasqkm']],
-                ['step', ['zoom'],
-                    500,
-                    5, 100,
-                    7, 30,    // slightly stricter than the fill — only label larger waterbodies at this zoom
-                    9, 5,
-                    11, 0.5
-                ]
-            ]
-        ],
+        filter: ['has', 'gnis_name'],
         layout: {
             'text-field': ['get', 'gnis_name'],
             'text-font': LABEL_FONT,
