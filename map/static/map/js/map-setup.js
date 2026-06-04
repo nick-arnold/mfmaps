@@ -691,14 +691,36 @@ function addSourcesAndLayers() {
         type: 'fill',
         source: 'nhd_conus',
         'source-layer': 'waterbodies',
-        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
+        paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 },
+        filter: ['>=',
+            ['to-number', ['get', 'areasqkm']],
+            ['step', ['zoom'],
+                500,    // z < 5: require >= 500 km² (Great Lakes only)
+                5, 100, // z5-6: >= 100 km²
+                7, 20,  // z7-8: >= 20 km²
+                9, 2,   // z9-10: >= 2 km²
+                11, 0.1, // z11-12: >= 0.1 km²
+                13, 0   // z13+: anything
+            ]
+        ]
     });
     map.addLayer({
         id: 'nhd-conus-waterbodies-stroke',
         type: 'line',
         source: 'nhd_conus',
         'source-layer': 'waterbodies',
-        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
+        paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 },
+        filter: ['>=',
+            ['to-number', ['get', 'areasqkm']],
+            ['step', ['zoom'],
+                500,    // z < 5: require >= 500 km² (Great Lakes only)
+                5, 100, // z5-6: >= 100 km²
+                7, 20,  // z7-8: >= 20 km²
+                9, 2,   // z9-10: >= 2 km²
+                11, 0.1, // z11-12: >= 0.1 km²
+                13, 0   // z13+: anything
+            ]
+        ]
     });
 
     // --- CONUS stream labels: three tiers (longest-LineString + simplified)
@@ -775,7 +797,19 @@ function addSourcesAndLayers() {
         source: 'nhd_conus',
         'source-layer': 'waterbodies',
         minzoom: 5,
-        filter: ['has', 'gnis_name'],
+        filter: ['all',
+            ['has', 'gnis_name'],
+            ['>=',
+                ['to-number', ['get', 'areasqkm']],
+                ['step', ['zoom'],
+                    500,
+                    5, 100,
+                    7, 30,    // slightly stricter than the fill — only label larger waterbodies at this zoom
+                    9, 5,
+                    11, 0.5
+                ]
+            ]
+        ],
         layout: {
             'text-field': ['get', 'gnis_name'],
             'text-font': LABEL_FONT,
