@@ -770,9 +770,9 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                500,    // z<5: only label very long rivers
-                5, 200, // z5-6: 200+ km
-                7, 100  // z7+: match line filter
+                300,   // z<5: 300+ km (was 500)
+                5, 100, // z5-6: 100+ (was 200)
+                7, 50   // z7+: 50+ (was 100)
             ]
         ],
         paint: STREAM_LABEL_PAINT
@@ -792,10 +792,10 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                100,    // z<7: 100 km+
-                7, 80,  // z7-8: 80+
-                9, 30,  // z9-10: 30+
-                11, 15  // z11+: 15+
+                50,    // z<7: 50 km+
+                7, 30, // z7-8: 30+
+                9, 15, // z9-10: 15+
+                11, 5  // z11+: 5+
             ]
         ],
         paint: STREAM_LABEL_PAINT
@@ -815,9 +815,9 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                15,
-                11, 8,
-                13, 0
+                5,
+                12, 2,
+                14, 0
             ]
         ],
         paint: STREAM_LABEL_PAINT
