@@ -180,6 +180,37 @@ function addSourcesAndLayers() {
         }
     });
 */
+
+    // --- Tree canopy cover ----------------------------------------------------
+    // Three separate PMTiles files per region. Raster layer, toggleable.
+    // Transparent below 25% canopy (baked into color ramp at tile generation).
+    const CANOPY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/canopy';
+
+    [
+        { id: 'canopy-conus',   file: 'conus_canopy.pmtiles' },
+        { id: 'canopy-seak',    file: 'seak_canopy.pmtiles'  },
+        { id: 'canopy-hawaii',  file: 'hawaii_canopy.pmtiles' }
+    ].forEach(region => {
+        map.addSource(region.id, {  
+            type: 'raster',
+            url: `pmtiles://${CANOPY_BASE}/${region.file}`,
+            tileSize: 256
+        });
+        map.addLayer({
+            id: `${region.id}-layer`,
+            type: 'raster',
+            source: region.id,
+            minzoom: 4,
+            maxzoom: 14,
+            paint: {
+                'raster-opacity': 0.75,
+                'raster-resampling': 'linear'
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+
     // --- Contours (per-region, per-zoom tiers) ------------------------
     // Each region has single-zoom tiers; the contour interval coarsens as you
     // zoom out so dense terrain stays readable. Files follow the convention
