@@ -13,6 +13,14 @@ export const state = {
 export const LAYER_IDS = {
     'observations': ['observations-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
+    'trails': [
+        'trails-track',           // forest roads / doubletracks
+        'trails-bridleway',       // equestrian routes
+        'trails-cycleway',        // dedicated bike paths
+        'trails-footway-real',    // park paths / greenways (non-sidewalk, natural surface)
+        'trails-path-unknown',    // singletrack, no surface tag
+        'trails-path-natural',    // singletrack, confirmed natural surface
+    ],
     terrain: [
         'terrain-z3-4-hillshade',
         'terrain-z5-7-hillshade',

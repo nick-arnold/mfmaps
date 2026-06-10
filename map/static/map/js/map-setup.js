@@ -255,30 +255,196 @@ function addSourcesAndLayers() {
             }, BASEMAP_LINE_ANCHOR);
         });
     });
-    
-    // --- Trails (OSM path family, extracted to dedicated PMTiles) ----
-    // Data floors at z11 by build (tippecanoe --minimum-zoom=11). Source-layer
-    // is named 'trails', containing highway=path/track/footway/bridleway/
-    // cycleway/steps. No class/subclass filter needed — the tileset is
-    // already only trails by construction.
+
+    // =============================================================================
+    // TRAILS (OSM path family — dedicated PMTiles)
+    // =============================================================================
+    // Source: trails-na-20260524.pmtiles
+    // Data floors at z11 (tippecanoe --minimum-zoom=11).
+    // Source-layer 'trails' contains all OSM highway types in the path family.
+    //
+    // Strategy: render only what matters for foraging on public land.
+    // Urban infrastructure is intentionally omitted — no layer = not rendered.
+    //
+    // Render order (bottom → top):
+    //   trails-track           forest roads / doubletracks  (brown, wide dash)
+    //   trails-bridleway       equestrian routes            (dark brown, dash)
+    //   trails-cycleway        dedicated bike paths         (blue, solid)
+    //   trails-footway-real    park paths / greenways       (green, dash, z13+)
+    //   trails-path-unknown    singletrack, no surface tag  (green, looser dash)
+    //   trails-path-natural    singletrack, natural surface (green, dash — HERO)
+    //
+    // Omitted:
+    //   footway=sidewalk / crossing / access_aisle / traffic_island — urban noise
+    //   highway=steps / turning_circle / traffic_signals — not foraging-relevant
+    // =============================================================================
+
     map.addSource('trails', {
         type: 'vector',
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/trails/trails-na-20260524.pmtiles'
     });
 
+    // --- Forest roads and doubletracks -----------------------------------
+    // highway=track — vehicle-passable dirt roads, logging roads, ranch access.
+    // All surfaces in this tileset are unpaved so no surface filter needed.
+    // Brown reads as "rough road", visually distinct from foot trails.
     map.addLayer({
-        id: 'trails-line',
+        id: 'trails-track',
         type: 'line',
         source: 'trails',
         'source-layer': 'trails',
-        layout: { 'line-join': 'round', 'line-cap': 'butt' },
+        minzoom: 11,
+        filter: ['==', ['get', 'highway'], 'track'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#8b6914',
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                11, 1.2,
+                12, 2.0,
+                15, 3.5,
+                18, 5.5
+            ],
+            'line-dasharray': [4, 2],
+            'line-opacity': 0.8
+        }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // --- Bridleways -------------------------------------------------------
+    // Equestrian routes, often on national forest / BLM land.
+    // Frequently unmaintained and deep in good foraging habitat.
+    map.addLayer({
+        id: 'trails-bridleway',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        minzoom: 11,
+        filter: ['==', ['get', 'highway'], 'bridleway'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#7a4f2e',
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                11, 0.8,
+                12, 1.4,
+                15, 2.5,
+                18, 4.0
+            ],
+            'line-dasharray': [3, 2],
+            'line-opacity': 0.8
+        }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // --- Cycleways --------------------------------------------------------
+    // Dedicated bike paths — paved greenways, rail trails.
+    // Navigation context. Subdued blue distinguishes from foot trails.
+    map.addLayer({
+        id: 'trails-cycleway',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        minzoom: 11,
+        filter: ['==', ['get', 'highway'], 'cycleway'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#2e6b8b',
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                11, 0.7,
+                12, 1.2,
+                15, 2.0,
+                18, 3.0
+            ],
+            'line-opacity': 0.7
+        }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // --- Urban park paths and greenways -----------------------------------
+    // footway WITHOUT sidewalk/crossing/access_aisle/traffic_island sub-tag,
+    // AND with a natural surface. Real paths in parks and natural areas.
+    // Minzoom 13 — only visible when zoomed into a specific area.
+    map.addLayer({
+        id: 'trails-footway-real',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        minzoom: 13,
+        filter: ['all',
+            ['==', ['get', 'highway'], 'footway'],
+            ['!in', ['get', 'footway'], ['literal', [
+                'sidewalk', 'crossing', 'access_aisle', 'traffic_island'
+            ]]],
+            ['in', ['get', 'surface'], ['literal', [
+                'dirt', 'ground', 'gravel', 'unpaved', 'grass',
+                'mud', 'compacted', 'fine_gravel', 'bark', 'woodchips'
+            ]]]
+        ],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#2d7a45',
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                13, 0.8,
+                15, 2.0,
+                18, 3.5
+            ],
+            'line-dasharray': [2, 1.5],
+            'line-opacity': 0.85
+        }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // --- Singletrack: unknown surface ------------------------------------
+    // highway=path with no surface tag. Usually real trails — mapper drew
+    // the line and moved on. Reduced opacity signals lower data confidence,
+    // not lower cartographic importance.
+    map.addLayer({
+        id: 'trails-path-unknown',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        minzoom: 11,
+        filter: ['all',
+            ['==', ['get', 'highway'], 'path'],
+            ['!', ['has', 'surface']]
+        ],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
             'line-color': '#1f6b3a',
-            'line-width': [
-                'interpolate', ['exponential', 1.4], ['zoom'],
-                11, 1.2, 12, 2.0, 15, 3.5, 18, 5.5
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                11, 0.8,
+                12, 1.5,
+                15, 2.5,
+                18, 4.0
             ],
-            'line-dasharray': [1.5, 1.5],
+            'line-dasharray': [2, 2],
+            'line-opacity': 0.75
+        }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // --- Singletrack: confirmed natural surface — HERO LAYER -------------
+    // highway=path with a confirmed natural surface tag.
+    // Primary trail type on public land. Full opacity, rendered last so it
+    // sits on top of all other trail types.
+    map.addLayer({
+        id: 'trails-path-natural',
+        type: 'line',
+        source: 'trails',
+        'source-layer': 'trails',
+        minzoom: 11,
+        filter: ['all',
+            ['==', ['get', 'highway'], 'path'],
+            ['in', ['get', 'surface'], ['literal', [
+                'dirt', 'ground', 'gravel', 'unpaved', 'grass',
+                'mud', 'compacted', 'fine_gravel', 'bark', 'woodchips',
+                'dirt,gravel', 'woodchips;fine_gravel'
+            ]]]
+        ],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#1f6b3a',
+            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
+                11, 1.0,
+                12, 1.8,
+                15, 3.0,
+                18, 5.0
+            ],
+            'line-dasharray': [2, 1.5],
             'line-opacity': 1.0
         }
     }, BASEMAP_LINE_ANCHOR);
@@ -487,7 +653,7 @@ function addSourcesAndLayers() {
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v2.pmtiles',
         maxzoom: 13
     });
-    
+
     // Log10-scaled width by cumulative upstream km (arbolatesu).
     // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
     const widthByArbolate = [
@@ -759,7 +925,7 @@ function addSourcesAndLayers() {
             'text-halo-blur': 0.5
         }
     });
-    
+
     // H3 hexes
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
     map.addLayer({
