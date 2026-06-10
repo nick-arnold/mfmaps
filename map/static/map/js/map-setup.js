@@ -368,9 +368,9 @@ function addSourcesAndLayers() {
         minzoom: 13,
         filter: ['all',
             ['==', ['get', 'highway'], 'footway'],
-            ['!in', ['get', 'footway'], ['literal', [
+            ['!', ['in', ['get', 'footway'], ['literal', [
                 'sidewalk', 'crossing', 'access_aisle', 'traffic_island'
-            ]]],
+            ]]]],
             ['in', ['get', 'surface'], ['literal', [
                 'dirt', 'ground', 'gravel', 'unpaved', 'grass',
                 'mud', 'compacted', 'fine_gravel', 'bark', 'woodchips'
