@@ -284,30 +284,7 @@ function addSourcesAndLayers() {
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/trails/trails-na-20260524.pmtiles'
     });
 
-    // --- Forest roads and doubletracks -----------------------------------
-    // highway=track — vehicle-passable dirt roads, logging roads, ranch access.
-    // All surfaces in this tileset are unpaved so no surface filter needed.
-    // Brown reads as "rough road", visually distinct from foot trails.
-    map.addLayer({
-        id: 'trails-track',
-        type: 'line',
-        source: 'trails',
-        'source-layer': 'trails',
-        minzoom: 11,
-        filter: ['==', ['get', 'highway'], 'track'],
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-            'line-color': '#8b6914',
-            'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                11, 1.2,
-                12, 2.0,
-                15, 3.5,
-                18, 5.5
-            ],
-            'line-dasharray': [4, 2],
-            'line-opacity': 0.8
-        }
-    }, BASEMAP_LINE_ANCHOR);
+    
 
     // --- Bridleways -------------------------------------------------------
     // Equestrian routes, often on national forest / BLM land.
