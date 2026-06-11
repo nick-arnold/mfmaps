@@ -66,7 +66,17 @@ async function render() {
             const lng = parseFloat(item.dataset.lng);
             const lat = parseFloat(item.dataset.lat);
             if (!isFinite(lng) || !isFinite(lat)) return;
-            state.map.flyTo({ center: [lng, lat], zoom: 11 });
+        
+            const bbox = item.dataset.bbox ? JSON.parse(item.dataset.bbox) : null;
+            if (bbox) {
+                state.map.fitBounds(
+                    [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+                    { padding: 80, maxZoom: 13 }
+                );
+            } else {
+                state.map.flyTo({ center: [lng, lat], zoom: 11 });
+            }
+        
             window.setMode('map');
         });
     });
@@ -183,6 +193,7 @@ function renderItem(c, scope) {
              data-gnis-id="${escapeHtml(c.gnis_id)}"
              data-lng="${hasCoords ? c.click_lng : ''}"
              data-lat="${hasCoords ? c.click_lat : ''}"
+             data-bbox="${c.bbox ? escapeHtml(JSON.stringify(c.bbox)) : ''}"
              style="${hasCoords ? 'cursor:pointer;' : ''}">
             <div class="report-display">
                 <div class="d-flex justify-content-between align-items-start">

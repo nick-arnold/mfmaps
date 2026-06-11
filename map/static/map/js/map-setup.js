@@ -1406,6 +1406,7 @@ async function openHydroPopup(feature, lngLat) {
                     is_public: publicChk.checked,
                     click_lng: lngLat.lng,
                     click_lat: lngLat.lat,
+                    bbox: computeFeatureBbox(findAllFragments(feature)),
                 }),
             });
             if (resp.ok) {
@@ -1490,6 +1491,31 @@ export function enterCrosshairMode() {
         document.getElementById('crosshairOverlay')?.classList.remove('d-none');
         document.getElementById('crosshairBar')?.classList.remove('d-none');
     });
+}
+
+function computeFeatureBbox(fragments) {
+    const lngs = [], lats = [];
+    for (const f of fragments) {
+        collectCoords(f.geometry, lngs, lats);
+    }
+    if (!lngs.length) return null;
+    return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+}
+
+function collectCoords(geometry, lngs, lats) {
+    const push = c => { lngs.push(c[0]); lats.push(c[1]); };
+    switch (geometry.type) {
+        case 'Point':
+            push(geometry.coordinates); break;
+        case 'LineString':
+        case 'MultiPoint':
+            geometry.coordinates.forEach(push); break;
+        case 'Polygon':
+        case 'MultiLineString':
+            geometry.coordinates.forEach(r => r.forEach(push)); break;
+        case 'MultiPolygon':
+            geometry.coordinates.forEach(p => p.forEach(r => r.forEach(push))); break;
+    }
 }
 
 function exitCrosshairMode(coords) {
