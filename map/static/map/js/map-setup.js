@@ -1598,24 +1598,27 @@ export function zoomToH3Res(zoom) {
 
 // --- Mode tabs (Map / Saved) ----------------------------------------------
 
-export function setMode(mode, onSavedActivate) {
+export function setMode(mode, onSavedActivate, onReportsActivate) {
     if (mode === 'layers') return;
+
     document.querySelectorAll('.app-tab, .dock-tab').forEach(t => {
         if (t.dataset.mode === 'layers') return;
         t.classList.toggle('active', t.dataset.mode === mode);
     });
-    const savedPanel = document.getElementById('savedPanel');
-    if (mode === 'saved') {
-        savedPanel.classList.remove('d-none');
-        if (onSavedActivate) onSavedActivate();
-    } else {
-        savedPanel.classList.add('d-none');
-    }
+
+    const savedPanel   = document.getElementById('savedPanel');
+    const reportsPanel = document.getElementById('reportsPanel');
+
+    savedPanel.classList.toggle('d-none', mode !== 'saved');
+    reportsPanel.classList.toggle('d-none', mode !== 'reports');
+
+    if (mode === 'saved'   && onSavedActivate)   onSavedActivate();
+    if (mode === 'reports' && onReportsActivate) onReportsActivate();
 }
 
-export function initModeTabs(onSavedActivate) {
-    window.setMode = (mode) => setMode(mode, onSavedActivate);
+export function initModeTabs(onSavedActivate, onReportsActivate) {
+    window.setMode = (mode) => setMode(mode, onSavedActivate, onReportsActivate);
     document.querySelectorAll('.app-tab, .dock-tab').forEach(tab => {
-        tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate));
+        tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate, onReportsActivate));
     });
 }

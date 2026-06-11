@@ -27,6 +27,9 @@
         <button class="app-tab" data-mode="saved" type="button">
             <i class="bi bi-bookmark"></i><span>Saved</span>
         </button>
+        <button class="app-tab" data-mode="reports" type="button">
+            <i class="bi bi-chat-left-text"></i><span>Reports</span>
+        </button>
     </nav>
     <div class="app-bar-spacer"></div>
     <div class="app-bar-account">
@@ -127,6 +130,18 @@
         </div>
     </section>
 
+    <!-- Reports mode panel -->
+    <section id="reportsPanel" class="list-panel d-none">
+        <div class="list-panel-header">
+            <h6 class="mb-0">My Water Reports</h6>
+            <button type="button" class="btn-close btn-close-sm d-md-none"
+                    aria-label="Close" onclick="setMode('map')"></button>
+        </div>
+        <div id="reportsPanelBody" class="list-panel-body small">
+            <div class="text-muted">Loading…</div>
+        </div>
+    </section>
+
     <!-- Drag-edit floating tooltip -->
     <div id="dragTooltip" class="drag-tooltip d-none">
         <div class="drag-tooltip-arrow"></div>
@@ -173,6 +188,10 @@
     <button class="dock-tab" data-mode="saved" type="button">
         <i class="bi bi-bookmark"></i>
         <span>Saved</span>
+    </button>
+    <button class="dock-tab" data-mode="reports" type="button">
+        <i class="bi bi-chat-left-text"></i>
+        <span>Reports</span>
     </button>
 </nav>
 

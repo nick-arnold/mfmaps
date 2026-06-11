@@ -38,8 +38,12 @@ class WaterbodyCommentViewSet(
         qs = WaterbodyComment.objects.select_related('user')
         gnis_id = self.request.query_params.get('gnis_id')
         if gnis_id:
-            qs = qs.filter(gnis_id=gnis_id)
-        return qs
+            # Public per-waterbody view: anyone can read all comments here
+            return qs.filter(gnis_id=gnis_id)
+        # No gnis_id → "my reports" view: auth required, own comments only
+        if not self.request.user.is_authenticated:
+            return qs.none()
+        return qs.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

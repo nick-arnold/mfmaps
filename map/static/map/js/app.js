@@ -19,6 +19,7 @@ import {
     startObservation,
     loadObservations,
 } from './observations.js';
+import { loadReports } from './reports.js';
 
 async function main() {
     // 1. Initialize the map and wait for its 'load' event
@@ -35,7 +36,7 @@ async function main() {
     initCrosshair();
     wireMapClicks();
     wireFabs(startObservation);
-    initModeTabs(loadObservations);
+    initModeTabs(loadObservations, loadReports);
 
     // 3. Auth forms and account menus
     initAuth();
