@@ -807,7 +807,7 @@ function addSourcesAndLayers() {
             'line-opacity': 0.75,
             'line-blur': 4
         }
-    });
+    }, 'nhd-ak-streams');
 
     // --- 5. Polygon hover (OVER lakes) --------------------------------
     map.addLayer({
