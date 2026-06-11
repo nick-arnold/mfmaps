@@ -66,6 +66,7 @@ class WaterbodyComment(models.Model):
     click_lng = models.FloatField(null=True, blank=True)
     click_lat = models.FloatField(null=True, blank=True)
     body = models.TextField()
+    bbox = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_public = models.BooleanField(default=True)
