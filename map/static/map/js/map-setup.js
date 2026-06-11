@@ -666,11 +666,11 @@ function addSourcesAndLayers() {
     // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
     const widthByArbolate = [
         'interpolate', ['linear'], ['zoom'],
-        3,  ['*', 0.18, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
-        6,  ['*', 0.30, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
-        10, ['*', 0.55, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
-        14, ['*', 1.00, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
-        19, ['*', 1.80, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]]
+        3,  ['*', 0.14, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        6,  ['*', 0.24, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        10, ['*', 0.44, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        14, ['*', 0.80, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
+        19, ['*', 1.44, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]]
     ];
 
     // --- CONUS streams ------------------------------------------------
@@ -792,20 +792,37 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 1. Line hover halo -------------------------------------------
+    // Outer glow (wide, very soft)
+    map.addLayer({
+        id: 'nhd-hover-halo-outer',
+        type: 'line',
+        source: 'nhd-hover',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': HOVER_COLOR,
+            'line-width': ['interpolate', ['linear'], ['zoom'],
+                4, 14, 10, 22, 14, 34, 17, 46
+            ],
+            'line-opacity': 0.25,
+            'line-blur': 8
+        }
+    }, 'nhd-ak-streams');
+
+    // Inner glow (tighter, less blur — defines the crisp warm core)
     map.addLayer({
         id: 'nhd-hover-halo',
         type: 'line',
         source: 'nhd-hover',
         filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
             'line-color': HOVER_COLOR,
-            'line-width': [
-                'interpolate', ['linear'], ['zoom'],
+            'line-width': ['interpolate', ['linear'], ['zoom'],
                 4, 6, 10, 12, 14, 20, 17, 30
             ],
-            'line-opacity': 0.75,
-            'line-blur': 4
+            'line-opacity': 0.55,
+            'line-blur': 3
         }
     }, 'nhd-ak-streams');
 

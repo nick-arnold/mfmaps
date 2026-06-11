@@ -7,20 +7,21 @@ export const state = {
     geolocate: null,
     currentUser: null,
     queryMode: false,
+    crosshairMode: false,
     openPopup: null,
 };
 
 export const LAYER_IDS = {
-    'observations': ['observations-layer'],
+    observations: ['observations-layer'],
     'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
-    canopy: ['canopy-conus-layer', 'canopy-seak-layer', 'canopy-hawaii-layer'], 
-    'trails': [
-        'trails-track',           // forest roads / doubletracks
-        'trails-bridleway',       // equestrian routes
-        'trails-cycleway',        // dedicated bike paths
-        'trails-footway-real',    // park paths / greenways (non-sidewalk, natural surface)
-        'trails-path-unknown',    // singletrack, no surface tag
-        'trails-path-natural',    // singletrack, confirmed natural surface
+    canopy: ['canopy-conus-layer', 'canopy-seak-layer', 'canopy-hawaii-layer'],
+    trails: [
+        'trails-track',
+        'trails-bridleway',
+        'trails-cycleway',
+        'trails-footway-real',
+        'trails-path-unknown',
+        'trails-path-natural',
     ],
     terrain: [
         'terrain-z3-4-hillshade',
@@ -34,27 +35,30 @@ export const LAYER_IDS = {
         'hawaii-z3-4-hillshade',
         'hawaii-z5-7-hillshade',
         'hawaii-z8-10-hillshade',
-        'hawaii-z11-12-hillshade'
+        'hawaii-z11-12-hillshade',
     ],
-    'hydrography': [
-        // Protomaps labels
-        'nhd-streams-label-large',
-        'nhd-streams-label-medium',
-        'nhd-streams-label-small',
-        'nhd-waterbodies-label',
-        // AK
+    hydrography: [
+        // CONUS + Hawaii
+        'nhd-conus-streams',
+        'nhd-conus-waterbodies-fill',
+        'nhd-conus-waterbodies-stroke',
+        // Alaska
         'nhd-ak-streams',
         'nhd-ak-waterbodies-fill',
         'nhd-ak-waterbodies-stroke',
+        // Labels — AK
         'nhd-ak-streams-label-high',
         'nhd-ak-streams-label-mid',
         'nhd-ak-streams-label-low',
         'nhd-ak-waterbodies-label',
-        // CONUS
-        'nhd-conus-streams',
-        'nhd-conus-waterbodies-fill',
-        'nhd-conus-waterbodies-stroke'
-    ]
+        // Labels — CONUS (legacy Protomaps source; remove if nhd source is gone)
+        'nhd-streams-label-large',
+        'nhd-streams-label-medium',
+        'nhd-streams-label-small',
+        'nhd-waterbodies-label',
+        // Selected/hover overlays are intentionally excluded —
+        // they're driven by interaction, not the visibility toggle
+    ],
 };
 
 export const H3_RES = 8;
