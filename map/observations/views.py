@@ -38,6 +38,7 @@ class WaterbodyCommentViewSet(
         from django.db.models import Q
         qs = WaterbodyComment.objects.select_related('user')
         gnis_id = self.request.query_params.get('gnis_id')
+        scope = self.request.query_params.get('scope')
 
         if gnis_id:
             # Popup view: public comments + viewer's own private comments
@@ -46,10 +47,14 @@ class WaterbodyCommentViewSet(
                 return qs.filter(Q(is_public=True) | Q(user=self.request.user))
             return qs.filter(is_public=True)
 
-        # Reports tab: own comments only (both public and private)
+        if scope == 'public':
+            # Public reports feed: everyone's public comments
+            return qs.filter(is_public=True).order_by('-created_at')
+
+        # Default: own comments only (both public and private)
         if not self.request.user.is_authenticated:
             return qs.none()
-        return qs.filter(user=self.request.user)
+        return qs.filter(user=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

@@ -1234,7 +1234,6 @@ async function openHydroPopup(feature, lngLat) {
     const p = feature.properties || {};
     const gnisId = p.gnis_id || null;
 
-    // Build initial HTML — feature info on top, comments skeleton below
     const featureHtml = hydroPopupHtml(feature);
     const commentsHtml = gnisId
         ? `<div class="hydro-comments mt-2 pt-2" style="border-top: 1px solid #dee2e6;">
@@ -1244,9 +1243,20 @@ async function openHydroPopup(feature, lngLat) {
                    <textarea class="form-control form-control-sm hydro-comment-input"
                        rows="2" placeholder="Add a comment…" maxlength="1000"
                        style="resize:none;font-size:0.78rem;"></textarea>
-                   <button class="btn btn-sm btn-outline-secondary hydro-comment-submit mt-1"
-                       style="font-size:0.75rem;">Post</button>
-                   <span class="hydro-comment-error text-danger small ms-2 d-none"></span>
+                   <div class="d-flex align-items-center justify-content-between mt-1 gap-2">
+                       <div class="form-check form-check-inline m-0">
+                           <input class="form-check-input hydro-comment-public" type="checkbox" checked>
+                           <label class="form-check-label small text-muted" style="font-size:0.72rem;">
+                               Public
+                           </label>
+                       </div>
+                       <div>
+                           <span class="hydro-comment-error text-danger small me-2 d-none"
+                               style="font-size:0.72rem;"></span>
+                           <button class="btn btn-sm btn-outline-secondary hydro-comment-submit"
+                               style="font-size:0.75rem;">Post</button>
+                       </div>
+                   </div>
                </div>
            </div>`
         : '';
@@ -1269,13 +1279,13 @@ async function openHydroPopup(feature, lngLat) {
 
     if (!gnisId) return;
 
-    // Wire comment thread once popup is in the DOM
     const el = popup.getElement();
-    const listEl    = el.querySelector('.hydro-comments-list');
-    const input     = el.querySelector('.hydro-comment-input');
-    const submitBtn = el.querySelector('.hydro-comment-submit');
-    const errEl     = el.querySelector('.hydro-comment-error');
-    const gnisName  = p.gnis_name || '';
+    const listEl     = el.querySelector('.hydro-comments-list');
+    const input      = el.querySelector('.hydro-comment-input');
+    const publicChk  = el.querySelector('.hydro-comment-public');
+    const submitBtn  = el.querySelector('.hydro-comment-submit');
+    const errEl      = el.querySelector('.hydro-comment-error');
+    const gnisName   = p.gnis_name || '';
 
     async function loadComments() {
         listEl.innerHTML = '<span class="text-muted">Loading…</span>';
@@ -1289,9 +1299,12 @@ async function openHydroPopup(feature, lngLat) {
             }
             listEl.innerHTML = comments.map(c => {
                 const when = new Date(c.created_at).toLocaleDateString();
+                const privateBadge = c.is_public === false
+                    ? ' <span class="badge bg-secondary" style="font-size:0.6rem;">private</span>'
+                    : '';
                 return `<div class="mb-1" data-comment-id="${escapeHtml(c.id)}">
                     <span class="fw-semibold">${escapeHtml(c.username)}</span>
-                    <span class="text-muted ms-1">${when}</span>
+                    <span class="text-muted ms-1">${when}</span>${privateBadge}
                     <div>${escapeHtml(c.body)}</div>
                 </div>`;
             }).join('');
@@ -1309,7 +1322,12 @@ async function openHydroPopup(feature, lngLat) {
             const { apiFetch } = await import('./api.js');
             const resp = await apiFetch('/api/v1/waterbody-comments/', {
                 method: 'POST',
-                body: JSON.stringify({ gnis_id: gnisId, gnis_name: gnisName, body }),
+                body: JSON.stringify({
+                    gnis_id: gnisId,
+                    gnis_name: gnisName,
+                    body,
+                    is_public: publicChk.checked,
+                }),
             });
             if (resp.ok) {
                 input.value = '';

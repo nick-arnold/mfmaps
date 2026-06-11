@@ -133,10 +133,20 @@
     <!-- Reports mode panel -->
     <section id="reportsPanel" class="list-panel d-none">
         <div class="list-panel-header">
-            <h6 class="mb-0">My Water Reports</h6>
+            <h6 class="mb-0">Water Reports</h6>
             <button type="button" class="btn-close btn-close-sm d-md-none"
                     aria-label="Close" onclick="setMode('map')"></button>
         </div>
+        <ul class="nav nav-tabs px-3 pt-2" id="reportsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="reportsMineTab" type="button"
+                        data-reports-scope="mine">Mine</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="reportsPublicTab" type="button"
+                        data-reports-scope="public">Public</button>
+            </li>
+        </ul>
         <div id="reportsPanelBody" class="list-panel-body small">
             <div class="text-muted">Loading…</div>
         </div>
