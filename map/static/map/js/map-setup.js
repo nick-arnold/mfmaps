@@ -1709,6 +1709,9 @@ export function setMode(mode, onSavedActivate, onReportsActivate) {
     savedPanel.classList.toggle('d-none', mode !== 'saved');
     reportsPanel.classList.toggle('d-none', mode !== 'reports');
 
+    // Hide map FABs when a list panel is showing
+    document.body.classList.toggle('list-mode', mode === 'saved' || mode === 'reports');
+
     if (mode === 'saved'   && onSavedActivate)   onSavedActivate();
     if (mode === 'reports' && onReportsActivate) onReportsActivate();
 }

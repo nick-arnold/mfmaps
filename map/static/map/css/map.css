@@ -596,3 +596,7 @@ body.crosshair-mode #map::after {
     pointer-events: none;
     z-index: 5;
 }
+
+body.list-mode .fab-stack {
+    display: none;
+}
