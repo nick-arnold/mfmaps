@@ -66,7 +66,39 @@ async function render() {
             const lng = parseFloat(item.dataset.lng);
             const lat = parseFloat(item.dataset.lat);
             if (!isFinite(lng) || !isFinite(lat)) return;
-            state.map.flyTo({ center: [lng, lat], zoom: 11 });
+
+            const gnisId = item.dataset.gnisId;
+            const fragments = [
+                ...state.map.querySourceFeatures('nhd_conus', {
+                    sourceLayer: 'waterbodies',
+                    filter: ['==', ['get', 'gnis_id'], gnisId]
+                }),
+                ...state.map.querySourceFeatures('nhd_conus', {
+                    sourceLayer: 'streams',
+                    filter: ['==', ['get', 'gnis_id'], gnisId]
+                }),
+                ...state.map.querySourceFeatures('nhd_ak', {
+                    sourceLayer: 'waterbodies',
+                    filter: ['==', ['get', 'gnis_id'], gnisId]
+                }),
+                ...state.map.querySourceFeatures('nhd_ak', {
+                    sourceLayer: 'streams',
+                    filter: ['==', ['get', 'gnis_id'], gnisId]
+                }),
+            ];
+
+            if (fragments.length) {
+                const lngs = [], lats = [];
+                for (const f of fragments) collectCoords(f.geometry, lngs, lats);
+                state.map.fitBounds(
+                    [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                    { padding: 80, maxZoom: 13 }
+                );
+            } else {
+                // Feature not in tile cache — fly to click point; tiles will load
+                state.map.flyTo({ center: [lng, lat], zoom: 11 });
+            }
+
             window.setMode('map');
         });
     });
@@ -129,6 +161,24 @@ async function render() {
                 }
             });
         });
+    }
+}
+
+// --- Helpers --------------------------------------------------------------
+
+function collectCoords(geometry, lngs, lats) {
+    const push = c => { lngs.push(c[0]); lats.push(c[1]); };
+    switch (geometry.type) {
+        case 'Point':
+            push(geometry.coordinates); break;
+        case 'LineString':
+        case 'MultiPoint':
+            geometry.coordinates.forEach(push); break;
+        case 'Polygon':
+        case 'MultiLineString':
+            geometry.coordinates.forEach(r => r.forEach(push)); break;
+        case 'MultiPolygon':
+            geometry.coordinates.forEach(p => p.forEach(r => r.forEach(push))); break;
     }
 }
 
