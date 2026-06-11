@@ -997,7 +997,11 @@ function addSourcesAndLayers() {
 // stream is underneath instead.
 const HYDRO_INTERACTIVE_LAYERS = [
     'nhd-waterbodies-fill',
-    'nhd-streams'
+    'nhd-streams',
+    'nhd-conus-streams',
+    'nhd-conus-waterbodies-fill',
+    'nhd-ak-streams',
+    'nhd-ak-waterbodies-fill',
 ];
 
 const HYDRO_CLICK_BUFFER_PX = 5;
@@ -1059,22 +1063,24 @@ function findAllFragments(clickedFeature) {
     if (!gnisId) return [clickedFeature];
 
     const layerId = clickedFeature.layer?.id;
-    let sourceLayer;
-    if (layerId === 'nhd-streams') sourceLayer = 'streams';
-    else if (layerId === 'nhd-waterbodies-fill') sourceLayer = 'waterbodies';
-    else if (layerId === 'nhd-areas-fill') sourceLayer = 'areas';
+    let sourceName, sourceLayer;
+
+    if (layerId === 'nhd-streams')                   { sourceName = 'nhd';       sourceLayer = 'streams'; }
+    else if (layerId === 'nhd-waterbodies-fill')      { sourceName = 'nhd';       sourceLayer = 'waterbodies'; }
+    else if (layerId === 'nhd-areas-fill')            { sourceName = 'nhd';       sourceLayer = 'areas'; }
+    else if (layerId === 'nhd-conus-streams')         { sourceName = 'nhd_conus'; sourceLayer = 'streams'; }
+    else if (layerId === 'nhd-conus-waterbodies-fill'){ sourceName = 'nhd_conus'; sourceLayer = 'waterbodies'; }
+    else if (layerId === 'nhd-ak-streams')            { sourceName = 'nhd_ak';    sourceLayer = 'streams'; }
+    else if (layerId === 'nhd-ak-waterbodies-fill')   { sourceName = 'nhd_ak';    sourceLayer = 'waterbodies'; }
     else return [clickedFeature];
 
-    const matches = map.querySourceFeatures('nhd', {
+    const matches = map.querySourceFeatures(sourceName, {
         sourceLayer,
         filter: ['==', ['get', 'gnis_id'], gnisId]
     });
 
     if (!matches.length) return [clickedFeature];
 
-    // Polygon layers: union into single feature so we get one label / one
-    // continuous outline. Lines: keep all fragments — line highlight benefits
-    // from per-tile precision.
     const isPolygonLayer = (sourceLayer === 'waterbodies' || sourceLayer === 'areas');
     if (isPolygonLayer && matches.length > 1 && typeof turf !== 'undefined') {
         try {
@@ -1085,7 +1091,6 @@ function findAllFragments(clickedFeature) {
                 return [unioned];
             }
         } catch (err) {
-            // Union can fail on invalid geometries — fall back to fragments
             console.warn('Polygon union failed, falling back to fragments:', err);
         }
     }
@@ -1101,9 +1106,10 @@ function fmtNumber(v, digits) {
 }
 
 function featureKind(feature) {
-    if (feature.layer && feature.layer.id === 'nhd-streams') return 'stream';
-    if (feature.layer && feature.layer.id === 'nhd-waterbodies-fill') return 'waterbody';
-    if (feature.layer && feature.layer.id === 'nhd-areas-fill') return 'area';
+    const id = feature.layer?.id;
+    if (id === 'nhd-streams' || id === 'nhd-conus-streams' || id === 'nhd-ak-streams') return 'stream';
+    if (id === 'nhd-waterbodies-fill' || id === 'nhd-conus-waterbodies-fill' || id === 'nhd-ak-waterbodies-fill') return 'waterbody';
+    if (id === 'nhd-areas-fill') return 'area';
     const gt = feature.geometry?.type;
     if (gt === 'LineString' || gt === 'MultiLineString') return 'stream';
     return 'waterbody';
@@ -1114,24 +1120,31 @@ function streamPopupHtml(feature) {
     const name = p.gnis_name || null;
     const rows = [];
 
-    if (p.max_strahler !== undefined && p.max_strahler !== null) {
-        rows.push(['Stream order', p.max_strahler]);
-    }
-    const lenKm = fmtNumber(p.total_length_km, 1);
+    if (p.max_strahler != null)   rows.push(['Stream order', p.max_strahler]);
+
+    // Length: nhd_conus → lengthkm, nhd_ak → total_lengthkm, legacy → total_length_km
+    const rawKm = p.lengthkm ?? p.total_lengthkm ?? p.total_length_km;
+    const lenKm = fmtNumber(rawKm, 1);
     if (lenKm !== null) {
-        const lenMi = (Number(lenKm) * 0.621371).toFixed(1);
-        rows.push(['Length', `${lenKm} km (${lenMi} mi)`]);
+        rows.push(['Length', `${lenKm} km (${(Number(lenKm) * 0.621371).toFixed(1)} mi)`]);
     }
-    const drain = fmtNumber(p.max_drainage_area_sqkm, 0);
+
+    // Drainage area: nhd_ak → max_totdasqkm, legacy → max_drainage_area_sqkm
+    const rawDrain = p.max_totdasqkm ?? p.max_drainage_area_sqkm;
+    const drain = fmtNumber(rawDrain, 0);
     if (drain !== null) rows.push(['Drainage area', `${drain} km²`]);
-    const flow = fmtNumber(p.avg_flow_cfs, 1);
-    if (flow !== null) rows.push(['Avg flow', `${flow} cfs`]);
+
+    // CONUS arbolate sum as a proxy when drainage area absent
+    if (drain === null && p.arbolatesu != null) {
+        rows.push(['Arbolate sum', `${fmtNumber(p.arbolatesu, 0)} km`]);
+    }
+
+    const flow  = fmtNumber(p.avg_flow_cfs, 1);
+    if (flow  !== null) rows.push(['Avg flow', `${flow} cfs`]);
     const slope = fmtNumber(p.avg_slope, 4);
     if (slope !== null) rows.push(['Avg gradient', `${(Number(slope) * 100).toFixed(2)}%`]);
-    if (p.segment_count !== undefined && p.segment_count !== null) {
-        rows.push(['NHD segments', p.segment_count]);
-    }
-    if (p.gnis_id) rows.push(['GNIS ID', p.gnis_id]);
+    if (p.segment_count != null) rows.push(['NHD segments', p.segment_count]);
+    if (p.gnis_id)               rows.push(['GNIS ID', p.gnis_id]);
 
     const title = name
         ? `<div class="fw-bold mb-2">${escapeHtml(String(name))}</div>`
