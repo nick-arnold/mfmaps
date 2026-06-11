@@ -1282,11 +1282,12 @@ async function openHydroPopup(feature, lngLat) {
         try {
             const resp = await fetch(`/api/v1/waterbody-comments/?gnis_id=${encodeURIComponent(gnisId)}`);
             const data = await resp.json();
-            if (!data.results || !data.results.length) {
+            const comments = Array.isArray(data) ? data : (data.results ?? []);
+            if (!comments.length) {
                 listEl.innerHTML = '<span class="text-muted">No comments yet.</span>';
                 return;
             }
-            listEl.innerHTML = data.results.map(c => {
+            listEl.innerHTML = comments.map(c => {
                 const when = new Date(c.created_at).toLocaleDateString();
                 return `<div class="mb-1" data-comment-id="${escapeHtml(c.id)}">
                     <span class="fw-semibold">${escapeHtml(c.username)}</span>
