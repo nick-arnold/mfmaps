@@ -1716,7 +1716,7 @@
       "filter": [
         "all",
         [">=", "admin_level", 3],
-        ["<=", "admin_level", 8],
+        ["<=", "admin_level", 7],
         ["!=", "maritime", 1]
       ],
       "layout": {"line-join": "round", "visibility": "visible"},
