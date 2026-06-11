@@ -203,7 +203,7 @@ function addSourcesAndLayers() {
             minzoom: 4,
             maxzoom: 14,
             paint: {
-                'raster-opacity': 0.75,
+                'raster-opacity': 0.35,
                 'raster-resampling': 'linear'
             },
             layout: { visibility: 'none' }
