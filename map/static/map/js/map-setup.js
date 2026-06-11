@@ -1287,6 +1287,8 @@ async function openHydroPopup(feature, lngLat) {
     const errEl      = el.querySelector('.hydro-comment-error');
     const gnisName   = p.gnis_name || '';
 
+    const { apiFetch } = await import('./api.js');
+
     async function loadComments() {
         listEl.innerHTML = '<span class="text-muted">Loading…</span>';
         try {
@@ -1297,20 +1299,96 @@ async function openHydroPopup(feature, lngLat) {
                 listEl.innerHTML = '<span class="text-muted">No comments yet.</span>';
                 return;
             }
-            listEl.innerHTML = comments.map(c => {
-                const when = new Date(c.created_at).toLocaleDateString();
-                const privateBadge = c.is_public === false
-                    ? ' <span class="badge bg-secondary" style="font-size:0.6rem;">private</span>'
-                    : '';
-                return `<div class="mb-1" data-comment-id="${escapeHtml(c.id)}">
-                    <span class="fw-semibold">${escapeHtml(c.username)}</span>
-                    <span class="text-muted ms-1">${when}</span>${privateBadge}
-                    <div>${escapeHtml(c.body)}</div>
-                </div>`;
-            }).join('');
+            const currentUsername = window.state?.currentUser?.username
+                                 || window.state?.currentUser?.email
+                                 || null;
+            listEl.innerHTML = comments.map(c => renderComment(c, currentUsername)).join('');
+            wireCommentRowActions();
         } catch {
             listEl.innerHTML = '<span class="text-danger">Could not load comments.</span>';
         }
+    }
+
+    function renderComment(c, currentUsername) {
+        const when = new Date(c.created_at).toLocaleDateString();
+        const privateBadge = c.is_public === false
+            ? ' <span class="badge bg-secondary" style="font-size:0.6rem;">private</span>'
+            : '';
+        const mine = currentUsername && c.username === currentUsername;
+        const editLink = mine
+            ? `<button class="btn btn-link btn-sm p-0 ms-1 hydro-comment-edit"
+                       data-comment-id="${escapeHtml(c.id)}"
+                       style="font-size:0.7rem;">edit</button>`
+            : '';
+        return `<div class="mb-2 hydro-comment-row" data-comment-id="${escapeHtml(c.id)}">
+            <div class="hydro-comment-display">
+                <span class="fw-semibold">${escapeHtml(c.username)}</span>
+                <span class="text-muted ms-1">${when}</span>${privateBadge}${editLink}
+                <div class="hydro-comment-body">${escapeHtml(c.body)}</div>
+            </div>
+            <div class="hydro-comment-edit-form d-none">
+                <textarea class="form-control form-control-sm hydro-comment-edit-input"
+                    rows="2" maxlength="1000"
+                    style="resize:none;font-size:0.78rem;">${escapeHtml(c.body)}</textarea>
+                <div class="d-flex align-items-center justify-content-between mt-1 gap-2">
+                    <div class="form-check form-check-inline m-0">
+                        <input class="form-check-input hydro-comment-edit-public" type="checkbox" ${c.is_public ? 'checked' : ''}>
+                        <label class="form-check-label small text-muted" style="font-size:0.72rem;">Public</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-link text-muted hydro-comment-edit-cancel" style="font-size:0.75rem;">Cancel</button>
+                        <button class="btn btn-sm btn-outline-secondary hydro-comment-edit-save" style="font-size:0.75rem;">Update</button>
+                    </div>
+                </div>
+                <div class="hydro-comment-edit-error text-danger small mt-1 d-none" style="font-size:0.72rem;"></div>
+            </div>
+        </div>`;
+    }
+
+    function wireCommentRowActions() {
+        listEl.querySelectorAll('.hydro-comment-edit').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const row = btn.closest('.hydro-comment-row');
+                row.querySelector('.hydro-comment-display').classList.add('d-none');
+                row.querySelector('.hydro-comment-edit-form').classList.remove('d-none');
+            });
+        });
+        listEl.querySelectorAll('.hydro-comment-edit-cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const row = btn.closest('.hydro-comment-row');
+                row.querySelector('.hydro-comment-edit-form').classList.add('d-none');
+                row.querySelector('.hydro-comment-display').classList.remove('d-none');
+            });
+        });
+        listEl.querySelectorAll('.hydro-comment-edit-save').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const row = btn.closest('.hydro-comment-row');
+                const id = row.dataset.commentId;
+                const newBody = row.querySelector('.hydro-comment-edit-input').value.trim();
+                const newPublic = row.querySelector('.hydro-comment-edit-public').checked;
+                const editErrEl = row.querySelector('.hydro-comment-edit-error');
+                editErrEl.classList.add('d-none');
+                if (!newBody) return;
+                btn.disabled = true;
+                try {
+                    const resp = await apiFetch(`/api/v1/waterbody-comments/${id}/`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ body: newBody, is_public: newPublic }),
+                    });
+                    if (resp.ok) {
+                        await loadComments();
+                    } else {
+                        editErrEl.textContent = 'Could not update.';
+                        editErrEl.classList.remove('d-none');
+                    }
+                } catch {
+                    editErrEl.textContent = 'Network error.';
+                    editErrEl.classList.remove('d-none');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
     }
 
     submitBtn.addEventListener('click', async () => {
@@ -1319,7 +1397,6 @@ async function openHydroPopup(feature, lngLat) {
         errEl.classList.add('d-none');
         submitBtn.disabled = true;
         try {
-            const { apiFetch } = await import('./api.js');
             const resp = await apiFetch('/api/v1/waterbody-comments/', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -1327,6 +1404,8 @@ async function openHydroPopup(feature, lngLat) {
                     gnis_name: gnisName,
                     body,
                     is_public: publicChk.checked,
+                    click_lng: lngLat.lng,
+                    click_lat: lngLat.lat,
                 }),
             });
             if (resp.ok) {

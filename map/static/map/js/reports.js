@@ -59,12 +59,74 @@ async function render() {
 
     el.innerHTML = comments.map(c => renderItem(c, currentScope)).join('');
 
+    el.querySelectorAll('.report-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (e.target.closest('.report-actions')) return;
+            if (e.target.closest('.report-edit-form')) return;
+            const lng = parseFloat(item.dataset.lng);
+            const lat = parseFloat(item.dataset.lat);
+            if (!isFinite(lng) || !isFinite(lat)) return;
+            state.map.flyTo({ center: [lng, lat], zoom: 14 });
+            window.setMode('map');
+        });
+    });
+
     if (currentScope === 'mine') {
         el.querySelectorAll('.delete-report-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
                 const id = btn.dataset.commentId;
                 const resp = await apiFetch(`/api/v1/waterbody-comments/${id}/`, { method: 'DELETE' });
                 if (resp.ok || resp.status === 204) await render();
+            });
+        });
+
+        el.querySelectorAll('.edit-report-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.report-item');
+                item.querySelector('.report-display').classList.add('d-none');
+                item.querySelector('.report-edit-form').classList.remove('d-none');
+            });
+        });
+
+        el.querySelectorAll('.report-edit-cancel').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.report-item');
+                item.querySelector('.report-edit-form').classList.add('d-none');
+                item.querySelector('.report-display').classList.remove('d-none');
+            });
+        });
+
+        el.querySelectorAll('.report-edit-save').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.report-item');
+                const id = btn.dataset.commentId;
+                const newBody = item.querySelector('.report-edit-body').value.trim();
+                const newPublic = item.querySelector('.report-edit-public').checked;
+                const errEl = item.querySelector('.report-edit-error');
+                errEl.classList.add('d-none');
+                if (!newBody) return;
+                btn.disabled = true;
+                try {
+                    const resp = await apiFetch(`/api/v1/waterbody-comments/${id}/`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ body: newBody, is_public: newPublic }),
+                    });
+                    if (resp.ok) {
+                        await render();
+                    } else {
+                        errEl.textContent = 'Could not update.';
+                        errEl.classList.remove('d-none');
+                    }
+                } catch {
+                    errEl.textContent = 'Network error.';
+                    errEl.classList.remove('d-none');
+                } finally {
+                    btn.disabled = false;
+                }
             });
         });
     }
@@ -73,6 +135,7 @@ async function render() {
 function renderItem(c, scope) {
     const name = c.gnis_name || `GNIS ${c.gnis_id}`;
     const when = new Date(c.created_at).toLocaleDateString();
+    const hasCoords = c.click_lng != null && c.click_lat != null;
 
     const meta = scope === 'public'
         ? `<small class="text-muted">by ${escapeHtml(c.username)} · ${when}</small>`
@@ -84,20 +147,52 @@ function renderItem(c, scope) {
             : '<span class="badge bg-success ms-2" style="font-size:0.65rem;">public</span>')
         : '';
 
-    const deleteBtn = scope === 'mine'
-        ? `<button class="btn btn-sm btn-link text-danger p-0 mt-1 delete-report-btn"
-                   data-comment-id="${escapeHtml(c.id)}"
-                   style="font-size:0.75rem;">Delete</button>`
+    const actions = scope === 'mine'
+        ? `<div class="report-actions mt-1">
+               <button class="btn btn-sm btn-link p-0 me-2 edit-report-btn"
+                       data-comment-id="${escapeHtml(c.id)}"
+                       style="font-size:0.75rem;">Edit</button>
+               <button class="btn btn-sm btn-link text-danger p-0 delete-report-btn"
+                       data-comment-id="${escapeHtml(c.id)}"
+                       style="font-size:0.75rem;">Delete</button>
+           </div>`
+        : '';
+
+    const editForm = scope === 'mine'
+        ? `<div class="report-edit-form d-none mt-2">
+               <textarea class="form-control form-control-sm report-edit-body" rows="2" maxlength="1000"
+                   style="resize:none;font-size:0.8rem;">${escapeHtml(c.body)}</textarea>
+               <div class="d-flex align-items-center justify-content-between mt-1 gap-2">
+                   <div class="form-check form-check-inline m-0">
+                       <input class="form-check-input report-edit-public" type="checkbox" ${c.is_public ? 'checked' : ''}>
+                       <label class="form-check-label small text-muted" style="font-size:0.72rem;">Public</label>
+                   </div>
+                   <div>
+                       <button class="btn btn-sm btn-link text-muted report-edit-cancel" style="font-size:0.75rem;">Cancel</button>
+                       <button class="btn btn-sm btn-outline-secondary report-edit-save"
+                           data-comment-id="${escapeHtml(c.id)}"
+                           style="font-size:0.75rem;">Update</button>
+                   </div>
+               </div>
+               <div class="report-edit-error text-danger small mt-1 d-none" style="font-size:0.72rem;"></div>
+           </div>`
         : '';
 
     return `
-        <div class="saved-item border-bottom py-2 px-2" data-gnis-id="${escapeHtml(c.gnis_id)}">
-            <div class="d-flex justify-content-between align-items-start">
-                <div><strong>${escapeHtml(name)}</strong>${badge}</div>
-                ${meta}
+        <div class="report-item saved-item border-bottom py-2 px-2"
+             data-gnis-id="${escapeHtml(c.gnis_id)}"
+             data-lng="${hasCoords ? c.click_lng : ''}"
+             data-lat="${hasCoords ? c.click_lat : ''}"
+             style="${hasCoords ? 'cursor:pointer;' : ''}">
+            <div class="report-display">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div><strong>${escapeHtml(name)}</strong>${badge}</div>
+                    ${meta}
+                </div>
+                <div class="mt-1">${escapeHtml(c.body)}</div>
+                ${actions}
             </div>
-            <div class="mt-1">${escapeHtml(c.body)}</div>
-            ${deleteBtn}
+            ${editForm}
         </div>
     `;
 }
