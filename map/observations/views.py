@@ -35,12 +35,18 @@ class WaterbodyCommentViewSet(
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        from django.db.models import Q
         qs = WaterbodyComment.objects.select_related('user')
         gnis_id = self.request.query_params.get('gnis_id')
+
         if gnis_id:
-            # Public per-waterbody view: anyone can read all comments here
-            return qs.filter(gnis_id=gnis_id)
-        # No gnis_id → "my reports" view: auth required, own comments only
+            # Popup view: public comments + viewer's own private comments
+            qs = qs.filter(gnis_id=gnis_id)
+            if self.request.user.is_authenticated:
+                return qs.filter(Q(is_public=True) | Q(user=self.request.user))
+            return qs.filter(is_public=True)
+
+        # Reports tab: own comments only (both public and private)
         if not self.request.user.is_authenticated:
             return qs.none()
         return qs.filter(user=self.request.user)
