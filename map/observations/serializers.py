@@ -63,7 +63,7 @@ class WaterbodyCommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WaterbodyComment
-        fields = ['id', 'gnis_id', 'gnis_name', 'body', 'is_public', 'username', 'created_at', 'updated_at']
+        fields = ['id', 'gnis_id', 'gnis_name', 'body', 'is_public', 'click_lng', 'click_lat', 'username', 'created_at', 'updated_at']
         read_only_fields = ['id', 'username', 'created_at', 'updated_at']
 
     def get_username(self, obj):

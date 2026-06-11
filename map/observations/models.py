@@ -63,6 +63,8 @@ class WaterbodyComment(models.Model):
     )
     gnis_id = models.CharField(max_length=20, db_index=True)
     gnis_name = models.CharField(max_length=200, blank=True)
+    click_lng = models.FloatField(null=True, blank=True)
+    click_lat = models.FloatField(null=True, blank=True)
     body = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
