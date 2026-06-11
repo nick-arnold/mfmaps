@@ -68,38 +68,43 @@ async function render() {
             if (!isFinite(lng) || !isFinite(lat)) return;
 
             const gnisId = item.dataset.gnisId;
-            const fragments = [
-                ...state.map.querySourceFeatures('nhd_conus', {
-                    sourceLayer: 'waterbodies',
-                    filter: ['==', ['get', 'gnis_id'], gnisId]
-                }),
-                ...state.map.querySourceFeatures('nhd_conus', {
-                    sourceLayer: 'streams',
-                    filter: ['==', ['get', 'gnis_id'], gnisId]
-                }),
-                ...state.map.querySourceFeatures('nhd_ak', {
-                    sourceLayer: 'waterbodies',
-                    filter: ['==', ['get', 'gnis_id'], gnisId]
-                }),
-                ...state.map.querySourceFeatures('nhd_ak', {
-                    sourceLayer: 'streams',
-                    filter: ['==', ['get', 'gnis_id'], gnisId]
-                }),
-            ];
 
-            if (fragments.length) {
+            window.setMode('map');
+
+            // Step 1: fly to the click point to get tiles loading in that area
+            state.map.flyTo({ center: [lng, lat], zoom: 11 });
+
+            // Step 2: once the map is idle (animation done, tiles rendered),
+            // query the now-loaded NHD tiles and fit to the actual feature bounds
+            state.map.once('idle', () => {
+                const fragments = [
+                    ...state.map.querySourceFeatures('nhd_conus', {
+                        sourceLayer: 'waterbodies',
+                        filter: ['==', ['get', 'gnis_id'], gnisId]
+                    }),
+                    ...state.map.querySourceFeatures('nhd_conus', {
+                        sourceLayer: 'streams',
+                        filter: ['==', ['get', 'gnis_id'], gnisId]
+                    }),
+                    ...state.map.querySourceFeatures('nhd_ak', {
+                        sourceLayer: 'waterbodies',
+                        filter: ['==', ['get', 'gnis_id'], gnisId]
+                    }),
+                    ...state.map.querySourceFeatures('nhd_ak', {
+                        sourceLayer: 'streams',
+                        filter: ['==', ['get', 'gnis_id'], gnisId]
+                    }),
+                ];
+
+                if (!fragments.length) return; // zoom 11 at click point is fine
+
                 const lngs = [], lats = [];
                 for (const f of fragments) collectCoords(f.geometry, lngs, lats);
                 state.map.fitBounds(
                     [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-                    { padding: 80, maxZoom: 13 }
+                    { padding: 80, maxZoom: 13, duration: 500 }
                 );
-            } else {
-                // Feature not in tile cache — fly to click point; tiles will load
-                state.map.flyTo({ center: [lng, lat], zoom: 11 });
-            }
-
-            window.setMode('map');
+            });
         });
     });
 
