@@ -66,7 +66,7 @@ async function render() {
             const lng = parseFloat(item.dataset.lng);
             const lat = parseFloat(item.dataset.lat);
             if (!isFinite(lng) || !isFinite(lat)) return;
-            state.map.flyTo({ center: [lng, lat], zoom: 14 });
+            state.map.flyTo({ center: [lng, lat], zoom: 11 });
             window.setMode('map');
         });
     });
