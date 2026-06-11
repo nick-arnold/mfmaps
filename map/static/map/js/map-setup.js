@@ -1225,18 +1225,39 @@ function hydroPopupHtml(feature) {
     return waterbodyPopupHtml(feature, false);
 }
 
-function openHydroPopup(feature, lngLat) {
+async function openHydroPopup(feature, lngLat) {
     if (state.openPopup) {
         state.openPopup.remove();
         state.openPopup = null;
     }
+
+    const p = feature.properties || {};
+    const gnisId = p.gnis_id || null;
+
+    // Build initial HTML — feature info on top, comments skeleton below
+    const featureHtml = hydroPopupHtml(feature);
+    const commentsHtml = gnisId
+        ? `<div class="hydro-comments mt-2 pt-2" style="border-top: 1px solid #dee2e6;">
+               <div class="small fw-semibold mb-1" style="color:#2e6f96;">Comments</div>
+               <div class="hydro-comments-list small text-muted">Loading…</div>
+               <div class="hydro-comment-form mt-2">
+                   <textarea class="form-control form-control-sm hydro-comment-input"
+                       rows="2" placeholder="Add a comment…" maxlength="1000"
+                       style="resize:none;font-size:0.78rem;"></textarea>
+                   <button class="btn btn-sm btn-outline-secondary hydro-comment-submit mt-1"
+                       style="font-size:0.75rem;">Post</button>
+                   <span class="hydro-comment-error text-danger small ms-2 d-none"></span>
+               </div>
+           </div>`
+        : '';
+
     const popup = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
-        maxWidth: '320px'
+        maxWidth: '320px',
     })
         .setLngLat(lngLat)
-        .setHTML(hydroPopupHtml(feature))
+        .setHTML(featureHtml + commentsHtml)
         .addTo(state.map);
 
     popup.on('close', () => {
@@ -1245,6 +1266,69 @@ function openHydroPopup(feature, lngLat) {
     });
 
     state.openPopup = popup;
+
+    if (!gnisId) return;
+
+    // Wire comment thread once popup is in the DOM
+    const el = popup.getElement();
+    const listEl    = el.querySelector('.hydro-comments-list');
+    const input     = el.querySelector('.hydro-comment-input');
+    const submitBtn = el.querySelector('.hydro-comment-submit');
+    const errEl     = el.querySelector('.hydro-comment-error');
+    const gnisName  = p.gnis_name || '';
+
+    async function loadComments() {
+        listEl.innerHTML = '<span class="text-muted">Loading…</span>';
+        try {
+            const resp = await fetch(`/api/v1/waterbody-comments/?gnis_id=${encodeURIComponent(gnisId)}`);
+            const data = await resp.json();
+            if (!data.results || !data.results.length) {
+                listEl.innerHTML = '<span class="text-muted">No comments yet.</span>';
+                return;
+            }
+            listEl.innerHTML = data.results.map(c => {
+                const when = new Date(c.created_at).toLocaleDateString();
+                return `<div class="mb-1" data-comment-id="${escapeHtml(c.id)}">
+                    <span class="fw-semibold">${escapeHtml(c.username)}</span>
+                    <span class="text-muted ms-1">${when}</span>
+                    <div>${escapeHtml(c.body)}</div>
+                </div>`;
+            }).join('');
+        } catch {
+            listEl.innerHTML = '<span class="text-danger">Could not load comments.</span>';
+        }
+    }
+
+    submitBtn.addEventListener('click', async () => {
+        const body = input.value.trim();
+        if (!body) return;
+        errEl.classList.add('d-none');
+        submitBtn.disabled = true;
+        try {
+            const { apiFetch } = await import('./api.js');
+            const resp = await apiFetch('/api/v1/waterbody-comments/', {
+                method: 'POST',
+                body: JSON.stringify({ gnis_id: gnisId, gnis_name: gnisName, body }),
+            });
+            if (resp.ok) {
+                input.value = '';
+                await loadComments();
+            } else if (resp.status === 401 || resp.status === 403) {
+                errEl.textContent = 'Sign in to post a comment.';
+                errEl.classList.remove('d-none');
+            } else {
+                errEl.textContent = 'Could not post. Try again.';
+                errEl.classList.remove('d-none');
+            }
+        } catch {
+            errEl.textContent = 'Network error.';
+            errEl.classList.remove('d-none');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+
+    await loadComments();
 }
 
 function wireHydroInteractions() {

@@ -4,6 +4,9 @@ from django.contrib.gis.geos import GEOSGeometry
 from rest_framework_gis.fields import GeometryField
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
+from rest_framework import serializers
+
+from .models import WaterbodyComment
 from .models import Observation
 
 
@@ -51,3 +54,17 @@ class ObservationSerializer(GeoFeatureModelSerializer):
         if isinstance(loc, dict):
             validated_data['location'] = GEOSGeometry(json.dumps(loc))
         return super().update(instance, validated_data)
+    
+
+
+
+class WaterbodyCommentSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WaterbodyComment
+        fields = ['id', 'gnis_id', 'gnis_name', 'body', 'username', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'username', 'created_at', 'updated_at']
+
+    def get_username(self, obj):
+        return obj.user.get_username()
