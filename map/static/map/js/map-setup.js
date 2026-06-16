@@ -196,6 +196,8 @@ function addSourcesAndLayers() {
             minzoom: tier.minzoom,
             maxzoom: tier.maxzoom,
             layout: { visibility: 'none' },
+        });
+    });
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
     map.addSource('us-mask', {
