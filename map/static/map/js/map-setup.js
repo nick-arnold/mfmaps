@@ -164,45 +164,38 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Terrain derivatives: slope (CONUS) ---------------------------
-    // Slope degrees packed into terrain-RGB. Rendered with color-relief layer
-    // type, which decodes ['elevation'] from RGB and applies a color ramp.
-    // "Elevation" is a misnomer — for us it's the encoded slope-degree value.
+    // --- Terrain derivatives: slope (per-region) ----------------------
+    // Slope degrees packed into terrain-RGB via rio-rgbify (base=0, interval=1).
+    // Decoded client-side via color-relief layer type using custom encoding.
+    // Same per-region pattern as the hillshade tiers above.
     const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
 
-    map.addSource('slope-conus', {
-        type: 'raster-dem',
-        url: `pmtiles://${DERIVATIVES_BASE}/slope_conus_z11-12.pmtiles`,
-        encoding: 'custom',
-        redFactor: 65536,
-        greenFactor: 256,
-        blueFactor: 1,
-        baseShift: 0,
-        tileSize: 512,
-        minzoom: 11,
-        maxzoom: 12
-    });
+    const slopeTiers = [
+        { id: 'slope-conus',  file: 'slope_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 15 },
+        { id: 'slope-alaska', file: 'slope_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 15 },
+        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
+    ];
 
-    map.addLayer({
-        id: 'slope-conus-layer',
-        type: 'color-relief',
-        source: 'slope-conus',
-        minzoom: 11,
-        layout: { visibility: 'none' },
-        paint: {
-            'color-relief-opacity': 0.6,
-            'color-relief-color': [
-                'interpolate',
-                ['linear'],
-                ['elevation'],
-                0,  'rgba(0, 200, 0, 0)',
-                5,  'rgba(50, 200, 0, 0.3)',
-                15, 'rgba(200, 200, 0, 0.5)',
-                30, 'rgba(255, 120, 0, 0.7)',
-                60, 'rgba(200, 0, 0, 0.9)'
-            ]
-        }
-    }, BASEMAP_LINE_ANCHOR);
+    slopeTiers.forEach(tier => {
+        map.addSource(tier.id, {
+            type: 'raster-dem',
+            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
+            encoding: 'custom',
+            redFactor: 65536,
+            greenFactor: 256,
+            blueFactor: 1,
+            baseShift: 0,
+            tileSize: 512,
+            minzoom: 11,
+            maxzoom: 12
+        });
+        map.addLayer({
+            id: `${tier.id}-layer`,
+            type: 'color-relief',
+            source: tier.id,
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: { visibility: 'none' },
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
     map.addSource('us-mask', {

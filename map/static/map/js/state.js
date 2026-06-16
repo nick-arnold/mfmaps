@@ -60,7 +60,9 @@ export const LAYER_IDS = {
         // they're driven by interaction, not the visibility toggle
     ],
     slope: [
-        'slope-conus-layer'
+        'slope-conus-layer',
+        'slope-alaska-layer',
+        'slope-hawaii-layer'
     ],
 };
 
