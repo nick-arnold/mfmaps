@@ -196,7 +196,20 @@ function addSourcesAndLayers() {
             minzoom: tier.minzoom,
             maxzoom: tier.maxzoom,
             layout: { visibility: 'none' },
-        });
+            paint: {
+                'color-relief-opacity': 0.6,
+                'color-relief-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['elevation'],
+                    0,  'rgba(0, 200, 0, 0)',
+                    5,  'rgba(50, 200, 0, 0.3)',
+                    15, 'rgba(200, 200, 0, 0.5)',
+                    30, 'rgba(255, 120, 0, 0.7)',
+                    60, 'rgba(200, 0, 0, 0.9)'
+                ]
+            }
+        }, BASEMAP_LINE_ANCHOR);
     });
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
