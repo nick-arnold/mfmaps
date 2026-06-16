@@ -59,6 +59,9 @@ export const LAYER_IDS = {
         // Selected/hover overlays are intentionally excluded —
         // they're driven by interaction, not the visibility toggle
     ],
+    slope: [
+        'slope-conus-layer'
+    ],
 };
 
 export const H3_RES = 8;

@@ -163,6 +163,43 @@ function addSourcesAndLayers() {
             }
         }, BASEMAP_LINE_ANCHOR);
     });
+
+    // --- Terrain derivatives: slope (CONUS) ---------------------------
+    // Single-band raster with slope degrees packed via terrain-RGB encoding.
+    // base=0, interval=1, so degrees = R*65536 + G*256 + B. For slope 0-60°
+    // the value fits entirely in the B channel; R and G are always 0.
+    // Decoded client-side via raster-color-mix to pull only B.
+    const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
+
+    map.addSource('slope-conus', {
+        type: 'raster',
+        url: `pmtiles://${DERIVATIVES_BASE}/slope_conus_z11-12.pmtiles`,
+        tileSize: 512,
+        minzoom: 11,
+        maxzoom: 12
+    });
+
+    map.addLayer({
+        id: 'slope-conus-layer',
+        type: 'raster',
+        source: 'slope-conus',
+        minzoom: 11,
+        paint: {
+            'raster-opacity': 0.6,
+            'raster-color': [
+                'interpolate',
+                ['linear'],
+                ['raster-value'],
+                0,  'rgba(0, 200, 0, 0)',
+                5,  'rgba(50, 200, 0, 0.3)',
+                15, 'rgba(200, 200, 0, 0.5)',
+                30, 'rgba(255, 120, 0, 0.7)',
+                60, 'rgba(200, 0, 0, 0.9)'
+            ],
+            'raster-color-mix': [0, 0, 1, 0],
+            'raster-color-range': [0, 60]
+        }
+    }, BASEMAP_LINE_ANCHOR);
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
     map.addSource('us-mask', {
