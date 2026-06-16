@@ -173,7 +173,11 @@ function addSourcesAndLayers() {
     map.addSource('slope-conus', {
         type: 'raster-dem',
         url: `pmtiles://${DERIVATIVES_BASE}/slope_conus_z11-12.pmtiles`,
-        encoding: 'mapbox',
+        encoding: 'custom',
+        redFactor: 65536,
+        greenFactor: 256,
+        blueFactor: 1,
+        baseShift: 0,
         tileSize: 512,
         minzoom: 11,
         maxzoom: 12
