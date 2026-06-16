@@ -188,6 +188,7 @@ function addSourcesAndLayers() {
         type: 'color-relief',
         source: 'slope-conus',
         minzoom: 11,
+        layout: { visibility: 'none' },
         paint: {
             'color-relief-opacity': 0.6,
             'color-relief-color': [
