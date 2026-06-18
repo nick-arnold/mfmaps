@@ -247,28 +247,28 @@ function addSourcesAndLayers() {
             maxzoom: tier.maxzoom,
             layout: { visibility: 'none' },
             paint: {
-                'color-relief-opacity': 0.55,
+                'color-relief-opacity': 0.35,
                 'color-relief-color': [
                     'interpolate',
                     ['linear'],
                     ['elevation'],
-                    0,    '#a1a1a1',  // flat
-                    0.99, '#a1a1a1',
-                    1,    '#8dc458',  // N
-                    1.99, '#8dc458',
-                    2,    '#3dab71',  // NE
-                    2.99, '#3dab71',
-                    3,    '#5078b6',  // E
-                    3.99, '#5078b6',
-                    4,    '#77479d',  // SE
-                    4.99, '#77479d',
-                    5,    '#c04d9c',  // S
-                    5.99, '#c04d9c',
-                    6,    '#e76f7a',  // SW
-                    6.99, '#e76f7a',
-                    7,    '#e2a66c',  // W
-                    7.99, '#e2a66c',
-                    8,    '#d6db5e'   // NW
+                    0,    'rgba(0,0,0,0)',           // flat — transparent
+                    0.99, 'rgba(0,0,0,0)',
+                    1,    'rgba(70,110,150,0.85)',   // N — strong cool blue
+                    1.99, 'rgba(70,110,150,0.85)',
+                    2,    'rgba(95,135,160,0.65)',   // NE — softer cool
+                    2.99, 'rgba(95,135,160,0.65)',
+                    3,    'rgba(155,165,160,0.25)',  // E — near neutral
+                    3.99, 'rgba(155,165,160,0.25)',
+                    4,    'rgba(180,150,130,0.25)',  // SE — barely warm
+                    4.99, 'rgba(180,150,130,0.25)',
+                    5,    'rgba(195,135,110,0.50)',  // S — soft warm
+                    5.99, 'rgba(195,135,110,0.50)',
+                    6,    'rgba(185,140,120,0.40)',  // SW — soft warm
+                    6.99, 'rgba(185,140,120,0.40)',
+                    7,    'rgba(160,155,150,0.25)',  // W — near neutral
+                    7.99, 'rgba(160,155,150,0.25)',
+                    8,    'rgba(95,135,160,0.65)'    // NW — same as NE
                 ]
             }
         }, BASEMAP_LINE_ANCHOR);
