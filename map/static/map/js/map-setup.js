@@ -127,18 +127,18 @@ function addSourcesAndLayers() {
     const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
 
     const terrainTiers = [
-        { id: 'terrain-z3-4',   file: 'conus_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
-        { id: 'terrain-z5-7',   file: 'conus_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
-        { id: 'terrain-z8-10',  file: 'conus_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
-        { id: 'terrain-z11-12', file: 'conus_z11-12.pmtiles', minzoom: 11, maxzoom: 15 },
-        { id: 'alaska-z3-4',   file: 'alaska_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
-        { id: 'alaska-z5-7',   file: 'alaska_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
-        { id: 'alaska-z8-10',  file: 'alaska_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
-        { id: 'alaska-z11-12', file: 'alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 15 },
-        { id: 'hawaii-z3-4',   file: 'hawaii_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5  },
-        { id: 'hawaii-z5-7',   file: 'hawaii_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8  },
-        { id: 'hawaii-z8-10',  file: 'hawaii_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11 },
-        { id: 'hawaii-z11-12', file: 'hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
+        { id: 'terrain-z3-4',   file: 'conus_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'terrain-z5-7',   file: 'conus_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'terrain-z8-10',  file: 'conus_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'terrain-z11-12', file: 'conus_z11-12.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
+        { id: 'alaska-z3-4',    file: 'alaska_z3-4.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'alaska-z5-7',    file: 'alaska_z5-7.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'alaska-z8-10',   file: 'alaska_z8-10.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'alaska-z11-12',  file: 'alaska_z11-12.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
+        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 }
     ];
 
     terrainTiers.forEach(tier => {
@@ -146,7 +146,8 @@ function addSourcesAndLayers() {
             type: 'raster-dem',
             url: `pmtiles://${TERRAIN_BASE}/${tier.file}`,
             encoding: 'mapbox',
-            tileSize: 512
+            tileSize: 512,
+            maxzoom: tier.zoom_end  // add this — tells MapLibre to overzoom
         });
         map.addLayer({
             id: `${tier.id}-hillshade`,
@@ -171,9 +172,9 @@ function addSourcesAndLayers() {
     const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
 
     const slopeTiers = [
-        { id: 'slope-conus',  file: 'slope_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 15 },
-        { id: 'slope-alaska', file: 'slope_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 15 },
-        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 15 }
+        { id: 'slope-conus',  file: 'slope_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'slope-alaska', file: 'slope_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 22 }
     ];
 
     slopeTiers.forEach(tier => {
@@ -242,14 +243,15 @@ function addSourcesAndLayers() {
         map.addSource(region.id, {  
             type: 'raster',
             url: `pmtiles://${CANOPY_BASE}/${region.file}`,
-            tileSize: 256
+            tileSize: 256,
+            maxzoom: 12  // ← add this, but verify actual max zoom first (see below)
         });
         map.addLayer({
             id: `${region.id}-layer`,
             type: 'raster',
             source: region.id,
             minzoom: 4,
-            maxzoom: 14,
+            maxzoom: 22,  // was 14
             paint: {
                 'raster-opacity': 0.20,
                 'raster-resampling': 'linear'
