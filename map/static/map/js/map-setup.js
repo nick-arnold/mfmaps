@@ -147,7 +147,7 @@ function addSourcesAndLayers() {
             url: `pmtiles://${TERRAIN_BASE}/${tier.file}`,
             encoding: 'mapbox',
             tileSize: 512,
-            maxzoom: tier.zoom_end  // add this — tells MapLibre to overzoom
+            maxzoom: tier.sourceMaxzoom
         });
         map.addLayer({
             id: `${tier.id}-hillshade`,
@@ -240,18 +240,18 @@ function addSourcesAndLayers() {
         { id: 'canopy-seak',    file: 'seak_canopy.pmtiles'  },
         { id: 'canopy-hawaii',  file: 'hawaii_canopy.pmtiles' }
     ].forEach(region => {
-        map.addSource(region.id, {  
+        map.addSource(region.id, {
             type: 'raster',
             url: `pmtiles://${CANOPY_BASE}/${region.file}`,
             tileSize: 256,
-            maxzoom: 12  // ← add this, but verify actual max zoom first (see below)
+            maxzoom: 12
         });
         map.addLayer({
             id: `${region.id}-layer`,
             type: 'raster',
             source: region.id,
             minzoom: 4,
-            maxzoom: 22,  // was 14
+            maxzoom: 22,
             paint: {
                 'raster-opacity': 0.20,
                 'raster-resampling': 'linear'
@@ -601,7 +601,7 @@ function addSourcesAndLayers() {
             'line-opacity': 0.95
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' }
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- AK waterbodies fill / stroke ---------------------------------
     map.addLayer({
@@ -610,14 +610,14 @@ function addSourcesAndLayers() {
         source: 'nhd_ak',
         'source-layer': 'waterbodies',
         paint: { 'fill-color': WATER_FILL, 'fill-opacity': 0.95 }
-    });
+    }, BASEMAP_LINE_ANCHOR);
     map.addLayer({
         id: 'nhd-ak-waterbodies-stroke',
         type: 'line',
         source: 'nhd_ak',
         'source-layer': 'waterbodies',
         paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- AK stream labels: three tiers, one per pre-simplified source-layer
     // Each source-layer was simplified at a different tolerance during the
@@ -634,7 +634,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 13, 12, 15]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     map.addLayer({
         id: 'nhd-ak-streams-label-mid',
@@ -647,7 +647,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12, 16, 14]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     map.addLayer({
         id: 'nhd-ak-streams-label-low',
@@ -660,7 +660,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 13]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- AK waterbody labels ------------------------------------------
     map.addLayer({
@@ -698,7 +698,7 @@ function addSourcesAndLayers() {
             'text-halo-width': 1.8,
             'text-halo-blur': 0.5
         }
-    });
+    }, BASEMAP_LINE_ANCHOR);
     // ====================================================================
     // CONUS+HI HYDROGRAPHY (NHDPlus HR, streamleve-based classification)
     // ====================================================================
@@ -746,7 +746,7 @@ function addSourcesAndLayers() {
             ]
         ],
         layout: { 'line-cap': 'round', 'line-join': 'round' }
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- CONUS waterbodies fill / stroke ------------------------------
     map.addLayer({
@@ -769,7 +769,7 @@ function addSourcesAndLayers() {
                 ]
             ]
         ]
-    });
+    }, BASEMAP_LINE_ANCHOR);
     map.addLayer({
         id: 'nhd-conus-waterbodies-stroke',
         type: 'line',
@@ -790,7 +790,7 @@ function addSourcesAndLayers() {
                 ]
             ]
         ]
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- 12. Selected-feature label (line, for streams) ---------------
     map.addLayer({
@@ -941,7 +941,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 10, 13, 14, 15]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- 9. Stream labels - medium ------------------------------------
     map.addLayer({
@@ -960,7 +960,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12, 16, 14]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- 10. Stream labels - small ------------------------------------
     map.addLayer({
@@ -975,7 +975,7 @@ function addSourcesAndLayers() {
             'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 16, 13]
         },
         paint: STREAM_LABEL_PAINT
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- 11. Waterbody labels ----------------------------------------
     map.addLayer({
@@ -999,7 +999,7 @@ function addSourcesAndLayers() {
             'text-halo-width': 1.8,
             'text-halo-blur': 0.5
         }
-    });
+    }, BASEMAP_LINE_ANCHOR);
 
     // H3 hexes
     map.addSource('h3-hexes', { type: 'geojson', data: empty });
