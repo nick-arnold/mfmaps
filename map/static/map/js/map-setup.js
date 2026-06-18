@@ -289,7 +289,7 @@ function addSourcesAndLayers() {
         { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
         { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
         { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
-        { zoom: 13, minzoom: 13, maxzoom: 15, wIntermediate: 0.8, wIndex: 1.2 }
+        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 }
     ];
 
     Object.keys(CONTOUR_REGION_INTERVALS).forEach(region => {
