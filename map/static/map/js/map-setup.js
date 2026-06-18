@@ -249,17 +249,26 @@ function addSourcesAndLayers() {
             paint: {
                 'color-relief-opacity': 0.55,
                 'color-relief-color': [
-                    'step',
+                    'interpolate',
+                    ['linear'],
                     ['elevation'],
-                    '#a1a1a1',  // 0 flat (default, before first step)
-                    1, '#8dc458',  // N
-                    2, '#3dab71',  // NE
-                    3, '#5078b6',  // E
-                    4, '#77479d',  // SE
-                    5, '#c04d9c',  // S
-                    6, '#e76f7a',  // SW
-                    7, '#e2a66c',  // W
-                    8, '#d6db5e'   // NW
+                    0,    '#a1a1a1',  // flat
+                    0.99, '#a1a1a1',
+                    1,    '#8dc458',  // N
+                    1.99, '#8dc458',
+                    2,    '#3dab71',  // NE
+                    2.99, '#3dab71',
+                    3,    '#5078b6',  // E
+                    3.99, '#5078b6',
+                    4,    '#77479d',  // SE
+                    4.99, '#77479d',
+                    5,    '#c04d9c',  // S
+                    5.99, '#c04d9c',
+                    6,    '#e76f7a',  // SW
+                    6.99, '#e76f7a',
+                    7,    '#e2a66c',  // W
+                    7.99, '#e2a66c',
+                    8,    '#d6db5e'   // NW
                 ]
             }
         }, BASEMAP_LINE_ANCHOR);
