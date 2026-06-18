@@ -212,6 +212,60 @@ function addSourcesAndLayers() {
             }
         }, BASEMAP_LINE_ANCHOR);
     });
+
+    // --- Terrain derivatives: aspect (per-region) ---------------------
+    // Aspect classified to 9 integer classes (0=flat, 1=N, 2=NE, 3=E,
+    // 4=SE, 5=S, 6=SW, 7=W, 8=NW). Packed into terrain-RGB via rio-rgbify
+    // (base=0, interval=1) — value = R*65536 + G*256 + B, which for our
+    // 0-8 range fits in the B channel alone.
+    // Palette is Brewer-Marlow MKS-ASPECT, moderate-slope row (Brewer &
+    // Marlow 1994). NW→N→NE→E→SE→S→SW→W lightness progression simulates
+    // NW illumination — gives the layer a relief-shaded quality.
+    const aspectTiers = [
+        { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 }
+        // AK + HI to be added when their PMTiles upload
+    ];
+
+    aspectTiers.forEach(tier => {
+        map.addSource(tier.id, {
+            type: 'raster-dem',
+            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
+            encoding: 'custom',
+            redFactor: 65536,
+            greenFactor: 256,
+            blueFactor: 1,
+            baseShift: 0,
+            tileSize: 512,
+            minzoom: 11,
+            maxzoom: 12
+        });
+        map.addLayer({
+            id: `${tier.id}-layer`,
+            type: 'color-relief',
+            source: tier.id,
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: { visibility: 'none' },
+            paint: {
+                'color-relief-opacity': 0.55,
+                'color-relief-color': [
+                    'step',
+                    ['elevation'],
+                    '#a1a1a1',  // 0 flat (default, before first step)
+                    1, '#8dc458',  // N
+                    2, '#3dab71',  // NE
+                    3, '#5078b6',  // E
+                    4, '#77479d',  // SE
+                    5, '#c04d9c',  // S
+                    6, '#e76f7a',  // SW
+                    7, '#e2a66c',  // W
+                    8, '#d6db5e'   // NW
+                ]
+            }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+
 /*
     // --- Terrain edge mask: hides hillshade outside US data coverage ---
     map.addSource('us-mask', {

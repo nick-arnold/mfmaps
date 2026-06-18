@@ -64,6 +64,9 @@ export const LAYER_IDS = {
         'slope-alaska-layer',
         'slope-hawaii-layer'
     ],
+    aspect: [
+        'aspect-conus-layer'
+    ],
 };
 
 export const H3_RES = 8;
