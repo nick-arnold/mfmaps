@@ -214,13 +214,11 @@ function addSourcesAndLayers() {
     });
 
     // --- Terrain derivatives: aspect (per-region) ---------------------
-    // Aspect classified to 9 integer classes (0=flat, 1=N, 2=NE, 3=E,
-    // 4=SE, 5=S, 6=SW, 7=W, 8=NW). Packed into terrain-RGB via rio-rgbify
-    // (base=0, interval=1) — value = R*65536 + G*256 + B, which for our
-    // 0-8 range fits in the B channel alone.
-    // Palette is Brewer-Marlow MKS-ASPECT, moderate-slope row (Brewer &
-    // Marlow 1994). NW→N→NE→E→SE→S→SW→W lightness progression simulates
-    // NW illumination — gives the layer a relief-shaded quality.
+    // Colors baked into RGBA tiles at generation time using Brewer-Marlow
+    // moderate-slope palette with N-family emphasis. Renders as a plain
+    // raster layer with nearest-neighbor resampling — no client-side decode
+    // expression, no interpolation between class values, no cross-browser
+    // rendering inconsistency.
     const aspectTiers = [
         { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 }
         // AK + HI to be added when their PMTiles upload
@@ -228,48 +226,22 @@ function addSourcesAndLayers() {
 
     aspectTiers.forEach(tier => {
         map.addSource(tier.id, {
-            type: 'raster-dem',
+            type: 'raster',
             url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
-            encoding: 'custom',
-            redFactor: 65536,
-            greenFactor: 256,
-            blueFactor: 1,
-            baseShift: 0,
             tileSize: 512,
             minzoom: 11,
             maxzoom: 12
         });
         map.addLayer({
             id: `${tier.id}-layer`,
-            type: 'color-relief',
+            type: 'raster',
             source: tier.id,
             minzoom: tier.minzoom,
             maxzoom: tier.maxzoom,
             layout: { visibility: 'none' },
             paint: {
-                'color-relief-opacity': 0.35,
-                'color-relief-color': [
-                    'interpolate',
-                    ['linear'],
-                    ['elevation'],
-                    0,    'rgba(0,0,0,0)',           // flat — transparent
-                    0.99, 'rgba(0,0,0,0)',
-                    1,    'rgba(70,110,150,0.85)',   // N — strong cool blue
-                    1.99, 'rgba(70,110,150,0.85)',
-                    2,    'rgba(95,135,160,0.65)',   // NE — softer cool
-                    2.99, 'rgba(95,135,160,0.65)',
-                    3,    'rgba(155,165,160,0.25)',  // E — near neutral
-                    3.99, 'rgba(155,165,160,0.25)',
-                    4,    'rgba(180,150,130,0.25)',  // SE — barely warm
-                    4.99, 'rgba(180,150,130,0.25)',
-                    5,    'rgba(195,135,110,0.50)',  // S — soft warm
-                    5.99, 'rgba(195,135,110,0.50)',
-                    6,    'rgba(185,140,120,0.40)',  // SW — soft warm
-                    6.99, 'rgba(185,140,120,0.40)',
-                    7,    'rgba(160,155,150,0.25)',  // W — near neutral
-                    7.99, 'rgba(160,155,150,0.25)',
-                    8,    'rgba(95,135,160,0.65)'    // NW — same as NE
-                ]
+                'raster-opacity': 1.0,
+                'raster-resampling': 'nearest'
             }
         }, BASEMAP_LINE_ANCHOR);
     });
