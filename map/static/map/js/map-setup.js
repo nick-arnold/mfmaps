@@ -214,11 +214,10 @@ function addSourcesAndLayers() {
     });
 
     // --- Terrain derivatives: aspect (per-region) ---------------------
-    // Colors baked into RGBA tiles at generation time using Brewer-Marlow
-    // moderate-slope palette with N-family emphasis. Renders as a plain
-    // raster layer with nearest-neighbor resampling — no client-side decode
-    // expression, no interpolation between class values, no cross-browser
-    // rendering inconsistency.
+    // Brewer-Marlow palette baked into RGBA at colorize time. Renders as
+    // a plain raster layer with nearest-neighbor resampling — no client-
+    // side decode expression, no interpolation between class values, no
+    // cross-browser rendering inconsistency.
     const aspectTiers = [
         { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 }
         // AK + HI to be added when their PMTiles upload
