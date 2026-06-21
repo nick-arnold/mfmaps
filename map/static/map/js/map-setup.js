@@ -219,8 +219,9 @@ function addSourcesAndLayers() {
     // side decode expression, no interpolation between class values, no
     // cross-browser rendering inconsistency.
     const aspectTiers = [
-        { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 }
-        // AK + HI to be added when their PMTiles upload
+        { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 22 }
     ];
 
     aspectTiers.forEach(tier => {
