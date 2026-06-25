@@ -79,7 +79,6 @@ export function initMap() {
     const mapOpts = {
         container: 'map',
         style: window.MFMAPS_STYLE_URL || '/static/map/styles/bright-mfmaps.json',
-        preserveDrawingBuffer: true,
     };
 
     if (hashState) {
@@ -104,6 +103,7 @@ export function initMap() {
         state.map.on('load', () => {
             addSourcesAndLayers();
             wireHydroInteractions();
+            wireTreeSpeciesHover();
             wireUrlSync();
             resolve();
         });
@@ -167,9 +167,6 @@ function addSourcesAndLayers() {
     });
 
     // --- Terrain derivatives: slope (per-region) ----------------------
-    // Slope degrees packed into terrain-RGB via rio-rgbify (base=0, interval=1).
-    // Decoded client-side via color-relief layer type using custom encoding.
-    // Same per-region pattern as the hillshade tiers above.
     const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
 
     const slopeTiers = [
@@ -215,10 +212,6 @@ function addSourcesAndLayers() {
     });
 
     // --- Terrain derivatives: aspect (per-region) ---------------------
-    // Brewer-Marlow palette baked into RGBA at colorize time. Renders as
-    // a plain raster layer with nearest-neighbor resampling — no client-
-    // side decode expression, no interpolation between class values, no
-    // cross-browser rendering inconsistency.
     const aspectTiers = [
         { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 },
         { id: 'aspect-alaska', file: 'aspect_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 22 },
@@ -247,28 +240,7 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-
-/*
-    // --- Terrain edge mask: hides hillshade outside US data coverage ---
-    map.addSource('us-mask', {
-        type: 'vector',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/masks/us_mask.pmtiles'
-    });
-    map.addLayer({
-        id: 'us-mask-fill',
-        type: 'fill',
-        source: 'us-mask',
-        'source-layer': 'mask',
-        paint: {
-            'fill-color': '#a9d3e0',
-            'fill-opacity': 1
-        }
-    });
-*/
-
-    // --- Tree canopy cover ----------------------------------------------------
-    // Three separate PMTiles files per region. Raster layer, toggleable.
-    // Transparent below 25% canopy (baked into color ramp at tile generation).
+    // --- Tree canopy cover -----------------------------------------------
     const CANOPY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/canopy';
 
     [
@@ -296,60 +268,32 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Tree species presence (per-FORTYPCD) -------------------------
-    // Binary presence masks from TreeMap 2022 reclassified by forest type code.
-    // Pixel value 1 = species present, 0/nodata = absent.
-    // Color set client-side via raster-color so we can restyle without re-tiling
-    // and toggle individual species or groups in the layer panel.
-    //
-    // File naming: fortypcd_{NNNN}_{slug}.pmtiles
-    // For now wired up Douglas-fir only as a smoke test; rest of the 144 layers
-    // get added as the pipeline finishes.
-    const SPECIES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/conus';
-
-    const speciesLayers = [
-        { id: 'species-201', file: 'fortypcd_0201_douglas_fir.pmtiles', color: '#2d7a45' },
-    ];
-
-    speciesLayers.forEach(species => {
-        // --- Tree species composite ---------------------------------------
-        // Single RGBA tileset, every FORTYPCD colored randomly for inspection.
-        // Legend at .../treemap_composite_conus_legend.json maps FORTYPCD → color.
-        map.addSource('tree-species', {
-            type: 'raster',
-            url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
-            tileSize: 256,
-            minzoom: 4,
-            maxzoom: 12,
-        });
-        map.addLayer({
-            id: 'tree-species-layer',
-            type: 'raster',
-            source: 'tree-species',
-            minzoom: 4,
-            maxzoom: 22,
-            paint: {
-                'raster-opacity': 0.4,
-                'raster-resampling': 'nearest',
-            },
-            layout: { visibility: 'none' }
-        }, BASEMAP_LINE_ANCHOR);
+    // --- Tree species composite ----------------------------------------
+    // Single RGBA tileset, every FORTYPCD colored randomly for inspection.
+    // Hover handler (wireTreeSpeciesHover) reads the raw tile bytes via the
+    // pmtiles JS library and looks up the exact RGB in the legend JSON,
+    // showing the forest type name in a follow-cursor tooltip.
+    map.addSource('tree-species', {
+        type: 'raster',
+        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
+        tileSize: 256,
+        minzoom: 4,
+        maxzoom: 12,
     });
+    map.addLayer({
+        id: 'tree-species-layer',
+        type: 'raster',
+        source: 'tree-species',
+        minzoom: 4,
+        maxzoom: 22,
+        paint: {
+            'raster-opacity': 0.4,
+            'raster-resampling': 'nearest',
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
     // --- Contours (per-region, per-zoom tiers) ------------------------
-    // Each region has single-zoom tiers; the contour interval coarsens as you
-    // zoom out so dense terrain stays readable. Files follow the convention
-    //   {region}_contour_{interval}_{zoom}.pmtiles
-    // matching the per-region hillshade pattern above. Tiers whose files are
-    // not yet uploaded simply won't render — adding them later is just an
-    // upload, no code change.
-    //
-    // Zoom ladder (interval / index):
-    //   z13+  50ft / 250ft   (10m DEM)  -- detail floor, overzooms to 15
-    //   z12  100ft / 500ft   (10m DEM)
-    //   z11  150ft / 750ft   (30m DEM)
-    //   z10  250ft / 1000ft  (30m DEM)
-    //   z9   500ft / 2500ft  (100m DEM)
-    //   z8   750ft / 3000ft  (100m DEM)
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
     const CONTOUR_REGION_INTERVALS = {
         hawaii: { 8: '750ft', 9: '500ft', 10: '250ft', 11: '150ft', 12: '100ft', 13: '50ft' },
@@ -375,7 +319,6 @@ function addSourcesAndLayers() {
                 url: `pmtiles://${CONTOUR_BASE}/${file}`
             });
 
-            // Intermediate lines (thin) — idx = 0
             map.addLayer({
                 id: `contour-intermediate-${region}-z${tier.zoom}`,
                 type: 'line',
@@ -391,7 +334,6 @@ function addSourcesAndLayers() {
                 }
             }, BASEMAP_LINE_ANCHOR);
 
-            // Index lines (thick) — idx = 1
             map.addLayer({
                 id: `contour-index-${region}-z${tier.zoom}`,
                 type: 'line',
@@ -412,36 +354,12 @@ function addSourcesAndLayers() {
     // =============================================================================
     // TRAILS (OSM path family — dedicated PMTiles)
     // =============================================================================
-    // Source: trails-na-20260524.pmtiles
-    // Data floors at z11 (tippecanoe --minimum-zoom=11).
-    // Source-layer 'trails' contains all OSM highway types in the path family.
-    //
-    // Strategy: render only what matters for foraging on public land.
-    // Urban infrastructure is intentionally omitted — no layer = not rendered.
-    //
-    // Render order (bottom → top):
-    //   trails-track           forest roads / doubletracks  (brown, wide dash)
-    //   trails-bridleway       equestrian routes            (dark brown, dash)
-    //   trails-cycleway        dedicated bike paths         (blue, solid)
-    //   trails-footway-real    park paths / greenways       (green, dash, z13+)
-    //   trails-path-unknown    singletrack, no surface tag  (green, looser dash)
-    //   trails-path-natural    singletrack, natural surface (green, dash — HERO)
-    //
-    // Omitted:
-    //   footway=sidewalk / crossing / access_aisle / traffic_island — urban noise
-    //   highway=steps / turning_circle / traffic_signals — not foraging-relevant
-    // =============================================================================
 
     map.addSource('trails', {
         type: 'vector',
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/trails/trails-na-20260524.pmtiles'
     });
 
-    
-
-    // --- Bridleways -------------------------------------------------------
-    // Equestrian routes, often on national forest / BLM land.
-    // Frequently unmaintained and deep in good foraging habitat.
     map.addLayer({
         id: 'trails-bridleway',
         type: 'line',
@@ -453,19 +371,13 @@ function addSourcesAndLayers() {
         paint: {
             'line-color': '#7a4f2e',
             'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                11, 0.8,
-                12, 1.4,
-                15, 2.5,
-                18, 4.0
+                11, 0.8, 12, 1.4, 15, 2.5, 18, 4.0
             ],
             'line-dasharray': [3, 2],
             'line-opacity': 0.8
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- Cycleways --------------------------------------------------------
-    // Dedicated bike paths — paved greenways, rail trails.
-    // Navigation context. Subdued blue distinguishes from foot trails.
     map.addLayer({
         id: 'trails-cycleway',
         type: 'line',
@@ -477,19 +389,12 @@ function addSourcesAndLayers() {
         paint: {
             'line-color': '#2e6b8b',
             'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                11, 0.7,
-                12, 1.2,
-                15, 2.0,
-                18, 3.0
+                11, 0.7, 12, 1.2, 15, 2.0, 18, 3.0
             ],
             'line-opacity': 0.7
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- Urban park paths and greenways -----------------------------------
-    // footway WITHOUT sidewalk/crossing/access_aisle/traffic_island sub-tag,
-    // AND with a natural surface. Real paths in parks and natural areas.
-    // Minzoom 13 — only visible when zoomed into a specific area.
     map.addLayer({
         id: 'trails-footway-real',
         type: 'line',
@@ -510,19 +415,13 @@ function addSourcesAndLayers() {
         paint: {
             'line-color': '#2d7a45',
             'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                13, 0.8,
-                15, 2.0,
-                18, 3.5
+                13, 0.8, 15, 2.0, 18, 3.5
             ],
             'line-dasharray': [2, 1.5],
             'line-opacity': 0.85
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- Singletrack: unknown surface ------------------------------------
-    // highway=path with no surface tag. Usually real trails — mapper drew
-    // the line and moved on. Reduced opacity signals lower data confidence,
-    // not lower cartographic importance.
     map.addLayer({
         id: 'trails-path-unknown',
         type: 'line',
@@ -537,20 +436,13 @@ function addSourcesAndLayers() {
         paint: {
             'line-color': '#1f6b3a',
             'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                11, 0.8,
-                12, 1.5,
-                15, 2.5,
-                18, 4.0
+                11, 0.8, 12, 1.5, 15, 2.5, 18, 4.0
             ],
             'line-dasharray': [2, 2],
             'line-opacity': 0.75
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- Singletrack: confirmed natural surface — HERO LAYER -------------
-    // highway=path with a confirmed natural surface tag.
-    // Primary trail type on public land. Full opacity, rendered last so it
-    // sits on top of all other trail types.
     map.addLayer({
         id: 'trails-path-natural',
         type: 'line',
@@ -569,10 +461,7 @@ function addSourcesAndLayers() {
         paint: {
             'line-color': '#1f6b3a',
             'line-width': ['interpolate', ['exponential', 1.4], ['zoom'],
-                11, 1.0,
-                12, 1.8,
-                15, 3.0,
-                18, 5.0
+                11, 1.0, 12, 1.8, 15, 3.0, 18, 5.0
             ],
             'line-dasharray': [2, 1.5],
             'line-opacity': 1.0
@@ -616,27 +505,16 @@ function addSourcesAndLayers() {
         'text-halo-blur': 0.5
     };
 
-
     // ====================================================================
-    // ALASKA HYDROGRAPHY (separate PMTiles, drainage-area-based styling)
+    // ALASKA HYDROGRAPHY
     // ====================================================================
-    // CONUS uses Strahler order (rank, 1-10). AK has no Strahler in NHD —
-    // we computed drainage area from a DEM flow accumulation instead.
-    // Width expression is log-scaled because drainage area spans 5 orders
-    // of magnitude (headwater ~0.01 km² → Yukon ~477,000 km²).
-    //
-    // Layer names: nhd-ak-*  — referenced by LAYER_IDS.nhd_ak in state.js
-    // and toggled independently via the "Alaska hydrography" switch.
 
     map.addSource('nhd_ak', {
         type: 'vector',
-        //url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak.pmtiles'
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v5.pmtiles',
         maxzoom: 13
     });
 
-    // Log10-scaled width by drainage area. max(1, ...) avoids log of 0/null.
-    // log10(1) = 0 (tiny creek), log10(477000) ≈ 5.7 (Yukon mainstem).
     const widthByDrainage = [
         'interpolate', ['linear'], ['zoom'],
         4,  ['*', 0.25, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]],
@@ -646,7 +524,6 @@ function addSourcesAndLayers() {
         19, ['*', 2.20, ['log10', ['max', 1, ['to-number', ['get', 'max_totdasqkm']]]]]
     ];
 
-    // --- AK streams ---------------------------------------------------
     map.addLayer({
         id: 'nhd-ak-streams',
         type: 'line',
@@ -658,12 +535,7 @@ function addSourcesAndLayers() {
                 ['to-number', ['get', 'total_lengthkm']],
                 ['step', ['zoom'],
                     100,
-                    5, 100,  // z5: 100 km+ (raise this until z5 looks right)
-                    6, 50,   // z6: 50 km+ (current — looks good)
-                    7, 20,
-                    9, 10,
-                    11, 3,
-                    13, 0
+                    5, 100, 6, 50, 7, 20, 9, 10, 11, 3, 13, 0
                 ]
             ]
         ],
@@ -675,7 +547,6 @@ function addSourcesAndLayers() {
         layout: { 'line-cap': 'round', 'line-join': 'round' }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- AK waterbodies fill / stroke ---------------------------------
     map.addLayer({
         id: 'nhd-ak-waterbodies-fill',
         type: 'fill',
@@ -691,10 +562,6 @@ function addSourcesAndLayers() {
         paint: { 'line-color': STREAM_COLOR, 'line-width': 0.8, 'line-opacity': 0.9 }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- AK stream labels: three tiers, one per pre-simplified source-layer
-    // Each source-layer was simplified at a different tolerance during the
-    // pipeline (0.1° / 0.01° / 0.002°) so labels lay cleanly along the line
-    // at each zoom range.
     map.addLayer({
         id: 'nhd-ak-streams-label-high',
         type: 'symbol',
@@ -734,7 +601,6 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- AK waterbody labels ------------------------------------------
     map.addLayer({
         id: 'nhd-ak-waterbodies-label',
         type: 'symbol',
@@ -747,12 +613,7 @@ function addSourcesAndLayers() {
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
                     200,
-                    6, 15,    // z6: 15 km²+ (was 30)
-                    7, 5,     // z7: 5 km²+ (was 10)
-                    8, 1.5,   // z8: 1.5 km²+ (was 3)
-                    9, 0.5,   // z9: 0.5 km²+ (was 1)
-                    10, 0.02,
-                    12, 0
+                    6, 15, 7, 5, 8, 1.5, 9, 0.5, 10, 0.02, 12, 0
                 ]
             ]
         ],
@@ -771,12 +632,10 @@ function addSourcesAndLayers() {
             'text-halo-blur': 0.5
         }
     }, BASEMAP_LINE_ANCHOR);
+
     // ====================================================================
-    // CONUS+HI HYDROGRAPHY (NHDPlus HR, streamleve-based classification)
+    // CONUS+HI HYDROGRAPHY
     // ====================================================================
-    // CONUS has full NHDPlus VAA — streamleve, streamorde, arbolatesu,
-    // totdasqkm baked in by USGS. _minzoom cascades follow streamleve.
-    // Width scales by log10(arbolatesu) for smooth visual continuity.
 
     map.addSource('nhd_conus', {
         type: 'vector',
@@ -784,8 +643,6 @@ function addSourcesAndLayers() {
         maxzoom: 13
     });
 
-    // Log10-scaled width by cumulative upstream km (arbolatesu).
-    // log10(1) = 0 (tiny tributary), log10(4_244_000) ≈ 6.6 (Mississippi delta).
     const widthByArbolate = [
         'interpolate', ['linear'], ['zoom'],
         3,  ['*', 0.14, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]],
@@ -795,7 +652,6 @@ function addSourcesAndLayers() {
         19, ['*', 1.44, ['log10', ['max', 1, ['to-number', ['get', 'arbolatesu']]]]]
     ];
 
-    // --- CONUS streams ------------------------------------------------
     map.addLayer({
         id: 'nhd-conus-streams',
         type: 'line',
@@ -809,18 +665,13 @@ function addSourcesAndLayers() {
         filter: ['>=',
             ['to-number', ['get', 'lengthkm']],
             ['step', ['zoom'],
-                200,   // z < 5: require >= 200 km
-                5, 100, // z5-6: require >= 100 km
-                7, 50,  // z7-8: require >= 50 km
-                9, 15,  // z9-10: require >= 15 km
-                11, 5,  // z11+: require >= 5 km
-                13, 0   // z13+: no filter
+                200,
+                5, 100, 7, 50, 9, 15, 11, 5, 13, 0
             ]
         ],
         layout: { 'line-cap': 'round', 'line-join': 'round' }
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- CONUS waterbodies fill / stroke ------------------------------
     map.addLayer({
         id: 'nhd-conus-waterbodies-fill',
         type: 'fill',
@@ -832,12 +683,8 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    100,    // z < 5: 100 km²+ (still lots — many lakes survive)
-                    5, 20,  // z5-6: 20 km²+
-                    7, 5,   // z7-8: 5 km²+
-                    9, 0.5, // z9-10: 0.5 km²+
-                    11, 0.05, // z11-12: 0.05 km²+ (~12 acres)
-                    13, 0   // z13+: anything
+                    100,
+                    5, 20, 7, 5, 9, 0.5, 11, 0.05, 13, 0
                 ]
             ]
         ]
@@ -853,18 +700,13 @@ function addSourcesAndLayers() {
             ['>=',
                 ['to-number', ['get', 'areasqkm']],
                 ['step', ['zoom'],
-                    100,    // z < 5: 100 km²+ (still lots — many lakes survive)
-                    5, 20,  // z5-6: 20 km²+
-                    7, 5,   // z7-8: 5 km²+
-                    9, 0.5, // z9-10: 0.5 km²+
-                    11, 0.05, // z11-12: 0.05 km²+ (~12 acres)
-                    13, 0   // z13+: anything
+                    100,
+                    5, 20, 7, 5, 9, 0.5, 11, 0.05, 13, 0
                 ]
             ]
         ]
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- 12. Selected-feature label (line, for streams) ---------------
     map.addLayer({
         id: 'nhd-selected-label-line',
         type: 'symbol',
@@ -891,7 +733,6 @@ function addSourcesAndLayers() {
         }
     });
 
-    // --- 12b. Selected-feature label (point, for lakes) ---------------
     map.addLayer({
         id: 'nhd-selected-label-point',
         type: 'symbol',
@@ -914,7 +755,6 @@ function addSourcesAndLayers() {
         }
     });
 
-    // Outer glow (wide, very soft)
     map.addLayer({
         id: 'nhd-hover-halo-outer',
         type: 'line',
@@ -931,7 +771,6 @@ function addSourcesAndLayers() {
         }
     }, 'nhd-ak-streams');
 
-    // Inner glow (tighter, less blur — defines the crisp warm core)
     map.addLayer({
         id: 'nhd-hover-halo',
         type: 'line',
@@ -948,7 +787,6 @@ function addSourcesAndLayers() {
         }
     }, 'nhd-ak-streams');
 
-    // --- 5. Polygon hover (OVER lakes) --------------------------------
     map.addLayer({
         id: 'nhd-hover-polygon-fill',
         type: 'fill',
@@ -964,7 +802,6 @@ function addSourcesAndLayers() {
         paint: { 'line-color': HOVER_COLOR, 'line-width': 3, 'line-opacity': 0.9 }
     });
 
-    // --- 6. Selected line (streams) -----------------------------------
     map.addLayer({
         id: 'nhd-selected',
         type: 'line',
@@ -984,7 +821,6 @@ function addSourcesAndLayers() {
         layout: { 'line-cap': 'round', 'line-join': 'round' }
     });
 
-    // --- 7. Selected polygon (lakes) ----------------------------------
     map.addLayer({
         id: 'nhd-selected-polygon-fill',
         type: 'fill',
@@ -1000,7 +836,6 @@ function addSourcesAndLayers() {
         paint: { 'line-color': SELECTED_COLOR, 'line-width': 3, 'line-opacity': 1.0 }
     });
 
-    // --- 8. Stream labels - large -------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-large',
         type: 'symbol',
@@ -1015,7 +850,6 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- 9. Stream labels - medium ------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-medium',
         type: 'symbol',
@@ -1034,7 +868,6 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- 10. Stream labels - small ------------------------------------
     map.addLayer({
         id: 'nhd-streams-label-small',
         type: 'symbol',
@@ -1049,7 +882,6 @@ function addSourcesAndLayers() {
         paint: STREAM_LABEL_PAINT
     }, BASEMAP_LINE_ANCHOR);
 
-    // --- 11. Waterbody labels ----------------------------------------
     map.addLayer({
         id: 'nhd-waterbodies-label',
         type: 'symbol',
@@ -1131,9 +963,6 @@ function addSourcesAndLayers() {
 
 // --- Hydrography interactions: hover + click select + popup --------------
 
-// Removed nhd-areas-fill — those polygons span multiple drainages and clicking
-// them was producing confusing selections. Click passes through to whatever
-// stream is underneath instead.
 const HYDRO_INTERACTIVE_LAYERS = [
     'nhd-waterbodies-fill',
     'nhd-streams',
@@ -1156,8 +985,6 @@ function queryNearbyHydroFeature(point) {
     return feats[0];
 }
 
-// MapLibre v5 rejects non-plain feature objects (and turf's class-y output)
-// when passed to geojson setData. Deep-clone to plain GeoJSON first.
 function toPlainFeature(f) {
     return {
         type: 'Feature',
@@ -1192,10 +1019,6 @@ function setSelectedHydro(featureOrArray) {
 
 function clearSelectedHydro() { setSelectedHydro(null); }
 
-// Find every feature with this gnis_id in the same source-layer. For polygon
-// layers, union the matched geometries with Turf so the highlight renders as
-// one unified shape with one label (instead of N separate fragments each
-// getting their own label placement).
 function findAllFragments(clickedFeature) {
     const map = state.map;
     const gnisId = clickedFeature.properties?.gnis_id;
@@ -1261,19 +1084,16 @@ function streamPopupHtml(feature) {
 
     if (p.max_strahler != null)   rows.push(['Stream order', p.max_strahler]);
 
-    // Length: nhd_conus → lengthkm, nhd_ak → total_lengthkm, legacy → total_length_km
     const rawKm = p.lengthkm ?? p.total_lengthkm ?? p.total_length_km;
     const lenKm = fmtNumber(rawKm, 1);
     if (lenKm !== null) {
         rows.push(['Length', `${lenKm} km (${(Number(lenKm) * 0.621371).toFixed(1)} mi)`]);
     }
 
-    // Drainage area: nhd_ak → max_totdasqkm, legacy → max_drainage_area_sqkm
     const rawDrain = p.max_totdasqkm ?? p.max_drainage_area_sqkm;
     const drain = fmtNumber(rawDrain, 0);
     if (drain !== null) rows.push(['Drainage area', `${drain} km²`]);
 
-    // CONUS arbolate sum as a proxy when drainage area absent
     if (drain === null && p.arbolatesu != null) {
         rows.push(['Arbolate sum', `${fmtNumber(p.arbolatesu, 0)} km`]);
     }
@@ -1571,7 +1391,6 @@ function wireHydroInteractions() {
         const key = feat.properties.gnis_id ||
                     (feat.layer.id + ':' + JSON.stringify(feat.geometry?.coordinates?.[0] || []));
         if (key !== lastHoveredKey) {
-            // Hover uses findAllFragments too so the entire river/lake glows
             setHoveredHydro(findAllFragments(feat));
             lastHoveredKey = key;
             map.getCanvas().style.cursor = 'pointer';
@@ -1593,6 +1412,193 @@ function wireHydroInteractions() {
         setSelectedHydro(findAllFragments(feat));
         openHydroPopup(feat, e.lngLat);
     });
+}
+
+// =============================================================================
+// Tree species hover lookup
+// =============================================================================
+// Reads the raw PMTiles tile at the hover point and looks up the exact RGB
+// in the legend JSON. Shows the forest type name in a small tooltip that
+// follows the cursor. Only active when the tree-species layer is visible.
+
+const TREE_SPECIES_PMTILES_URL =
+    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles';
+const TREE_SPECIES_LEGEND_URL =
+    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
+const TREE_SPECIES_MAX_ZOOM = 12;
+
+let _treeLegendByRgb = null;
+let _treePmtiles = null;
+let _treeTooltipEl = null;
+let _treeTileCache = new Map();   // "z/x/y" → ImageData
+
+async function loadTreeLegend() {
+    if (_treeLegendByRgb) return _treeLegendByRgb;
+    try {
+        const resp = await fetch(TREE_SPECIES_LEGEND_URL);
+        const raw = await resp.json();
+        const byRgb = new Map();
+        for (const [fortypcd, info] of Object.entries(raw)) {
+            const [r, g, b] = info.rgb;
+            byRgb.set(`${r},${g},${b}`, { fortypcd, ...info });
+        }
+        _treeLegendByRgb = byRgb;
+        return byRgb;
+    } catch (err) {
+        console.warn('Tree species legend load failed:', err);
+        return null;
+    }
+}
+
+function getTreePmtiles() {
+    if (_treePmtiles) return _treePmtiles;
+    _treePmtiles = new pmtiles.PMTiles(TREE_SPECIES_PMTILES_URL);
+    return _treePmtiles;
+}
+
+function ensureTreeTooltip() {
+    if (_treeTooltipEl) return _treeTooltipEl;
+    const el = document.createElement('div');
+    el.className = 'tree-species-tooltip';
+    el.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        background: rgba(20, 20, 20, 0.85);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        line-height: 1.3;
+        z-index: 9999;
+        display: none;
+        white-space: nowrap;
+        max-width: 280px;
+    `;
+    document.body.appendChild(el);
+    _treeTooltipEl = el;
+    return el;
+}
+
+function showTreeTooltip(x, y, html) {
+    const el = ensureTreeTooltip();
+    el.innerHTML = html;
+    el.style.left = (x + 12) + 'px';
+    el.style.top = (y + 12) + 'px';
+    el.style.display = 'block';
+}
+
+function hideTreeTooltip() {
+    if (_treeTooltipEl) _treeTooltipEl.style.display = 'none';
+}
+
+// Web Mercator math: lng/lat → tile XYZ + pixel offset within the tile
+function lngLatToTilePixel(lng, lat, zoom) {
+    const n = Math.pow(2, zoom);
+    const xFloat = (lng + 180) / 360 * n;
+    const latRad = lat * Math.PI / 180;
+    const yFloat = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+    const x = Math.floor(xFloat);
+    const y = Math.floor(yFloat);
+    const px = Math.floor((xFloat - x) * 256);
+    const py = Math.floor((yFloat - y) * 256);
+    return { x, y, px, py };
+}
+
+async function fetchTileImageData(z, x, y) {
+    const key = `${z}/${x}/${y}`;
+    if (_treeTileCache.has(key)) return _treeTileCache.get(key);
+
+    const pm = getTreePmtiles();
+    let tileBytes;
+    try {
+        const result = await pm.getZxy(z, x, y);
+        if (!result) return null;
+        tileBytes = result.data;
+    } catch (err) {
+        return null;
+    }
+
+    // Decode PNG via Image + canvas
+    const blob = new Blob([tileBytes], { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+    try {
+        const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = url;
+        });
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, 256, 256);
+
+        // Modest cache so a hover-scrub doesn't refetch the same tile
+        if (_treeTileCache.size > 200) {
+            const firstKey = _treeTileCache.keys().next().value;
+            _treeTileCache.delete(firstKey);
+        }
+        _treeTileCache.set(key, data);
+        return data;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+async function lookupTreeSpeciesAt(lngLat) {
+    const byRgb = await loadTreeLegend();
+    if (!byRgb) return null;
+
+    // Clamp zoom to what the PMTiles archive actually has
+    const z = Math.min(TREE_SPECIES_MAX_ZOOM, Math.floor(state.map.getZoom()));
+    const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
+
+    const imageData = await fetchTileImageData(z, x, y);
+    if (!imageData) return null;
+
+    const idx = (py * 256 + px) * 4;
+    const r = imageData.data[idx];
+    const g = imageData.data[idx + 1];
+    const b = imageData.data[idx + 2];
+    const a = imageData.data[idx + 3];
+
+    if (a < 50) return null;
+    return byRgb.get(`${r},${g},${b}`) || null;
+}
+
+function wireTreeSpeciesHover() {
+    const map = state.map;
+    let lastTimer = null;
+
+    map.on('mousemove', (e) => {
+        if (!map.getLayer('tree-species-layer')) return;
+        if (map.getLayoutProperty('tree-species-layer', 'visibility') === 'none') {
+            hideTreeTooltip();
+            return;
+        }
+
+        // Debounce so hover-drag doesn't slam getZxy
+        clearTimeout(lastTimer);
+        lastTimer = setTimeout(async () => {
+            const hit = await lookupTreeSpeciesAt(e.lngLat);
+            if (!hit) {
+                hideTreeTooltip();
+                return;
+            }
+            const html =
+                `<div style="display:flex;align-items:center;gap:6px;">
+                    <span style="display:inline-block;width:10px;height:10px;
+                        background:${hit.hex};border:1px solid rgba(255,255,255,0.4);"></span>
+                    <span>${escapeHtml(hit.name)}</span>
+                    <span style="opacity:0.6;margin-left:4px;">#${escapeHtml(hit.fortypcd)}</span>
+                </div>`;
+            showTreeTooltip(e.originalEvent.clientX, e.originalEvent.clientY, html);
+        }, 40);
+    });
+
+    map.on('mouseout', hideTreeTooltip);
 }
 
 // =============================================================================
@@ -1679,10 +1685,6 @@ export function initLayerPanels() {
             setLayerGroupVisibility(group, visible);
             document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
                 .forEach(other => { if (other !== e.target) other.checked = visible; });
-
-            if (group === 'tree-species') {
-                showTreeSpeciesLegend(visible);
-            }
         });
     });
 }
@@ -1723,27 +1725,17 @@ export function wireFabs(onAddObservation) {
     });
     document.getElementById('fabPrimary').addEventListener('click', onAddObservation);
 
-    // Compass: click resets bearing to north; icon rotates as map rotates
     const compassBtn = document.getElementById('fabCompass');
     const compassIcon = compassBtn.querySelector('i');
     compassBtn.addEventListener('click', () => {
         state.map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
     });
     state.map.on('rotate', () => {
-        // The compass icon points "up" (north). When the map's bearing rotates,
-        // we counter-rotate the icon so it keeps pointing to actual north.
         compassIcon.style.transform = `rotate(${-state.map.getBearing()}deg)`;
     });
 }
 
 // --- Query mode -----------------------------------------------------------
-//
-// Click anywhere on the map (with query mode active) and get every rendered
-// feature at that point, grouped by style-layer id. Each group is a
-// collapsible <details> block — click the layer header to expand and see the
-// source-layer + properties for each feature in that group. Useful for
-// styling work: click a trail, see exactly which OMT source-layer and
-// class/subclass it has, then go write the filter in the style JSON.
 
 export function initQueryMode() {
     const btn = document.getElementById('fabQuery');
@@ -1759,7 +1751,6 @@ export function initQueryMode() {
     state.map.on('click', (e) => {
         if (!state.queryMode) return;
 
-        // Unfiltered: every rendered feature at this point, across every layer
         const features = state.map.queryRenderedFeatures(e.point);
 
         const resultEl = document.getElementById('queryResult');
@@ -1768,7 +1759,6 @@ export function initQueryMode() {
         if (features.length === 0) {
             bodyEl.innerHTML = '<em class="text-muted">No features at this location.</em>';
         } else {
-            // Group by style-layer id, preserving first-seen order
             const groups = new Map();
             for (const f of features) {
                 const key = f.layer.id;
@@ -1861,7 +1851,6 @@ export function setMode(mode, onSavedActivate, onReportsActivate) {
     savedPanel.classList.toggle('d-none', mode !== 'saved');
     reportsPanel.classList.toggle('d-none', mode !== 'reports');
 
-    // Hide map FABs when a list panel is showing
     document.body.classList.toggle('list-mode', mode === 'saved' || mode === 'reports');
 
     if (mode === 'saved'   && onSavedActivate)   onSavedActivate();
@@ -1873,203 +1862,4 @@ export function initModeTabs(onSavedActivate, onReportsActivate) {
     document.querySelectorAll('.app-tab, .dock-tab').forEach(tab => {
         tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate, onReportsActivate));
     });
-}
-
-// =============================================================================
-// Tree species legend panel
-// =============================================================================
-// Fetches the published legend JSON and renders a scrollable list of colored
-// swatches with forest type names. Shows/hides with the tree-species layer
-// toggle.
-
-const TREE_SPECIES_LEGEND_URL =
-    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
-
-let _treeLegendLoaded = false;
-
-async function loadTreeSpeciesLegend() {
-    if (_treeLegendLoaded) return;
-    const containers = document.querySelectorAll('.tree-species-legend');
-    if (!containers.length) return;
-
-    try {
-        const resp = await fetch(TREE_SPECIES_LEGEND_URL);
-        const raw = await resp.json();
-
-        // Sort alphabetically by name
-        const entries = Object.entries(raw)
-            .map(([fortypcd, info]) => ({ fortypcd, ...info }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-        const html = entries.map(e =>
-            `<div class="d-flex align-items-center gap-2 mb-1">` +
-            `<span style="display:inline-block;width:14px;height:14px;` +
-                `background:${e.hex};border:1px solid rgba(0,0,0,0.2);` +
-                `flex-shrink:0;"></span>` +
-            `<span class="small">${escapeHtml(e.name)}</span>` +
-            `</div>`
-        ).join('');
-
-        containers.forEach(c => {
-            c.innerHTML = html;
-        });
-        _treeLegendLoaded = true;
-    } catch (err) {
-        console.warn('Could not load tree species legend:', err);
-        containers.forEach(c => {
-            c.innerHTML = '<em class="text-muted small">Could not load legend.</em>';
-        });
-    }
-}
-
-
-// =============================================================================
-// Tree species legend panel — viewport-filtered
-// =============================================================================
-// Fetches the published legend JSON and samples the rendered canvas to show
-// only the forest types currently visible in the viewport. Updates on moveend.
-
-
-let _treeLegendRaw = null;       // RGB → entry lookup
-
-async function loadTreeSpeciesLegendData() {
-    if (_treeLegendRaw) return _treeLegendRaw;
-    try {
-        const resp = await fetch(TREE_SPECIES_LEGEND_URL);
-        const raw = await resp.json();
-        const byRgb = new Map();
-        for (const [fortypcd, info] of Object.entries(raw)) {
-            const [r, g, b] = info.rgb;
-            byRgb.set(`${r},${g},${b}`, { fortypcd, ...info });
-        }
-        _treeLegendRaw = byRgb;
-        return byRgb;
-    } catch (err) {
-        console.warn('Could not load tree species legend:', err);
-        return null;
-    }
-}
-
-// Sample a grid of pixels across the rendered canvas, dedup by nearest legend
-// entry. Skips transparent samples (where the tree-species layer doesn't paint).
-function sampleViewportSpecies(byRgb) {
-    const canvas = state.map.getCanvas();
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // Copy the WebGL canvas onto a 2D canvas to read pixels reliably
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = w;
-    tmpCanvas.height = h;
-    const ctx = tmpCanvas.getContext('2d');
-    ctx.drawImage(canvas, 0, 0);
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const pixels = imageData.data;
-
-    const found = new Map();
-    const GRID = 60;
-    const stepX = Math.floor(w / GRID);
-    const stepY = Math.floor(h / GRID);
-
-    let opaqueCount = 0;
-    const sampledColors = [];
-
-    for (let gy = 0; gy < GRID; gy++) {
-        for (let gx = 0; gx < GRID; gx++) {
-            const x = gx * stepX;
-            const y = gy * stepY;
-            const idx = (y * w + x) * 4;
-            const a = pixels[idx + 3];
-            if (a < 50) continue;
-            opaqueCount++;
-            const r = pixels[idx];
-            const g = pixels[idx + 1];
-            const b = pixels[idx + 2];
-
-            if (sampledColors.length < 5) {
-                sampledColors.push(`rgb(${r},${g},${b})`);
-            }
-
-            const exact = byRgb.get(`${r},${g},${b}`);
-            if (exact) {
-                found.set(exact.fortypcd, exact);
-                continue;
-            }
-            const match = findClosestInLegend(byRgb, r, g, b);
-            if (match) found.set(match.fortypcd, match);
-        }
-    }
-
-    console.log('[tree-legend]', {
-        canvas: `${w}x${h}`,
-        opaquePixels: opaqueCount,
-        foundSpecies: found.size,
-        sampleColors: sampledColors,
-    });
-
-    return Array.from(found.values()).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function findClosestInLegend(byRgb, r, g, b) {
-    let best = null;
-    let bestDist = Infinity;
-    for (const [key, entry] of byRgb) {
-        const [er, eg, eb] = key.split(',').map(Number);
-        const dr = er - r, dg = eg - g, db = eb - b;
-        const d = dr * dr + dg * dg + db * db;
-        if (d < bestDist) {
-            bestDist = d;
-            best = entry;
-        }
-    }
-    return bestDist < 30000 ? best : null;
-}
-
-function renderLegendEntries(entries) {
-    const containers = document.querySelectorAll('.tree-species-legend');
-    if (!entries.length) {
-        containers.forEach(c => {
-            c.innerHTML = '<em class="text-muted small">No tree species in view.</em>';
-        });
-        return;
-    }
-    const html = entries.map(e =>
-        `<div class="d-flex align-items-center gap-2 mb-1">` +
-        `<span style="display:inline-block;width:14px;height:14px;` +
-            `background:${e.hex};border:1px solid rgba(0,0,0,0.2);` +
-            `flex-shrink:0;"></span>` +
-        `<span class="small">${escapeHtml(e.name)}</span>` +
-        `</div>`
-    ).join('');
-    containers.forEach(c => { c.innerHTML = html; });
-}
-
-async function updateTreeSpeciesLegend() {
-    const byRgb = await loadTreeSpeciesLegendData();
-    if (!byRgb) return;
-    const entries = sampleViewportSpecies(byRgb);
-    renderLegendEntries(entries);
-}
-
-let _legendUpdateTimer = null;
-function scheduleLegendUpdate() {
-    clearTimeout(_legendUpdateTimer);
-    _legendUpdateTimer = setTimeout(updateTreeSpeciesLegend, 250);
-}
-
-export function showTreeSpeciesLegend(visible) {
-    document.querySelectorAll('.tree-species-legend-wrap').forEach(el => {
-        el.classList.toggle('d-none', !visible);
-    });
-    if (visible) {
-        scheduleLegendUpdate();
-        if (!state._treeLegendMoveBound) {
-            state.map.on('moveend', () => {
-                if (state.map.getLayoutProperty('tree-species-layer', 'visibility') !== 'none') {
-                    scheduleLegendUpdate();
-                }
-            });
-            state._treeLegendMoveBound = true;
-        }
-    }
 }
