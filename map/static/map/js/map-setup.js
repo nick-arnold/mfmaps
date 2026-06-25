@@ -1542,14 +1542,16 @@ function ensureTreeTooltip() {
         pointer-events: none;
         background: rgba(20, 20, 20, 0.85);
         color: #fff;
-        padding: 4px 8px;
+        padding: 6px 10px;
         border-radius: 4px;
         font-size: 0.78rem;
-        line-height: 1.3;
+        line-height: 1.35;
         z-index: 9999;
         display: none;
-        white-space: nowrap;
-        max-width: 320px;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 260px;
+        width: max-content;
     `;
     document.body.appendChild(el);
     _treeTooltipEl = el;
@@ -1668,11 +1670,11 @@ function wireTreeSpeciesHover() {
                 return;
             }
             const html =
-                `<div style="display:flex;align-items:center;gap:6px;">
-                    <span style="display:inline-block;width:10px;height:10px;
-                        background:${hit.hex};border:1px solid rgba(255,255,255,0.4);"></span>
-                    <span>${escapeHtml(hit.name)}</span>
-                </div>`;
+            `<div style="display:flex;align-items:flex-start;gap:6px;">
+                <span style="display:inline-block;width:10px;height:10px;flex-shrink:0;margin-top:3px;
+                    background:${hit.hex};border:1px solid rgba(255,255,255,0.4);"></span>
+                <span>${escapeHtml(hit.name)}</span>
+            </div>`;
             showTreeTooltip(e.originalEvent.clientX, e.originalEvent.clientY, html);
         }, 40);
     });
