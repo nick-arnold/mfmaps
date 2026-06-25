@@ -1639,8 +1639,6 @@ async function lookupTreeSpeciesAt(lngLat) {
     const b = imageData.data[idx + 2];
     const a = imageData.data[idx + 3];
 
-    console.log('[tree-hover]', { region: region.name, r, g, b, a });
-
     if (a === 0) return null;
 
     if (region.lookupType === 'alpha') {
