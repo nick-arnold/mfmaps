@@ -79,6 +79,7 @@ export function initMap() {
     const mapOpts = {
         container: 'map',
         style: window.MFMAPS_STYLE_URL || '/static/map/styles/bright-mfmaps.json',
+        preserveDrawingBuffer: true,
     };
 
     if (hashState) {
@@ -1926,4 +1927,148 @@ export function showTreeSpeciesLegend(visible) {
         el.classList.toggle('d-none', !visible);
     });
     if (visible) loadTreeSpeciesLegend();
+}
+
+// =============================================================================
+// Tree species legend panel — viewport-filtered
+// =============================================================================
+const TREE_SPECIES_LEGEND_URL =
+    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
+
+let _treeLegendRaw = null;       // RGB → entry lookup
+let _treeLegendSorted = null;    // all entries sorted by name
+
+async function loadTreeSpeciesLegendData() {
+    if (_treeLegendRaw) return _treeLegendRaw;
+    const resp = await fetch(TREE_SPECIES_LEGEND_URL);
+    const raw = await resp.json();
+    const byRgb = new Map();
+    const all = [];
+    for (const [fortypcd, info] of Object.entries(raw)) {
+        const entry = { fortypcd, ...info };
+        const [r, g, b] = info.rgb;
+        byRgb.set(`${r},${g},${b}`, entry);
+        all.push(entry);
+    }
+    all.sort((a, b) => a.name.localeCompare(b.name));
+    _treeLegendRaw = byRgb;
+    _treeLegendSorted = all;
+    return byRgb;
+}
+
+// Sample a grid of pixels across the visible map, collect their RGBs,
+// and find matching legend entries. Skips transparent samples.
+function sampleViewportSpecies(byRgb) {
+    const canvas = state.map.getCanvas();
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) return [];
+
+    // 60x60 grid sample = 3600 pixels, covers most distinct types without
+    // being expensive. Adjust if needed.
+    const GRID = 60;
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Read the whole framebuffer once — much faster than 3600 readPixels calls
+    const pixels = new Uint8Array(w * h * 4);
+    try {
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    } catch (err) {
+        return [];
+    }
+
+    const found = new Map(); // fortypcd → entry (dedup)
+    const stepX = Math.floor(w / GRID);
+    const stepY = Math.floor(h / GRID);
+
+    for (let gy = 0; gy < GRID; gy++) {
+        for (let gx = 0; gx < GRID; gx++) {
+            const x = gx * stepX;
+            const y = gy * stepY;
+            const idx = (y * w + x) * 4;
+            const a = pixels[idx + 3];
+            if (a < 50) continue;       // skip transparent
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+
+            // Try exact match first (cheap)
+            const exact = byRgb.get(`${r},${g},${b}`);
+            if (exact) {
+                found.set(exact.fortypcd, exact);
+                continue;
+            }
+            // Nearest match for color-shifted pixels (basemap blend + opacity)
+            const match = findClosestInLegend(byRgb, r, g, b);
+            if (match) found.set(match.fortypcd, match);
+        }
+    }
+
+    return Array.from(found.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function findClosestInLegend(byRgb, r, g, b) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const [key, entry] of byRgb) {
+        const [er, eg, eb] = key.split(',').map(Number);
+        const dr = er - r, dg = eg - g, db = eb - b;
+        const d = dr * dr + dg * dg + db * db;
+        if (d < bestDist) {
+            bestDist = d;
+            best = entry;
+        }
+    }
+    // Reject if even the closest is far
+    return bestDist < 5000 ? best : null;
+}
+
+function renderLegendEntries(entries) {
+    const containers = document.querySelectorAll('.tree-species-legend');
+    if (!entries.length) {
+        containers.forEach(c => {
+            c.innerHTML = '<em class="text-muted small">No tree species in view.</em>';
+        });
+        return;
+    }
+    const html = entries.map(e =>
+        `<div class="d-flex align-items-center gap-2 mb-1">` +
+        `<span style="display:inline-block;width:14px;height:14px;` +
+            `background:${e.hex};border:1px solid rgba(0,0,0,0.2);` +
+            `flex-shrink:0;"></span>` +
+        `<span class="small">${escapeHtml(e.name)}</span>` +
+        `</div>`
+    ).join('');
+    containers.forEach(c => { c.innerHTML = html; });
+}
+
+async function updateTreeSpeciesLegend() {
+    const byRgb = await loadTreeSpeciesLegendData();
+    if (!byRgb) return;
+    const entries = sampleViewportSpecies(byRgb);
+    renderLegendEntries(entries);
+}
+
+// Debounce — moveend can fire rapidly
+let _legendUpdateTimer = null;
+function scheduleLegendUpdate() {
+    clearTimeout(_legendUpdateTimer);
+    _legendUpdateTimer = setTimeout(updateTreeSpeciesLegend, 250);
+}
+
+export function showTreeSpeciesLegend(visible) {
+    document.querySelectorAll('.tree-species-legend-wrap').forEach(el => {
+        el.classList.toggle('d-none', !visible);
+    });
+    if (visible) {
+        scheduleLegendUpdate();
+        if (!state._treeLegendMoveBound) {
+            state.map.on('moveend', () => {
+                if (state.map.getLayoutProperty('tree-species-layer', 'visibility') !== 'none') {
+                    scheduleLegendUpdate();
+                }
+            });
+            state._treeLegendMoveBound = true;
+        }
+    }
 }
