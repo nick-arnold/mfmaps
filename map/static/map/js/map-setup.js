@@ -1955,7 +1955,10 @@ async function loadTreeSpeciesLegendData() {
 function sampleViewportSpecies(byRgb) {
     const canvas = state.map.getCanvas();
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) return [];
+    if (!gl) {
+        console.log('[tree-legend] no WebGL context');
+        return [];
+    }
 
     const GRID = 60;
     const w = canvas.width;
@@ -1964,12 +1967,19 @@ function sampleViewportSpecies(byRgb) {
     try {
         gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     } catch (err) {
+        console.log('[tree-legend] readPixels failed:', err);
         return [];
     }
 
     const found = new Map();
     const stepX = Math.floor(w / GRID);
     const stepY = Math.floor(h / GRID);
+
+    let opaqueCount = 0;
+    let exactMatches = 0;
+    let nearestMatches = 0;
+    let rejectedMatches = 0;
+    const sampledColors = [];
 
     for (let gy = 0; gy < GRID; gy++) {
         for (let gx = 0; gx < GRID; gx++) {
@@ -1978,19 +1988,41 @@ function sampleViewportSpecies(byRgb) {
             const idx = (y * w + x) * 4;
             const a = pixels[idx + 3];
             if (a < 50) continue;
+            opaqueCount++;
             const r = pixels[idx];
             const g = pixels[idx + 1];
             const b = pixels[idx + 2];
 
+            if (sampledColors.length < 5) {
+                sampledColors.push(`rgb(${r},${g},${b})`);
+            }
+
             const exact = byRgb.get(`${r},${g},${b}`);
             if (exact) {
+                exactMatches++;
                 found.set(exact.fortypcd, exact);
                 continue;
             }
             const match = findClosestInLegend(byRgb, r, g, b);
-            if (match) found.set(match.fortypcd, match);
+            if (match) {
+                nearestMatches++;
+                found.set(match.fortypcd, match);
+            } else {
+                rejectedMatches++;
+            }
         }
     }
+
+    console.log('[tree-legend]', {
+        canvas: `${w}x${h}`,
+        gridSize: GRID,
+        opaquePixels: opaqueCount,
+        exactMatches,
+        nearestMatches,
+        rejectedMatches,
+        foundSpecies: found.size,
+        sampleColors: sampledColors,
+    });
 
     return Array.from(found.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
