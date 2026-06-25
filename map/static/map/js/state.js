@@ -71,6 +71,8 @@ export const LAYER_IDS = {
     ],
     'tree-species': [
         'tree-species-layer',
+        'tree-species-ak-layer',
+        'tree-species-hi-layer',
     ],
 };
 

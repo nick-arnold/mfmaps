@@ -293,6 +293,37 @@ function addSourcesAndLayers() {
         layout: { visibility: 'none' }
     }, BASEMAP_LINE_ANCHOR);
 
+    // --- LANDFIRE EVT — Alaska + Hawaii --------------------------------
+    // Same composite pattern as CONUS TreeMap but with LANDFIRE's official
+    // EVT colors baked into RGBA. Hover lookup reads RGB and matches the
+    // legend exactly (no alpha trick needed since colors come from a
+    // designed palette, not random generation).
+    [
+        { region: 'ak', file: 'landfire_evt_ak.pmtiles' },
+        { region: 'hi', file: 'landfire_evt_hi.pmtiles' },
+    ].forEach(r => {
+        const id = `tree-species-${r.region}`;
+        map.addSource(id, {
+            type: 'raster',
+            url: `pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/${r.file}`,
+            tileSize: 256,
+            minzoom: 4,
+            maxzoom: 12,
+        });
+        map.addLayer({
+            id: `${id}-layer`,
+            type: 'raster',
+            source: id,
+            minzoom: 4,
+            maxzoom: 22,
+            paint: {
+                'raster-opacity': 1.0,
+                'raster-resampling': 'nearest',
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
     // --- Contours (per-region, per-zoom tiers) ------------------------
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
     const CONTOUR_REGION_INTERVALS = {
