@@ -1564,8 +1564,11 @@ async function lookupTreeSpeciesAt(lngLat) {
     const b = imageData.data[idx + 2];
     const a = imageData.data[idx + 3];
 
+    console.log('[tree-hover] tile pixel:', { z, x, y, px, py, r, g, b, a });
     if (a < 50) return null;
-    return byRgb.get(`${r},${g},${b}`) || null;
+    const match = byRgb.get(`${r},${g},${b}`) || null;
+    if (!match) console.log('[tree-hover] no legend match for', `${r},${g},${b}`);
+    return match;
 }
 
 function wireTreeSpeciesHover() {
