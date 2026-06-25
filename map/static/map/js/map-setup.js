@@ -1571,7 +1571,7 @@ function wireTreeSpeciesHover() {
 
     map.on('mousemove', (e) => {
         if (!map.getLayer('tree-species-layer')) {
-            console.log('[tree-hover] no layer');
+            //console.log('[tree-hover] no layer');
             return;
         }
         if (map.getLayoutProperty('tree-species-layer', 'visibility') === 'none') {
@@ -1581,9 +1581,9 @@ function wireTreeSpeciesHover() {
 
         clearTimeout(lastTimer);
         lastTimer = setTimeout(async () => {
-            console.log('[tree-hover] lookup', e.lngLat);
+            //console.log('[tree-hover] lookup', e.lngLat);
             const hit = await lookupTreeSpeciesAt(e.lngLat);
-            console.log('[tree-hover] hit:', hit);
+            //console.log('[tree-hover] hit:', hit);
             if (!hit) {
                 hideTreeTooltip();
                 return;
