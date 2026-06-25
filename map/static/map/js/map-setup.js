@@ -1551,7 +1551,6 @@ async function lookupTreeSpeciesAt(lngLat) {
     const byRgb = await loadTreeLegend();
     if (!byRgb) return null;
 
-    // Clamp zoom to what the PMTiles archive actually has
     const z = Math.min(TREE_SPECIES_MAX_ZOOM, Math.floor(state.map.getZoom()));
     const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
 
@@ -1564,11 +1563,27 @@ async function lookupTreeSpeciesAt(lngLat) {
     const b = imageData.data[idx + 2];
     const a = imageData.data[idx + 3];
 
-    console.log('[tree-hover] tile pixel:', { z, x, y, px, py, r, g, b, a });
     if (a < 50) return null;
-    const match = byRgb.get(`${r},${g},${b}`) || null;
-    if (!match) console.log('[tree-hover] no legend match for', `${r},${g},${b}`);
-    return match;
+
+    // Exact match first
+    const exact = byRgb.get(`${r},${g},${b}`);
+    if (exact) return exact;
+
+    // Nearest match — PNG encoding can shift colors slightly
+    let best = null;
+    let bestDist = Infinity;
+    for (const [key, entry] of byRgb) {
+        const [er, eg, eb] = key.split(',').map(Number);
+        const dr = er - r, dg = eg - g, db = eb - b;
+        const d = dr * dr + dg * dg + db * db;
+        if (d < bestDist) {
+            bestDist = d;
+            best = entry;
+        }
+    }
+    // Only return if it's actually close — otherwise the pixel isn't really
+    // a species (could be an edge artifact or a tile boundary blend)
+    return bestDist < 200 ? best : null;
 }
 
 function wireTreeSpeciesHover() {
