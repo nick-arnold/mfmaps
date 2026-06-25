@@ -311,37 +311,28 @@ function addSourcesAndLayers() {
     ];
 
     speciesLayers.forEach(species => {
-        map.addSource(species.id, {
-            type: 'raster-dem',
-            url: `pmtiles://${SPECIES_BASE}/${species.file}`,
-            encoding: 'custom',
-            redFactor: 1,
-            greenFactor: 0,
-            blueFactor: 0,
-            baseShift: 0,
+        // --- Tree species composite ---------------------------------------
+        // Single RGBA tileset, every FORTYPCD colored randomly for inspection.
+        // Legend at .../treemap_composite_conus_legend.json maps FORTYPCD → color.
+        map.addSource('tree-species', {
+            type: 'raster',
+            url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
             tileSize: 256,
             minzoom: 4,
             maxzoom: 12,
         });
         map.addLayer({
-            id: `${species.id}-layer`,
-            type: 'color-relief',
-            source: species.id,
+            id: 'tree-species-layer',
+            type: 'raster',
+            source: 'tree-species',
             minzoom: 4,
             maxzoom: 22,
             paint: {
-                'color-relief-opacity': 0.7,
-                'color-relief-color': [
-                    'interpolate',
-                    ['linear'],
-                    ['elevation'],
-                    0, 'rgba(0,0,0,0)',
-                    1, species.color
-                ]
+                'raster-opacity': 0.7,
+                'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
         }, BASEMAP_LINE_ANCHOR);
-    });
 
     // --- Contours (per-region, per-zoom tiers) ------------------------
     // Each region has single-zoom tiers; the contour interval coarsens as you
