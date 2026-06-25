@@ -2007,7 +2007,7 @@ function findClosestInLegend(byRgb, r, g, b) {
             best = entry;
         }
     }
-    return bestDist < 5000 ? best : null;
+    return bestDist < 30000 ? best : null;
 }
 
 function renderLegendEntries(entries) {
