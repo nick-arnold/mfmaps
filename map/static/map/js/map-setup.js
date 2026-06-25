@@ -1431,19 +1431,20 @@ let _treeLegendByRgb = null;
 let _treePmtiles = null;
 let _treeTooltipEl = null;
 let _treeTileCache = new Map();   // "z/x/y" → ImageData
+let _treeLegendByAlpha = null;
 
 async function loadTreeLegend() {
-    if (_treeLegendByRgb) return _treeLegendByRgb;
+    if (_treeLegendByAlpha) return _treeLegendByAlpha;
     try {
         const resp = await fetch(TREE_SPECIES_LEGEND_URL);
         const raw = await resp.json();
-        const byRgb = new Map();
-        for (const [fortypcd, info] of Object.entries(raw)) {
-            const [r, g, b] = info.rgb;
-            byRgb.set(`${r},${g},${b}`, { fortypcd, ...info });
+        // New legend structure: { by_fortypcd: {...}, by_alpha: {...} }
+        const byAlpha = new Map();
+        for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
+            byAlpha.set(parseInt(alphaStr, 10), info);
         }
-        _treeLegendByRgb = byRgb;
-        return byRgb;
+        _treeLegendByAlpha = byAlpha;
+        return byAlpha;
     } catch (err) {
         console.warn('Tree species legend load failed:', err);
         return null;
@@ -1548,8 +1549,8 @@ async function fetchTileImageData(z, x, y) {
 }
 
 async function lookupTreeSpeciesAt(lngLat) {
-    const byRgb = await loadTreeLegend();
-    if (!byRgb) return null;
+    const byAlpha = await loadTreeLegend();
+    if (!byAlpha) return null;
 
     const z = Math.min(TREE_SPECIES_MAX_ZOOM, Math.floor(state.map.getZoom()));
     const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
@@ -1558,32 +1559,10 @@ async function lookupTreeSpeciesAt(lngLat) {
     if (!imageData) return null;
 
     const idx = (py * 256 + px) * 4;
-    const r = imageData.data[idx];
-    const g = imageData.data[idx + 1];
-    const b = imageData.data[idx + 2];
     const a = imageData.data[idx + 3];
 
-    if (a < 50) return null;
-
-    // Exact match first
-    const exact = byRgb.get(`${r},${g},${b}`);
-    if (exact) return exact;
-
-    // Nearest match — PNG encoding can shift colors slightly
-    let best = null;
-    let bestDist = Infinity;
-    for (const [key, entry] of byRgb) {
-        const [er, eg, eb] = key.split(',').map(Number);
-        const dr = er - r, dg = eg - g, db = eb - b;
-        const d = dr * dr + dg * dg + db * db;
-        if (d < bestDist) {
-            bestDist = d;
-            best = entry;
-        }
-    }
-    // Only return if it's actually close — otherwise the pixel isn't really
-    // a species (could be an edge artifact or a tile boundary blend)
-    return bestDist < 200 ? best : null;
+    if (a === 0) return null;
+    return byAlpha.get(a) || null;
 }
 
 function wireTreeSpeciesHover() {
