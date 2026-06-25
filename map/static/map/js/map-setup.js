@@ -1922,12 +1922,7 @@ async function loadTreeSpeciesLegend() {
     }
 }
 
-export function showTreeSpeciesLegend(visible) {
-    document.querySelectorAll('.tree-species-legend-wrap').forEach(el => {
-        el.classList.toggle('d-none', !visible);
-    });
-    if (visible) loadTreeSpeciesLegend();
-}
+
 // =============================================================================
 // Tree species legend panel — viewport-filtered
 // =============================================================================
