@@ -1678,6 +1678,10 @@ export function initLayerPanels() {
             setLayerGroupVisibility(group, visible);
             document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
                 .forEach(other => { if (other !== e.target) other.checked = visible; });
+
+            if (group === 'tree-species') {
+                showTreeSpeciesLegend(visible);
+            }
         });
     });
 }
@@ -1868,4 +1872,58 @@ export function initModeTabs(onSavedActivate, onReportsActivate) {
     document.querySelectorAll('.app-tab, .dock-tab').forEach(tab => {
         tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate, onReportsActivate));
     });
+}
+
+// =============================================================================
+// Tree species legend panel
+// =============================================================================
+// Fetches the published legend JSON and renders a scrollable list of colored
+// swatches with forest type names. Shows/hides with the tree-species layer
+// toggle.
+
+const TREE_SPECIES_LEGEND_URL =
+    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
+
+let _treeLegendLoaded = false;
+
+async function loadTreeSpeciesLegend() {
+    if (_treeLegendLoaded) return;
+    const containers = document.querySelectorAll('.tree-species-legend');
+    if (!containers.length) return;
+
+    try {
+        const resp = await fetch(TREE_SPECIES_LEGEND_URL);
+        const raw = await resp.json();
+
+        // Sort alphabetically by name
+        const entries = Object.entries(raw)
+            .map(([fortypcd, info]) => ({ fortypcd, ...info }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        const html = entries.map(e =>
+            `<div class="d-flex align-items-center gap-2 mb-1">` +
+            `<span style="display:inline-block;width:14px;height:14px;` +
+                `background:${e.hex};border:1px solid rgba(0,0,0,0.2);` +
+                `flex-shrink:0;"></span>` +
+            `<span class="small">${escapeHtml(e.name)}</span>` +
+            `</div>`
+        ).join('');
+
+        containers.forEach(c => {
+            c.innerHTML = html;
+        });
+        _treeLegendLoaded = true;
+    } catch (err) {
+        console.warn('Could not load tree species legend:', err);
+        containers.forEach(c => {
+            c.innerHTML = '<em class="text-muted small">Could not load legend.</em>';
+        });
+    }
+}
+
+export function showTreeSpeciesLegend(visible) {
+    document.querySelectorAll('.tree-species-legend-wrap').forEach(el => {
+        el.classList.toggle('d-none', !visible);
+    });
+    if (visible) loadTreeSpeciesLegend();
 }
