@@ -1954,31 +1954,24 @@ async function loadTreeSpeciesLegendData() {
 // entry. Skips transparent samples (where the tree-species layer doesn't paint).
 function sampleViewportSpecies(byRgb) {
     const canvas = state.map.getCanvas();
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-    if (!gl) {
-        console.log('[tree-legend] no WebGL context');
-        return [];
-    }
-
-    const GRID = 60;
     const w = canvas.width;
     const h = canvas.height;
-    const pixels = new Uint8Array(w * h * 4);
-    try {
-        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    } catch (err) {
-        console.log('[tree-legend] readPixels failed:', err);
-        return [];
-    }
+
+    // Copy the WebGL canvas onto a 2D canvas to read pixels reliably
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = w;
+    tmpCanvas.height = h;
+    const ctx = tmpCanvas.getContext('2d');
+    ctx.drawImage(canvas, 0, 0);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const pixels = imageData.data;
 
     const found = new Map();
+    const GRID = 60;
     const stepX = Math.floor(w / GRID);
     const stepY = Math.floor(h / GRID);
 
     let opaqueCount = 0;
-    let exactMatches = 0;
-    let nearestMatches = 0;
-    let rejectedMatches = 0;
     const sampledColors = [];
 
     for (let gy = 0; gy < GRID; gy++) {
@@ -1999,27 +1992,17 @@ function sampleViewportSpecies(byRgb) {
 
             const exact = byRgb.get(`${r},${g},${b}`);
             if (exact) {
-                exactMatches++;
                 found.set(exact.fortypcd, exact);
                 continue;
             }
             const match = findClosestInLegend(byRgb, r, g, b);
-            if (match) {
-                nearestMatches++;
-                found.set(match.fortypcd, match);
-            } else {
-                rejectedMatches++;
-            }
+            if (match) found.set(match.fortypcd, match);
         }
     }
 
     console.log('[tree-legend]', {
         canvas: `${w}x${h}`,
-        gridSize: GRID,
         opaquePixels: opaqueCount,
-        exactMatches,
-        nearestMatches,
-        rejectedMatches,
         foundSpecies: found.size,
         sampleColors: sampledColors,
     });
