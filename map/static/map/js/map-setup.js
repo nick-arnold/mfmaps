@@ -1446,46 +1446,91 @@ function wireHydroInteractions() {
 }
 
 // =============================================================================
-// Tree species hover lookup
+// Tree species hover lookup (CONUS / AK / HI)
 // =============================================================================
-// Reads the raw PMTiles tile at the hover point and looks up the exact RGB
-// in the legend JSON. Shows the forest type name in a small tooltip that
-// follows the cursor. Only active when the tree-species layer is visible.
+// Each region has its own PMTiles + legend JSON. The hover handler picks the
+// right region based on the lng/lat (CONUS bbox, AK bbox, HI bbox) and reads
+// the underlying tile pixel for exact species lookup.
+//
+// CONUS uses the alpha channel as a species index (random-color composite).
+// AK and HI use direct RGB match against LANDFIRE's designed palette.
 
-const TREE_SPECIES_PMTILES_URL =
-    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles';
-const TREE_SPECIES_LEGEND_URL =
-    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
-const TREE_SPECIES_MAX_ZOOM = 12;
+const TREE_SPECIES_REGIONS = [
+    {
+        name: 'conus',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
+        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
+        bbox: [-125.5, 24.0, -66.0, 50.0],   // CONUS roughly
+        lookupType: 'alpha',                  // alpha index → legend.by_alpha
+        maxZoom: 12,
+    },
+    {
+        name: 'ak',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
+        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
+        bbox: [-180.0, 51.0, -129.0, 72.0],   // Alaska
+        lookupType: 'rgb',                    // exact RGB → legend entry
+        maxZoom: 12,
+    },
+    {
+        name: 'hi',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
+        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
+        bbox: [-161.0, 18.5, -154.5, 23.0],   // Hawaii
+        lookupType: 'rgb',
+        maxZoom: 12,
+    },
+];
 
-let _treeLegendByRgb = null;
-let _treePmtiles = null;
+const _treeRegionState = new Map(); // name → { pmtiles, lookupByAlpha?, lookupByRgb?, tileCache }
 let _treeTooltipEl = null;
-let _treeTileCache = new Map();   // "z/x/y" → ImageData
-let _treeLegendByAlpha = null;
 
-async function loadTreeLegend() {
-    if (_treeLegendByAlpha) return _treeLegendByAlpha;
-    try {
-        const resp = await fetch(TREE_SPECIES_LEGEND_URL);
-        const raw = await resp.json();
-        // New legend structure: { by_fortypcd: {...}, by_alpha: {...} }
-        const byAlpha = new Map();
-        for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
-            byAlpha.set(parseInt(alphaStr, 10), info);
-        }
-        _treeLegendByAlpha = byAlpha;
-        return byAlpha;
-    } catch (err) {
-        console.warn('Tree species legend load failed:', err);
-        return null;
-    }
+function getRegionState(region) {
+    if (_treeRegionState.has(region.name)) return _treeRegionState.get(region.name);
+    const s = {
+        pmtiles: new pmtiles.PMTiles(region.pmtilesUrl),
+        lookupByAlpha: null,
+        lookupByRgb: null,
+        legendLoaded: false,
+        tileCache: new Map(),
+    };
+    _treeRegionState.set(region.name, s);
+    return s;
 }
 
-function getTreePmtiles() {
-    if (_treePmtiles) return _treePmtiles;
-    _treePmtiles = new pmtiles.PMTiles(TREE_SPECIES_PMTILES_URL);
-    return _treePmtiles;
+async function loadRegionLegend(region) {
+    const s = getRegionState(region);
+    if (s.legendLoaded) return s;
+    try {
+        const resp = await fetch(region.legendUrl);
+        const raw = await resp.json();
+        if (region.lookupType === 'alpha') {
+            // CONUS: { by_fortypcd, by_alpha }
+            s.lookupByAlpha = new Map();
+            for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
+                s.lookupByAlpha.set(parseInt(alphaStr, 10), info);
+            }
+        } else {
+            // AK / HI: { "code": { name, rgb, hex } }
+            s.lookupByRgb = new Map();
+            for (const [code, info] of Object.entries(raw)) {
+                const [r, g, b] = info.rgb;
+                s.lookupByRgb.set(`${r},${g},${b}`, { code, ...info });
+            }
+        }
+        s.legendLoaded = true;
+    } catch (err) {
+        console.warn(`Legend load failed for ${region.name}:`, err);
+    }
+    return s;
+}
+
+function regionForLngLat(lng, lat) {
+    for (const r of TREE_SPECIES_REGIONS) {
+        const [w, s, e, n] = r.bbox;
+        if (lng >= w && lng <= e && lat >= s && lat <= n) return r;
+    }
+    return null;
 }
 
 function ensureTreeTooltip() {
@@ -1504,7 +1549,7 @@ function ensureTreeTooltip() {
         z-index: 9999;
         display: none;
         white-space: nowrap;
-        max-width: 280px;
+        max-width: 320px;
     `;
     document.body.appendChild(el);
     _treeTooltipEl = el;
@@ -1523,7 +1568,6 @@ function hideTreeTooltip() {
     if (_treeTooltipEl) _treeTooltipEl.style.display = 'none';
 }
 
-// Web Mercator math: lng/lat → tile XYZ + pixel offset within the tile
 function lngLatToTilePixel(lng, lat, zoom) {
     const n = Math.pow(2, zoom);
     const xFloat = (lng + 180) / 360 * n;
@@ -1536,21 +1580,19 @@ function lngLatToTilePixel(lng, lat, zoom) {
     return { x, y, px, py };
 }
 
-async function fetchTileImageData(z, x, y) {
+async function fetchTileImageData(regionState, z, x, y) {
     const key = `${z}/${x}/${y}`;
-    if (_treeTileCache.has(key)) return _treeTileCache.get(key);
+    if (regionState.tileCache.has(key)) return regionState.tileCache.get(key);
 
-    const pm = getTreePmtiles();
     let tileBytes;
     try {
-        const result = await pm.getZxy(z, x, y);
+        const result = await regionState.pmtiles.getZxy(z, x, y);
         if (!result) return null;
         tileBytes = result.data;
     } catch (err) {
         return null;
     }
 
-    // Decode PNG via Image + canvas
     const blob = new Blob([tileBytes], { type: 'image/png' });
     const url = URL.createObjectURL(blob);
     try {
@@ -1567,12 +1609,11 @@ async function fetchTileImageData(z, x, y) {
         ctx.drawImage(img, 0, 0);
         const data = ctx.getImageData(0, 0, 256, 256);
 
-        // Modest cache so a hover-scrub doesn't refetch the same tile
-        if (_treeTileCache.size > 200) {
-            const firstKey = _treeTileCache.keys().next().value;
-            _treeTileCache.delete(firstKey);
+        if (regionState.tileCache.size > 200) {
+            const firstKey = regionState.tileCache.keys().next().value;
+            regionState.tileCache.delete(firstKey);
         }
-        _treeTileCache.set(key, data);
+        regionState.tileCache.set(key, data);
         return data;
     } finally {
         URL.revokeObjectURL(url);
@@ -1580,20 +1621,29 @@ async function fetchTileImageData(z, x, y) {
 }
 
 async function lookupTreeSpeciesAt(lngLat) {
-    const byAlpha = await loadTreeLegend();
-    if (!byAlpha) return null;
+    const region = regionForLngLat(lngLat.lng, lngLat.lat);
+    if (!region) return null;
 
-    const z = Math.min(TREE_SPECIES_MAX_ZOOM, Math.floor(state.map.getZoom()));
+    const s = await loadRegionLegend(region);
+    const z = Math.min(region.maxZoom, Math.floor(state.map.getZoom()));
     const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
 
-    const imageData = await fetchTileImageData(z, x, y);
+    const imageData = await fetchTileImageData(s, z, x, y);
     if (!imageData) return null;
 
     const idx = (py * 256 + px) * 4;
+    const r = imageData.data[idx];
+    const g = imageData.data[idx + 1];
+    const b = imageData.data[idx + 2];
     const a = imageData.data[idx + 3];
 
     if (a === 0) return null;
-    return byAlpha.get(a) || null;
+
+    if (region.lookupType === 'alpha') {
+        return s.lookupByAlpha ? (s.lookupByAlpha.get(a) || null) : null;
+    } else {
+        return s.lookupByRgb ? (s.lookupByRgb.get(`${r},${g},${b}`) || null) : null;
+    }
 }
 
 function wireTreeSpeciesHover() {
@@ -1601,20 +1651,18 @@ function wireTreeSpeciesHover() {
     let lastTimer = null;
 
     map.on('mousemove', (e) => {
-        if (!map.getLayer('tree-species-layer')) {
-            //console.log('[tree-hover] no layer');
-            return;
-        }
-        if (map.getLayoutProperty('tree-species-layer', 'visibility') === 'none') {
+        // Any tree-species layer visible? If none are on, no tooltip.
+        const anyVisible = ['tree-species-layer', 'tree-species-ak-layer', 'tree-species-hi-layer']
+            .some(id => map.getLayer(id)
+                && map.getLayoutProperty(id, 'visibility') !== 'none');
+        if (!anyVisible) {
             hideTreeTooltip();
             return;
         }
 
         clearTimeout(lastTimer);
         lastTimer = setTimeout(async () => {
-            //console.log('[tree-hover] lookup', e.lngLat);
             const hit = await lookupTreeSpeciesAt(e.lngLat);
-            //console.log('[tree-hover] hit:', hit);
             if (!hit) {
                 hideTreeTooltip();
                 return;
@@ -1624,7 +1672,6 @@ function wireTreeSpeciesHover() {
                     <span style="display:inline-block;width:10px;height:10px;
                         background:${hit.hex};border:1px solid rgba(255,255,255,0.4);"></span>
                     <span>${escapeHtml(hit.name)}</span>
-                    <span style="opacity:0.6;margin-left:4px;">#${escapeHtml(hit.fortypcd)}</span>
                 </div>`;
             showTreeTooltip(e.originalEvent.clientX, e.originalEvent.clientY, html);
         }, 40);
