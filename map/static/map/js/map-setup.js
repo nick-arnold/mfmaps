@@ -312,31 +312,34 @@ function addSourcesAndLayers() {
 
     speciesLayers.forEach(species => {
         map.addSource(species.id, {
-            type: 'raster',
+            type: 'raster-dem',
             url: `pmtiles://${SPECIES_BASE}/${species.file}`,
+            encoding: 'custom',
+            redFactor: 0,
+            greenFactor: 0,
+            blueFactor: 1,
+            baseShift: 0,
             tileSize: 256,
             minzoom: 4,
             maxzoom: 12,
         });
         map.addLayer({
             id: `${species.id}-layer`,
-            type: 'raster',
+            type: 'color-relief',
             source: species.id,
             minzoom: 4,
             maxzoom: 22,
             paint: {
-                'raster-color': [
-                    'case',
-                    ['>', ['raster-value'], 0],
-                    species.color,
-                    'rgba(0,0,0,0)'
-                ],
-                'raster-color-mix': [255, 0, 0, 0],
-                'raster-color-range': [0, 255],
-                'raster-opacity': 0.7,
-                'raster-resampling': 'nearest',
+                'color-relief-opacity': 0.7,
+                'color-relief-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['elevation'],
+                    0, 'rgba(0,0,0,0)',
+                    1, species.color
+                ]
             },
-            layout: { visibility: 'visible' }
+            layout: { visibility: 'none' }
         }, BASEMAP_LINE_ANCHOR);
     });
 
