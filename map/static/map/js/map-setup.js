@@ -1934,8 +1934,6 @@ export function showTreeSpeciesLegend(visible) {
 // Fetches the published legend JSON and samples the rendered canvas to show
 // only the forest types currently visible in the viewport. Updates on moveend.
 
-const TREE_SPECIES_LEGEND_URL =
-    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
 
 let _treeLegendRaw = null;       // RGB → entry lookup
 
