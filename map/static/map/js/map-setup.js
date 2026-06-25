@@ -1932,8 +1932,6 @@ export function showTreeSpeciesLegend(visible) {
 // =============================================================================
 // Tree species legend panel — viewport-filtered
 // =============================================================================
-const TREE_SPECIES_LEGEND_URL =
-    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json';
 
 let _treeLegendRaw = null;       // RGB → entry lookup
 let _treeLegendSorted = null;    // all entries sorted by name
