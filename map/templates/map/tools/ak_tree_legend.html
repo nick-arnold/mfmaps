@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LANDFIRE EVT Legend Editor</title>
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #f5f5f5;
+        color: #222;
+    }
+    h1 { font-size: 1.3rem; margin: 0 0 12px; }
+    .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 12px;
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        flex-wrap: wrap;
+    }
+    .controls select, .controls input[type="text"] {
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .controls input[type="text"] { flex: 1; min-width: 200px; }
+    .controls button {
+        padding: 6px 14px;
+        font-size: 0.85rem;
+        background: #2c5530;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .controls button:hover { background: #1e3d22; }
+    .controls .count { font-size: 0.8rem; color: #666; }
+    .controls .status { font-size: 0.8rem; color: #888; }
+
+    table {
+        width: 100%;
+        background: #fff;
+        border-collapse: collapse;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    th, td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    th { background: #fafafa; font-weight: 600; color: #555; }
+    tr:hover { background: #fafbfc; }
+    .swatch {
+        width: 36px;
+        height: 24px;
+        border: 1px solid rgba(0,0,0,0.2);
+        border-radius: 3px;
+        cursor: pointer;
+        padding: 0;
+    }
+    .code { font-family: monospace; color: #888; font-size: 0.8rem; }
+    .hex-input {
+        font-family: monospace;
+        font-size: 0.85rem;
+        width: 90px;
+        padding: 4px 6px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+    }
+    .rgb { font-family: monospace; color: #999; font-size: 0.75rem; }
+    .changed { background: #fffbe6 !important; }
+</style>
+</head>
+<body>
+
+<h1>LANDFIRE EVT Legend Editor</h1>
+
+<div class="controls">
+    <select id="region">
+        <option value="ak">Alaska</option>
+        <option value="hi">Hawaii</option>
+        <option value="conus">CONUS</option>
+    </select>
+    <input type="text" id="search" placeholder="Search forest type or code...">
+    <span class="count" id="count"></span>
+    <span class="status" id="status"></span>
+    <button id="download">Download JSON</button>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 70px;">Code</th>
+            <th style="width: 70px;">Color</th>
+            <th style="width: 110px;">Hex</th>
+            <th style="width: 130px;">RGB</th>
+            <th>Name</th>
+        </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+</table>
+
+<script>
+const URLS = {
+    ak:    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
+    hi:    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
+    conus: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
+};
+
+let data = {};
+let currentRegion = 'ak';
+const rowsEl = document.getElementById('rows');
+const countEl = document.getElementById('count');
+const statusEl = document.getElementById('status');
+const searchEl = document.getElementById('search');
+const regionEl = document.getElementById('region');
+
+function hexToRgb(hex) {
+    const m = hex.replace('#', '').match(/^([0-9a-f]{6})$/i);
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// CONUS legend is nested under by_fortypcd; AK/HI are flat. Normalize to flat
+// for editing, but remember the structure so we can rebuild on download.
+let conusOriginal = null;
+
+function normalizeLoad(raw, region) {
+    if (region === 'conus' && raw.by_fortypcd) {
+        conusOriginal = raw;
+        const flat = {};
+        for (const [code, info] of Object.entries(raw.by_fortypcd)) {
+            flat[code] = { name: info.name, rgb: info.rgb, hex: info.hex, _alpha: info.alpha };
+        }
+        return flat;
+    }
+    conusOriginal = null;
+    return raw;
+}
+
+function denormalizeForExport(flat, region) {
+    if (region === 'conus' && conusOriginal) {
+        const out = { by_fortypcd: {}, by_alpha: {} };
+        for (const [code, info] of Object.entries(flat)) {
+            const alpha = info._alpha;
+            out.by_fortypcd[code] = {
+                name: info.name,
+                rgb: info.rgb,
+                hex: info.hex,
+                alpha: alpha,
+            };
+            if (alpha != null) {
+                out.by_alpha[String(alpha)] = {
+                    fortypcd: parseInt(code, 10),
+                    name: info.name,
+                    hex: info.hex,
+                };
+            }
+        }
+        return out;
+    }
+    // AK/HI: strip private fields
+    const out = {};
+    for (const [code, info] of Object.entries(flat)) {
+        out[code] = { name: info.name, rgb: info.rgb, hex: info.hex };
+    }
+    return out;
+}
+
+function render(filterText = '') {
+    const filter = filterText.toLowerCase();
+    rowsEl.innerHTML = '';
+    let visible = 0;
+
+    const codes = Object.keys(data).sort((a, b) =>
+        data[a].name.localeCompare(data[b].name)
+    );
+
+    for (const code of codes) {
+        const entry = data[code];
+        if (filter && !entry.name.toLowerCase().includes(filter)
+                   && !code.toLowerCase().includes(filter)) {
+            continue;
+        }
+        visible++;
+
+        const tr = document.createElement('tr');
+        tr.dataset.code = code;
+
+        tr.innerHTML = `
+            <td class="code">${code}</td>
+            <td>
+                <input type="color" class="swatch" value="${entry.hex}"
+                       data-code="${code}">
+            </td>
+            <td>
+                <input type="text" class="hex-input" value="${entry.hex}"
+                       data-code="${code}" maxlength="7">
+            </td>
+            <td class="rgb">${entry.rgb.join(', ')}</td>
+            <td>${entry.name}</td>
+        `;
+        rowsEl.appendChild(tr);
+    }
+
+    countEl.textContent = `${visible} of ${codes.length} entries`;
+
+    rowsEl.querySelectorAll('input[type="color"]').forEach(input => {
+        input.addEventListener('input', e => updateColor(e.target.dataset.code, e.target.value));
+    });
+
+    rowsEl.querySelectorAll('.hex-input').forEach(input => {
+        input.addEventListener('change', e => {
+            const v = e.target.value.trim();
+            const normalized = v.startsWith('#') ? v : '#' + v;
+            if (hexToRgb(normalized)) {
+                updateColor(e.target.dataset.code, normalized);
+            } else {
+                e.target.value = data[e.target.dataset.code].hex;
+            }
+        });
+    });
+}
+
+function updateColor(code, hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return;
+    data[code].hex = hex;
+    data[code].rgb = rgb;
+
+    const tr = rowsEl.querySelector(`tr[data-code="${code}"]`);
+    if (tr) {
+        tr.classList.add('changed');
+        tr.querySelector('input[type="color"]').value = hex;
+        tr.querySelector('.hex-input').value = hex;
+        tr.querySelector('.rgb').textContent = rgb.join(', ');
+    }
+}
+
+async function loadRegion(region) {
+    currentRegion = region;
+    statusEl.textContent = 'Loading…';
+    rowsEl.innerHTML = '';
+    try {
+        const resp = await fetch(URLS[region]);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const raw = await resp.json();
+        data = normalizeLoad(raw, region);
+        statusEl.textContent = '';
+        render(searchEl.value);
+    } catch (err) {
+        statusEl.textContent = `Load failed: ${err.message}`;
+    }
+}
+
+regionEl.addEventListener('change', e => loadRegion(e.target.value));
+searchEl.addEventListener('input', e => render(e.target.value));
+
+document.getElementById('download').addEventListener('click', () => {
+    const out = denormalizeForExport(data, currentRegion);
+    const filename = currentRegion === 'conus'
+        ? 'treemap_composite_conus_legend.json'
+        : `landfire_evt_${currentRegion}_legend.json`;
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
+
+loadRegion('ak');
+</script>
+
+</body>
+</html>
