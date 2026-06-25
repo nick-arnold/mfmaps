@@ -333,7 +333,7 @@ function addSourcesAndLayers() {
             },
             layout: { visibility: 'none' }
         }, BASEMAP_LINE_ANCHOR);
-
+    });
     // --- Contours (per-region, per-zoom tiers) ------------------------
     // Each region has single-zoom tiers; the contour interval coarsens as you
     // zoom out so dense terrain stays readable. Files follow the convention
