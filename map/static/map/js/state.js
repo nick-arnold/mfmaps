@@ -69,6 +69,10 @@ export const LAYER_IDS = {
         'aspect-alaska-layer',
         'aspect-hawaii-layer'
     ],
+    'tree-species': [
+        'species-201-layer',
+        // Add more species layer ids here as the pipeline ships them
+    ],
 };
 
 export const H3_RES = 8;

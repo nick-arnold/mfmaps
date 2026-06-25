@@ -206,76 +206,83 @@
 </nav>
 
 <template id="layerPanelTemplate">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2">Reference</h6>
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
-        <label class="form-check-label" for="layer-hydrography-CTX">
-            Hydrography
-        </label>
-    </div>
-    <div class="form-check form-switch mb-2">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-canopy-CTX" data-layer-group="canopy">
-        <label class="form-check-label" for="layer-canopy-CTX">
-            Tree canopy cover
-        </label>
-    </div>
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-slope-CTX" data-layer-group="slope">
-        <label class="form-check-label" for="layer-slope-CTX">
-            Slope
-        </label>
-    </div>
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-aspect-CTX" data-layer-group="aspect">
-        <label class="form-check-label" for="layer-aspect-CTX">
-            North facing aspect
-        </label>
-    </div>
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Free Layers</h6>
-    <div class="form-check form-switch mb-2">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-observations-CTX" data-layer-group="observations" checked>
-        <label class="form-check-label" for="layer-observations-CTX">
-            My observations
-        </label>
-    </div>
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-h3-hexes-CTX" data-layer-group="h3-hexes">
-        <label class="form-check-label" for="layer-h3-hexes-CTX">
-            H3 grid
-        </label>
-    </div>
+  <h6 class="text-uppercase text-muted small fw-bold mb-2">Reference</h6>
+  <div class="form-check form-switch mb-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
+      <label class="form-check-label" for="layer-hydrography-CTX">
+          Hydrography
+      </label>
+  </div>
+  <div class="form-check form-switch mb-2">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-canopy-CTX" data-layer-group="canopy">
+      <label class="form-check-label" for="layer-canopy-CTX">
+          Tree canopy cover
+      </label>
+  </div>
+  <div class="form-check form-switch mb-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-slope-CTX" data-layer-group="slope">
+      <label class="form-check-label" for="layer-slope-CTX">
+          Slope
+      </label>
+  </div>
+  <div class="form-check form-switch mb-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-aspect-CTX" data-layer-group="aspect">
+      <label class="form-check-label" for="layer-aspect-CTX">
+          North facing aspect
+      </label>
+  </div>
+  <div class="form-check form-switch mb-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-tree-species-CTX" data-layer-group="tree-species">
+      <label class="form-check-label" for="layer-tree-species-CTX">
+          Tree species (Douglas-fir test)
+      </label>
+  </div>
+  <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Free Layers</h6>
+  <div class="form-check form-switch mb-2">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-observations-CTX" data-layer-group="observations" checked>
+      <label class="form-check-label" for="layer-observations-CTX">
+          My observations
+      </label>
+  </div>
+  <div class="form-check form-switch mb-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-h3-hexes-CTX" data-layer-group="h3-hexes">
+      <label class="form-check-label" for="layer-h3-hexes-CTX">
+          H3 grid
+      </label>
+  </div>
 
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
-        Premium Layers <i class="bi bi-lock-fill ms-1"></i>
-    </h6>
-    <div class="form-check form-switch mb-2 opacity-50">
-        <input class="form-check-input" type="checkbox" disabled>
-        <label class="form-check-label">Morel probability</label>
-    </div>
-    <div class="form-check form-switch mb-2 opacity-50">
-        <input class="form-check-input" type="checkbox" disabled>
-        <label class="form-check-label">Burn severity</label>
-    </div>
-    <div class="form-check form-switch mb-2 opacity-50">
-        <input class="form-check-input" type="checkbox" disabled>
-        <label class="form-check-label">Soil temperature</label>
-    </div>
-    <p class="small text-muted mt-2">
-        Sign in to a paid plan to unlock premium layers.
-    </p>
+  <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
+      Premium Layers <i class="bi bi-lock-fill ms-1"></i>
+  </h6>
+  <div class="form-check form-switch mb-2 opacity-50">
+      <input class="form-check-input" type="checkbox" disabled>
+      <label class="form-check-label">Morel probability</label>
+  </div>
+  <div class="form-check form-switch mb-2 opacity-50">
+      <input class="form-check-input" type="checkbox" disabled>
+      <label class="form-check-label">Burn severity</label>
+  </div>
+  <div class="form-check form-switch mb-2 opacity-50">
+      <input class="form-check-input" type="checkbox" disabled>
+      <label class="form-check-label">Soil temperature</label>
+  </div>
+  <p class="small text-muted mt-2">
+      Sign in to a paid plan to unlock premium layers.
+  </p>
 
-    <hr class="my-4">
+  <hr class="my-4">
 
-    <h6 class="text-uppercase text-muted small fw-bold mb-2">Your Location</h6>
-    <div class="user-location-info small text-muted">
-        Tap the locate button to find your H3 cell.
-    </div>
+  <h6 class="text-uppercase text-muted small fw-bold mb-2">Your Location</h6>
+  <div class="user-location-info small text-muted">
+      Tap the locate button to find your H3 cell.
+  </div>
 </template>
 
 <!-- Mobile bottom-sheet (offcanvas) -->

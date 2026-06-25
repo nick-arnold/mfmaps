@@ -295,6 +295,50 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
+    // --- Tree species presence (per-FORTYPCD) -------------------------
+    // Binary presence masks from TreeMap 2022 reclassified by forest type code.
+    // Pixel value 1 = species present, 0/nodata = absent.
+    // Color set client-side via raster-color so we can restyle without re-tiling
+    // and toggle individual species or groups in the layer panel.
+    //
+    // File naming: fortypcd_{NNNN}_{slug}.pmtiles
+    // For now wired up Douglas-fir only as a smoke test; rest of the 144 layers
+    // get added as the pipeline finishes.
+    const SPECIES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/conus';
+
+    const speciesLayers = [
+        { id: 'species-201', file: 'fortypcd_0201_douglas_fir.pmtiles', color: '#2d7a45' },
+    ];
+
+    speciesLayers.forEach(species => {
+        map.addSource(species.id, {
+            type: 'raster',
+            url: `pmtiles://${SPECIES_BASE}/${species.file}`,
+            tileSize: 256,
+            minzoom: 4,
+            maxzoom: 12,
+        });
+        map.addLayer({
+            id: `${species.id}-layer`,
+            type: 'raster',
+            source: species.id,
+            minzoom: 4,
+            maxzoom: 22,
+            paint: {
+                'raster-color': [
+                    'case',
+                    ['>', ['raster-value'], 0],
+                    species.color,
+                    'rgba(0,0,0,0)'
+                ],
+                'raster-color-mix': [255, 0, 0, 0],
+                'raster-color-range': [0, 255],
+                'raster-opacity': 0.7,
+                'raster-resampling': 'nearest',
+            },
+            layout: { visibility: 'visible' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
 
     // --- Contours (per-region, per-zoom tiers) ------------------------
     // Each region has single-zoom tiers; the contour interval coarsens as you
