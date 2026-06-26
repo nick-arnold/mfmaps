@@ -278,7 +278,7 @@ function addSourcesAndLayers() {
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
         tileSize: 256,
         minzoom: 4,
-        maxzoom: 12,
+        maxzoom: 14,
     });
     map.addLayer({
         id: 'tree-species-layer',
@@ -1462,7 +1462,7 @@ const TREE_SPECIES_REGIONS = [
         legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
         bbox: [-125.5, 24.0, -66.0, 50.0],   // CONUS roughly
         lookupType: 'alpha',                  // alpha index → legend.by_alpha
-        maxZoom: 12,
+        maxZoom: 14,
     },
     {
         name: 'ak',
