@@ -41,6 +41,8 @@
         cursor: pointer;
     }
     .controls button:hover { background: #1e3d22; }
+    .controls button.secondary { background: #6c757d; }
+    .controls button.secondary:hover { background: #565e64; }
     .controls .count { font-size: 0.8rem; color: #666; }
     .controls .status { font-size: 0.8rem; color: #888; }
 
@@ -86,6 +88,11 @@
         outline: 2px solid #f08c00;
         outline-offset: -2px;
     }
+    tr.pinned {
+        background: #ffd166 !important;
+        outline: 2px solid #f08c00;
+        outline-offset: -2px;
+    }
     .swatch {
         width: 32px;
         height: 22px;
@@ -128,12 +135,6 @@
         max-width: 260px;
         word-wrap: break-word;
     }
-
-    tr.pinned {
-        background: #ffd166 !important;
-        outline: 2px solid #f08c00;
-        outline-offset: -2px;
-    }
 </style>
 </head>
 <body>
@@ -155,6 +156,7 @@
         <span id="opacityVal">80%</span>
     </div>
     <button id="download">Download JSON</button>
+    <button id="reset" class="secondary">Reset to source</button>
 </div>
 
 <div class="layout">
@@ -211,13 +213,16 @@ const REGIONS = {
 // =============================================================================
 // State
 // =============================================================================
+const STORAGE_KEY = 'mfmaps-legend-edits';
+
 let data = {};                  // flat: code → { name, rgb, hex, _alpha? }
 let alphaToCode = new Map();    // alpha index → code (for hover + recolor)
 let conusOriginal = null;
 let currentRegion = 'ak';
 let map = null;
-let activeSourceId = null;
-let tileCache = new Map();      // url → ImageData (raw tile pixels, immutable)
+let tileCache = new Map();      // cacheKey → ImageData (raw tile pixels, immutable)
+let pinnedCode = null;
+let pmtilesInstance = null;
 
 const rowsEl = document.getElementById('rows');
 const countEl = document.getElementById('count');
@@ -227,6 +232,35 @@ const regionEl = document.getElementById('region');
 const opacityEl = document.getElementById('opacity');
 const opacityValEl = document.getElementById('opacityVal');
 const tooltipEl = document.getElementById('mapTooltip');
+
+// =============================================================================
+// localStorage persistence
+// =============================================================================
+function loadSavedEdits(region) {
+    try {
+        const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        return all[region] || {};
+    } catch {
+        return {};
+    }
+}
+
+function saveEdit(region, code, rgb, hex) {
+    let all;
+    try { all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch { all = {}; }
+    if (!all[region]) all[region] = {};
+    all[region][code] = { rgb, hex };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+}
+
+function clearSavedEdits(region) {
+    let all;
+    try { all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch { all = {}; }
+    delete all[region];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+}
 
 // =============================================================================
 // Color utilities
@@ -253,7 +287,6 @@ function normalizeLoad(raw, region) {
         return flat;
     }
     if (raw.by_evt_code) {
-        // AK/HI new format with alpha
         conusOriginal = null;
         const flat = {};
         for (const [code, info] of Object.entries(raw.by_evt_code)) {
@@ -262,7 +295,6 @@ function normalizeLoad(raw, region) {
         }
         return flat;
     }
-    // AK/HI old flat format (no alpha)
     conusOriginal = null;
     return raw;
 }
@@ -288,7 +320,6 @@ function denormalizeForExport(flat, region) {
         }
         return out;
     }
-    // AK/HI with alpha → rebuild by_evt_code + by_alpha
     const hasAlpha = Object.values(flat).some(v => v._alpha != null);
     if (hasAlpha) {
         const out = { by_evt_code: {}, by_alpha: {} };
@@ -310,7 +341,6 @@ function denormalizeForExport(flat, region) {
         }
         return out;
     }
-    // Flat fallback
     const out = {};
     for (const [code, info] of Object.entries(flat)) {
         out[code] = { name: info.name, rgb: info.rgb, hex: info.hex };
@@ -330,6 +360,8 @@ function render(filterText = '') {
         data[a].name.localeCompare(data[b].name)
     );
 
+    const savedEdits = loadSavedEdits(currentRegion);
+
     for (const code of codes) {
         const entry = data[code];
         if (filter && !entry.name.toLowerCase().includes(filter)
@@ -339,6 +371,7 @@ function render(filterText = '') {
         visible++;
         const tr = document.createElement('tr');
         tr.dataset.code = code;
+        if (savedEdits[code]) tr.classList.add('changed');
         tr.innerHTML = `
             <td class="code">${code}</td>
             <td>
@@ -378,6 +411,8 @@ function updateColor(code, hex) {
     data[code].hex = hex;
     data[code].rgb = rgb;
 
+    saveEdit(currentRegion, code, rgb, hex);
+
     const tr = rowsEl.querySelector(`tr[data-code="${code}"]`);
     if (tr) {
         tr.classList.add('changed');
@@ -387,10 +422,8 @@ function updateColor(code, hex) {
     refreshMapLayer();
 }
 
-let pinnedCode = null;
-
 function highlightRow(code) {
-    if (pinnedCode != null) return;   // hover does nothing while a row is pinned
+    if (pinnedCode != null) return;
     rowsEl.querySelectorAll('tr.highlighted').forEach(tr => tr.classList.remove('highlighted'));
     if (code == null) return;
     const tr = rowsEl.querySelector(`tr[data-code="${code}"]`);
@@ -400,7 +433,6 @@ function highlightRow(code) {
     }
 }
 
-// Pin/unpin a row on map click
 function togglePin(code) {
     if (pinnedCode === code) {
         pinnedCode = null;
@@ -424,9 +456,6 @@ function togglePin(code) {
 // =============================================================================
 const RECOLOR_PROTOCOL = 'recolor';
 
-
-// In-place recolor: read each pixel's alpha index, replace RGB with the
-// current edited color for that species. Alpha stays.
 function recolorPixels(imageData) {
     const px = imageData.data;
     for (let i = 0; i < px.length; i += 4) {
@@ -442,13 +471,9 @@ function recolorPixels(imageData) {
     }
 }
 
-// Build a PMTiles instance and a custom raster source pointing through our protocol
-let pmtilesInstance = null;
-
 async function setupMapForRegion(region) {
     const cfg = REGIONS[region];
 
-    // Register protocols FIRST, before any source uses them
     if (!window._protocolsRegistered) {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
@@ -499,17 +524,9 @@ function refreshMapLayer() {
     if (!map) return;
     const cfg = REGIONS[currentRegion];
 
-    // Remove previous layer/source if present
     if (map.getLayer('recolor-layer')) map.removeLayer('recolor-layer');
     if (map.getSource('recolor-source')) map.removeSource('recolor-source');
 
-    // Get the raw tile URL pattern that the pmtiles protocol resolves to.
-    // We can't easily use the pmtiles protocol AND inject recoloring, so we
-    // fetch tiles directly via pmtiles JS lib and produce a custom tile URL
-    // that our recolor:// protocol handler resolves.
-    //
-    // Strategy: emit a recolor:// URL with z/x/y. The handler uses pmtiles
-    // instance to fetch the raw tile bytes.
     const tileUrlPattern = `recolor://${cfg.pmtilesUrl}#{z}/{x}/{y}`;
 
     map.addSource('recolor-source', {
@@ -530,12 +547,9 @@ function refreshMapLayer() {
     });
 }
 
-// Replace recolorProtocol with one that uses the pmtiles JS lib for tile fetch
-// (since the source URL is the pmtiles archive, not a real tile URL).
 function recolorProtocolViaPmtiles(params, abortController) {
     return new Promise(async (resolve, reject) => {
         try {
-            // URL format: recolor://<pmtiles-url>#z/x/y
             const m = params.url.match(/^recolor:\/\/(.+)#(\d+)\/(\d+)\/(\d+)$/);
             if (!m) throw new Error('Bad recolor URL: ' + params.url);
             const z = parseInt(m[2], 10);
@@ -548,7 +562,6 @@ function recolorProtocolViaPmtiles(params, abortController) {
             if (!imageData) {
                 const tile = await pmtilesInstance.getZxy(z, x, y);
                 if (!tile) {
-                    // Empty tile (no data) — return a transparent PNG
                     const c = document.createElement('canvas');
                     c.width = 256; c.height = 256;
                     const blob = await new Promise(r => c.toBlob(r, 'image/png'));
@@ -590,7 +603,6 @@ function recolorProtocolViaPmtiles(params, abortController) {
     });
 }
 
-
 // =============================================================================
 // Hover: map → editor highlight + tooltip
 // =============================================================================
@@ -600,7 +612,6 @@ async function onMapHover(e) {
     const zoom = Math.min(cfg.maxZoom, Math.floor(map.getZoom()));
     const { lng, lat } = e.lngLat;
 
-    // Web Mercator tile + pixel offset
     const n = Math.pow(2, zoom);
     const xFloat = (lng + 180) / 360 * n;
     const latRad = lat * Math.PI / 180;
@@ -612,7 +623,7 @@ async function onMapHover(e) {
 
     const cacheKey = `${zoom}/${x}/${y}`;
     let imageData = tileCache.get(cacheKey);
-    if (!imageData) return;     // hover only resolves once tile has loaded
+    if (!imageData) return;
 
     const idx = (py * 256 + px) * 4;
     const a = imageData.data[idx + 3];
@@ -657,13 +668,12 @@ async function onMapClick(e) {
     const idx = (py * 256 + px) * 4;
     const a = imageData.data[idx + 3];
     if (a === 0) {
-        togglePin(null);   // click on empty → unpin
+        togglePin(null);
         return;
     }
     const code = alphaToCode.get(a);
     if (code) togglePin(code);
 }
-
 
 // =============================================================================
 // Region load
@@ -673,11 +683,22 @@ async function loadRegion(region) {
     statusEl.textContent = 'Loading…';
     rowsEl.innerHTML = '';
     tileCache.clear();
+    pinnedCode = null;
     try {
         const resp = await fetch(REGIONS[region].legendUrl);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const raw = await resp.json();
         data = normalizeLoad(raw, region);
+
+        // Merge in any locally saved edits
+        const edits = loadSavedEdits(region);
+        for (const [code, edit] of Object.entries(edits)) {
+            if (data[code]) {
+                data[code].rgb = edit.rgb;
+                data[code].hex = edit.hex;
+            }
+        }
+
         statusEl.textContent = '';
         render(searchEl.value);
         await setupMapForRegion(region);
@@ -714,6 +735,12 @@ document.getElementById('download').addEventListener('click', () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+    if (!confirm(`Discard all local color edits for ${currentRegion.toUpperCase()}?`)) return;
+    clearSavedEdits(currentRegion);
+    loadRegion(currentRegion);
 });
 
 loadRegion('ak');
