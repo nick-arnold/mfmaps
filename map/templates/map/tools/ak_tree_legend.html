@@ -396,59 +396,6 @@ function highlightRow(code) {
 // =============================================================================
 const RECOLOR_PROTOCOL = 'recolor';
 
-// Custom protocol — fetches the source tile, recolors based on alpha index
-// and current legend, returns the recolored PNG bytes.
-function recolorProtocol(params, abortController) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            // params.url looks like: recolor://<original-pmtiles-url>?tile=z/x/y
-            // But MapLibre's pmtiles protocol handler reads them; we hook BEFORE
-            // pmtiles so we use a separate path. Instead, intercept by URL pattern.
-            const match = params.url.match(/^recolor:\/\/(.+)$/);
-            if (!match) throw new Error('Bad recolor URL');
-            const sourceUrl = match[1];
-
-            // Use cache so we don't refetch + redecode the source PNG
-            let imageData = tileCache.get(sourceUrl);
-            if (!imageData) {
-                const resp = await fetch(sourceUrl);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const blob = await resp.blob();
-                const bitmap = await createImageBitmap(blob);
-                const c = document.createElement('canvas');
-                c.width = bitmap.width;
-                c.height = bitmap.height;
-                const ctx = c.getContext('2d');
-                ctx.drawImage(bitmap, 0, 0);
-                imageData = ctx.getImageData(0, 0, c.width, c.height);
-                if (tileCache.size > 300) {
-                    const k = tileCache.keys().next().value;
-                    tileCache.delete(k);
-                }
-                tileCache.set(sourceUrl, imageData);
-            }
-
-            // Make a working copy so we don't mutate the cache
-            const out = new ImageData(
-                new Uint8ClampedArray(imageData.data),
-                imageData.width,
-                imageData.height
-            );
-            recolorPixels(out);
-
-            const c = document.createElement('canvas');
-            c.width = out.width;
-            c.height = out.height;
-            const ctx = c.getContext('2d');
-            ctx.putImageData(out, 0, 0);
-            const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-            const buf = await blob.arrayBuffer();
-            resolve({ data: buf });
-        } catch (err) {
-            reject(err);
-        }
-    });
-}
 
 // In-place recolor: read each pixel's alpha index, replace RGB with the
 // current edited color for that species. Alpha stays.
@@ -473,12 +420,12 @@ let pmtilesInstance = null;
 async function setupMapForRegion(region) {
     const cfg = REGIONS[region];
 
-    // Set up pmtiles protocol if not already (for the source-fetch behavior)
-    if (!window._pmtilesRegistered) {
+    // Register protocols FIRST, before any source uses them
+    if (!window._protocolsRegistered) {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
-        maplibregl.addProtocol(RECOLOR_PROTOCOL, recolorProtocol);
-        window._pmtilesRegistered = true;
+        maplibregl.addProtocol(RECOLOR_PROTOCOL, recolorProtocolViaPmtiles);
+        window._protocolsRegistered = true;
     }
 
     pmtilesInstance = new pmtiles.PMTiles(cfg.pmtilesUrl);
@@ -616,15 +563,6 @@ function recolorProtocolViaPmtiles(params, abortController) {
     });
 }
 
-// Replace the placeholder protocol with the pmtiles-based one before map init
-// (defined out of order above; rebind here):
-function reregisterProtocols() {
-    if (window._recolorBound) return;
-    // Remove the placeholder if any
-    try { maplibregl.removeProtocol(RECOLOR_PROTOCOL); } catch {}
-    maplibregl.addProtocol(RECOLOR_PROTOCOL, recolorProtocolViaPmtiles);
-    window._recolorBound = true;
-}
 
 // =============================================================================
 // Hover: map → editor highlight + tooltip
@@ -689,7 +627,6 @@ async function loadRegion(region) {
         data = normalizeLoad(raw, region);
         statusEl.textContent = '';
         render(searchEl.value);
-        reregisterProtocols();
         await setupMapForRegion(region);
     } catch (err) {
         statusEl.textContent = `Load failed: ${err.message}`;
