@@ -3,27 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <title>LANDFIRE EVT Legend Editor</title>
+<link href="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.css" rel="stylesheet">
 <style>
+    html, body { height: 100%; margin: 0; padding: 0; }
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        margin: 0;
-        padding: 16px;
         background: #f5f5f5;
         color: #222;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
-    h1 { font-size: 1.3rem; margin: 0 0 12px; }
+    h1 { font-size: 1.1rem; margin: 0; padding: 12px 16px; background: #fff; border-bottom: 1px solid #ddd; }
     .controls {
         display: flex;
         gap: 12px;
         align-items: center;
-        margin-bottom: 16px;
-        padding: 12px;
+        padding: 10px 16px;
         background: #fff;
-        border-radius: 6px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        position: sticky;
-        top: 0;
-        z-index: 10;
+        border-bottom: 1px solid #ddd;
         flex-wrap: wrap;
     }
     .controls select, .controls input[type="text"] {
@@ -46,6 +44,26 @@
     .controls .count { font-size: 0.8rem; color: #666; }
     .controls .status { font-size: 0.8rem; color: #888; }
 
+    .layout {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+    .panel-left {
+        width: 560px;
+        max-width: 50%;
+        overflow-y: auto;
+        background: #f5f5f5;
+        padding: 12px;
+        box-sizing: border-box;
+    }
+    .panel-right {
+        flex: 1;
+        position: relative;
+        background: #ddd;
+    }
+    #map { position: absolute; inset: 0; }
+
     table {
         width: 100%;
         background: #fff;
@@ -55,33 +73,61 @@
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     th, td {
-        padding: 8px 12px;
+        padding: 6px 10px;
         text-align: left;
         border-bottom: 1px solid #eee;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         vertical-align: middle;
     }
-    th { background: #fafafa; font-weight: 600; color: #555; }
+    th { background: #fafafa; font-weight: 600; color: #555; position: sticky; top: 0; z-index: 1; }
     tr:hover { background: #fafbfc; }
+    tr.highlighted {
+        background: #fff3bf !important;
+        outline: 2px solid #f08c00;
+        outline-offset: -2px;
+    }
     .swatch {
-        width: 36px;
-        height: 24px;
+        width: 32px;
+        height: 22px;
         border: 1px solid rgba(0,0,0,0.2);
         border-radius: 3px;
         cursor: pointer;
         padding: 0;
     }
-    .code { font-family: monospace; color: #888; font-size: 0.8rem; }
+    .code { font-family: monospace; color: #888; font-size: 0.75rem; }
     .hex-input {
         font-family: monospace;
-        font-size: 0.85rem;
-        width: 90px;
-        padding: 4px 6px;
+        font-size: 0.8rem;
+        width: 80px;
+        padding: 3px 5px;
         border: 1px solid #ddd;
         border-radius: 3px;
     }
-    .rgb { font-family: monospace; color: #999; font-size: 0.75rem; }
-    .changed { background: #fffbe6 !important; }
+    .changed { background: #fffbe6; }
+
+    .opacity-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: #666;
+    }
+    .opacity-control input[type="range"] { width: 100px; }
+
+    .map-tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(20, 20, 20, 0.9);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        line-height: 1.35;
+        z-index: 9999;
+        display: none;
+        max-width: 260px;
+        word-wrap: break-word;
+    }
 </style>
 </head>
 <body>
@@ -97,37 +143,88 @@
     <input type="text" id="search" placeholder="Search forest type or code...">
     <span class="count" id="count"></span>
     <span class="status" id="status"></span>
+    <div class="opacity-control">
+        <label for="opacity">Opacity</label>
+        <input type="range" id="opacity" min="0" max="100" value="80">
+        <span id="opacityVal">80%</span>
+    </div>
     <button id="download">Download JSON</button>
 </div>
 
-<table>
-    <thead>
-        <tr>
-            <th style="width: 70px;">Code</th>
-            <th style="width: 70px;">Color</th>
-            <th style="width: 110px;">Hex</th>
-            <th style="width: 130px;">RGB</th>
-            <th>Name</th>
-        </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-</table>
+<div class="layout">
+    <div class="panel-left">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Code</th>
+                    <th style="width: 60px;">Color</th>
+                    <th style="width: 100px;">Hex</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+    <div class="panel-right">
+        <div id="map"></div>
+        <div id="mapTooltip" class="map-tooltip"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
 
 <script>
-const URLS = {
-    ak:    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
-    hi:    'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
-    conus: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
+// =============================================================================
+// Region configuration
+// =============================================================================
+const REGIONS = {
+    ak: {
+        legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
+        center: [-149.9, 64.5],
+        zoom: 5,
+        maxZoom: 14,
+    },
+    hi: {
+        legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
+        center: [-156.4, 20.7],
+        zoom: 7,
+        maxZoom: 14,
+    },
+    conus: {
+        legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
+        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
+        center: [-122.6, 44.0],
+        zoom: 6,
+        maxZoom: 14,
+    },
 };
 
-let data = {};
+// =============================================================================
+// State
+// =============================================================================
+let data = {};                  // flat: code → { name, rgb, hex, _alpha? }
+let alphaToCode = new Map();    // alpha index → code (for hover + recolor)
+let conusOriginal = null;
 let currentRegion = 'ak';
+let map = null;
+let activeSourceId = null;
+let tileCache = new Map();      // url → ImageData (raw tile pixels, immutable)
+
 const rowsEl = document.getElementById('rows');
 const countEl = document.getElementById('count');
 const statusEl = document.getElementById('status');
 const searchEl = document.getElementById('search');
 const regionEl = document.getElementById('region');
+const opacityEl = document.getElementById('opacity');
+const opacityValEl = document.getElementById('opacityVal');
+const tooltipEl = document.getElementById('mapTooltip');
 
+// =============================================================================
+// Color utilities
+// =============================================================================
 function hexToRgb(hex) {
     const m = hex.replace('#', '').match(/^([0-9a-f]{6})$/i);
     if (!m) return null;
@@ -135,19 +232,31 @@ function hexToRgb(hex) {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-// CONUS legend is nested under by_fortypcd; AK/HI are flat. Normalize to flat
-// for editing, but remember the structure so we can rebuild on download.
-let conusOriginal = null;
-
+// =============================================================================
+// Legend normalization
+// =============================================================================
 function normalizeLoad(raw, region) {
+    alphaToCode = new Map();
     if (region === 'conus' && raw.by_fortypcd) {
         conusOriginal = raw;
         const flat = {};
         for (const [code, info] of Object.entries(raw.by_fortypcd)) {
             flat[code] = { name: info.name, rgb: info.rgb, hex: info.hex, _alpha: info.alpha };
+            if (info.alpha != null) alphaToCode.set(info.alpha, code);
         }
         return flat;
     }
+    if (raw.by_evt_code) {
+        // AK/HI new format with alpha
+        conusOriginal = null;
+        const flat = {};
+        for (const [code, info] of Object.entries(raw.by_evt_code)) {
+            flat[code] = { name: info.name, rgb: info.rgb, hex: info.hex, _alpha: info.alpha };
+            if (info.alpha != null) alphaToCode.set(info.alpha, code);
+        }
+        return flat;
+    }
+    // AK/HI old flat format (no alpha)
     conusOriginal = null;
     return raw;
 }
@@ -173,7 +282,29 @@ function denormalizeForExport(flat, region) {
         }
         return out;
     }
-    // AK/HI: strip private fields
+    // AK/HI with alpha → rebuild by_evt_code + by_alpha
+    const hasAlpha = Object.values(flat).some(v => v._alpha != null);
+    if (hasAlpha) {
+        const out = { by_evt_code: {}, by_alpha: {} };
+        for (const [code, info] of Object.entries(flat)) {
+            const alpha = info._alpha;
+            out.by_evt_code[code] = {
+                name: info.name,
+                rgb: info.rgb,
+                hex: info.hex,
+                alpha: alpha,
+            };
+            if (alpha != null) {
+                out.by_alpha[String(alpha)] = {
+                    evt_code: parseInt(code, 10),
+                    name: info.name,
+                    hex: info.hex,
+                };
+            }
+        }
+        return out;
+    }
+    // Flat fallback
     const out = {};
     for (const [code, info] of Object.entries(flat)) {
         out[code] = { name: info.name, rgb: info.rgb, hex: info.hex };
@@ -181,6 +312,9 @@ function denormalizeForExport(flat, region) {
     return out;
 }
 
+// =============================================================================
+// Rendering the legend table
+// =============================================================================
 function render(filterText = '') {
     const filter = filterText.toLowerCase();
     rowsEl.innerHTML = '';
@@ -197,10 +331,8 @@ function render(filterText = '') {
             continue;
         }
         visible++;
-
         const tr = document.createElement('tr');
         tr.dataset.code = code;
-
         tr.innerHTML = `
             <td class="code">${code}</td>
             <td>
@@ -211,7 +343,6 @@ function render(filterText = '') {
                 <input type="text" class="hex-input" value="${entry.hex}"
                        data-code="${code}" maxlength="7">
             </td>
-            <td class="rgb">${entry.rgb.join(', ')}</td>
             <td>${entry.name}</td>
         `;
         rowsEl.appendChild(tr);
@@ -222,7 +353,6 @@ function render(filterText = '') {
     rowsEl.querySelectorAll('input[type="color"]').forEach(input => {
         input.addEventListener('input', e => updateColor(e.target.dataset.code, e.target.value));
     });
-
     rowsEl.querySelectorAll('.hex-input').forEach(input => {
         input.addEventListener('change', e => {
             const v = e.target.value.trim();
@@ -247,28 +377,336 @@ function updateColor(code, hex) {
         tr.classList.add('changed');
         tr.querySelector('input[type="color"]').value = hex;
         tr.querySelector('.hex-input').value = hex;
-        tr.querySelector('.rgb').textContent = rgb.join(', ');
+    }
+    refreshMapLayer();
+}
+
+function highlightRow(code) {
+    rowsEl.querySelectorAll('tr.highlighted').forEach(tr => tr.classList.remove('highlighted'));
+    if (code == null) return;
+    const tr = rowsEl.querySelector(`tr[data-code="${code}"]`);
+    if (tr) {
+        tr.classList.add('highlighted');
+        tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
 
+// =============================================================================
+// Map + tile recoloring
+// =============================================================================
+const RECOLOR_PROTOCOL = 'recolor';
+
+// Custom protocol — fetches the source tile, recolors based on alpha index
+// and current legend, returns the recolored PNG bytes.
+function recolorProtocol(params, abortController) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // params.url looks like: recolor://<original-pmtiles-url>?tile=z/x/y
+            // But MapLibre's pmtiles protocol handler reads them; we hook BEFORE
+            // pmtiles so we use a separate path. Instead, intercept by URL pattern.
+            const match = params.url.match(/^recolor:\/\/(.+)$/);
+            if (!match) throw new Error('Bad recolor URL');
+            const sourceUrl = match[1];
+
+            // Use cache so we don't refetch + redecode the source PNG
+            let imageData = tileCache.get(sourceUrl);
+            if (!imageData) {
+                const resp = await fetch(sourceUrl);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const blob = await resp.blob();
+                const bitmap = await createImageBitmap(blob);
+                const c = document.createElement('canvas');
+                c.width = bitmap.width;
+                c.height = bitmap.height;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(bitmap, 0, 0);
+                imageData = ctx.getImageData(0, 0, c.width, c.height);
+                if (tileCache.size > 300) {
+                    const k = tileCache.keys().next().value;
+                    tileCache.delete(k);
+                }
+                tileCache.set(sourceUrl, imageData);
+            }
+
+            // Make a working copy so we don't mutate the cache
+            const out = new ImageData(
+                new Uint8ClampedArray(imageData.data),
+                imageData.width,
+                imageData.height
+            );
+            recolorPixels(out);
+
+            const c = document.createElement('canvas');
+            c.width = out.width;
+            c.height = out.height;
+            const ctx = c.getContext('2d');
+            ctx.putImageData(out, 0, 0);
+            const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+            const buf = await blob.arrayBuffer();
+            resolve({ data: buf });
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+// In-place recolor: read each pixel's alpha index, replace RGB with the
+// current edited color for that species. Alpha stays.
+function recolorPixels(imageData) {
+    const px = imageData.data;
+    for (let i = 0; i < px.length; i += 4) {
+        const a = px[i + 3];
+        if (a === 0) continue;
+        const code = alphaToCode.get(a);
+        if (!code) continue;
+        const rgb = data[code]?.rgb;
+        if (!rgb) continue;
+        px[i] = rgb[0];
+        px[i + 1] = rgb[1];
+        px[i + 2] = rgb[2];
+    }
+}
+
+// Build a PMTiles instance and a custom raster source pointing through our protocol
+let pmtilesInstance = null;
+
+async function setupMapForRegion(region) {
+    const cfg = REGIONS[region];
+
+    // Set up pmtiles protocol if not already (for the source-fetch behavior)
+    if (!window._pmtilesRegistered) {
+        const protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol('pmtiles', protocol.tile);
+        maplibregl.addProtocol(RECOLOR_PROTOCOL, recolorProtocol);
+        window._pmtilesRegistered = true;
+    }
+
+    pmtilesInstance = new pmtiles.PMTiles(cfg.pmtilesUrl);
+
+    if (!map) {
+        map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    osm: {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap',
+                    },
+                },
+                layers: [
+                    { id: 'osm', type: 'raster', source: 'osm' },
+                ],
+            },
+            center: cfg.center,
+            zoom: cfg.zoom,
+        });
+
+        map.on('mousemove', onMapHover);
+        map.on('mouseout', () => {
+            tooltipEl.style.display = 'none';
+            highlightRow(null);
+        });
+
+        await new Promise(r => map.on('load', r));
+    } else {
+        map.setCenter(cfg.center);
+        map.setZoom(cfg.zoom);
+    }
+
+    refreshMapLayer();
+}
+
+function refreshMapLayer() {
+    if (!map) return;
+    const cfg = REGIONS[currentRegion];
+
+    // Remove previous layer/source if present
+    if (map.getLayer('recolor-layer')) map.removeLayer('recolor-layer');
+    if (map.getSource('recolor-source')) map.removeSource('recolor-source');
+
+    // Get the raw tile URL pattern that the pmtiles protocol resolves to.
+    // We can't easily use the pmtiles protocol AND inject recoloring, so we
+    // fetch tiles directly via pmtiles JS lib and produce a custom tile URL
+    // that our recolor:// protocol handler resolves.
+    //
+    // Strategy: emit a recolor:// URL with z/x/y. The handler uses pmtiles
+    // instance to fetch the raw tile bytes.
+    const tileUrlPattern = `recolor://${cfg.pmtilesUrl}#{z}/{x}/{y}`;
+
+    map.addSource('recolor-source', {
+        type: 'raster',
+        tiles: [tileUrlPattern],
+        tileSize: 256,
+        minzoom: 4,
+        maxzoom: cfg.maxZoom,
+    });
+    map.addLayer({
+        id: 'recolor-layer',
+        type: 'raster',
+        source: 'recolor-source',
+        paint: {
+            'raster-opacity': parseInt(opacityEl.value, 10) / 100,
+            'raster-resampling': 'nearest',
+        },
+    });
+}
+
+// Replace recolorProtocol with one that uses the pmtiles JS lib for tile fetch
+// (since the source URL is the pmtiles archive, not a real tile URL).
+function recolorProtocolViaPmtiles(params, abortController) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // URL format: recolor://<pmtiles-url>#z/x/y
+            const m = params.url.match(/^recolor:\/\/(.+)#(\d+)\/(\d+)\/(\d+)$/);
+            if (!m) throw new Error('Bad recolor URL: ' + params.url);
+            const z = parseInt(m[2], 10);
+            const x = parseInt(m[3], 10);
+            const y = parseInt(m[4], 10);
+
+            const cacheKey = `${z}/${x}/${y}`;
+            let imageData = tileCache.get(cacheKey);
+
+            if (!imageData) {
+                const tile = await pmtilesInstance.getZxy(z, x, y);
+                if (!tile) {
+                    // Empty tile (no data) — return a transparent PNG
+                    const c = document.createElement('canvas');
+                    c.width = 256; c.height = 256;
+                    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+                    const buf = await blob.arrayBuffer();
+                    resolve({ data: buf });
+                    return;
+                }
+                const blob = new Blob([tile.data], { type: 'image/png' });
+                const bitmap = await createImageBitmap(blob);
+                const c = document.createElement('canvas');
+                c.width = bitmap.width; c.height = bitmap.height;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(bitmap, 0, 0);
+                imageData = ctx.getImageData(0, 0, c.width, c.height);
+                if (tileCache.size > 300) {
+                    const k = tileCache.keys().next().value;
+                    tileCache.delete(k);
+                }
+                tileCache.set(cacheKey, imageData);
+            }
+
+            const out = new ImageData(
+                new Uint8ClampedArray(imageData.data),
+                imageData.width,
+                imageData.height
+            );
+            recolorPixels(out);
+
+            const c = document.createElement('canvas');
+            c.width = out.width; c.height = out.height;
+            const ctx = c.getContext('2d');
+            ctx.putImageData(out, 0, 0);
+            const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+            const buf = await blob.arrayBuffer();
+            resolve({ data: buf });
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+// Replace the placeholder protocol with the pmtiles-based one before map init
+// (defined out of order above; rebind here):
+function reregisterProtocols() {
+    if (window._recolorBound) return;
+    // Remove the placeholder if any
+    try { maplibregl.removeProtocol(RECOLOR_PROTOCOL); } catch {}
+    maplibregl.addProtocol(RECOLOR_PROTOCOL, recolorProtocolViaPmtiles);
+    window._recolorBound = true;
+}
+
+// =============================================================================
+// Hover: map → editor highlight + tooltip
+// =============================================================================
+async function onMapHover(e) {
+    if (!pmtilesInstance) return;
+    const cfg = REGIONS[currentRegion];
+    const zoom = Math.min(cfg.maxZoom, Math.floor(map.getZoom()));
+    const { lng, lat } = e.lngLat;
+
+    // Web Mercator tile + pixel offset
+    const n = Math.pow(2, zoom);
+    const xFloat = (lng + 180) / 360 * n;
+    const latRad = lat * Math.PI / 180;
+    const yFloat = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+    const x = Math.floor(xFloat);
+    const y = Math.floor(yFloat);
+    const px = Math.floor((xFloat - x) * 256);
+    const py = Math.floor((yFloat - y) * 256);
+
+    const cacheKey = `${zoom}/${x}/${y}`;
+    let imageData = tileCache.get(cacheKey);
+    if (!imageData) return;     // hover only resolves once tile has loaded
+
+    const idx = (py * 256 + px) * 4;
+    const a = imageData.data[idx + 3];
+    if (a === 0) {
+        tooltipEl.style.display = 'none';
+        highlightRow(null);
+        return;
+    }
+    const code = alphaToCode.get(a);
+    if (!code) return;
+    const entry = data[code];
+    if (!entry) return;
+
+    tooltipEl.innerHTML =
+        `<div style="display:flex;align-items:flex-start;gap:6px;">
+            <span style="display:inline-block;width:10px;height:10px;flex-shrink:0;margin-top:3px;
+                background:${entry.hex};border:1px solid rgba(255,255,255,0.4);"></span>
+            <span>${entry.name}</span>
+        </div>`;
+    tooltipEl.style.left = (e.point.x + 12) + 'px';
+    tooltipEl.style.top = (e.point.y + 12) + 'px';
+    tooltipEl.style.display = 'block';
+
+    highlightRow(code);
+}
+
+// =============================================================================
+// Region load
+// =============================================================================
 async function loadRegion(region) {
     currentRegion = region;
     statusEl.textContent = 'Loading…';
     rowsEl.innerHTML = '';
+    tileCache.clear();
     try {
-        const resp = await fetch(URLS[region]);
+        const resp = await fetch(REGIONS[region].legendUrl);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const raw = await resp.json();
         data = normalizeLoad(raw, region);
         statusEl.textContent = '';
         render(searchEl.value);
+        reregisterProtocols();
+        await setupMapForRegion(region);
     } catch (err) {
         statusEl.textContent = `Load failed: ${err.message}`;
     }
 }
 
+// =============================================================================
+// Events
+// =============================================================================
 regionEl.addEventListener('change', e => loadRegion(e.target.value));
 searchEl.addEventListener('input', e => render(e.target.value));
+
+opacityEl.addEventListener('input', e => {
+    const v = parseInt(e.target.value, 10);
+    opacityValEl.textContent = `${v}%`;
+    if (map && map.getLayer('recolor-layer')) {
+        map.setPaintProperty('recolor-layer', 'raster-opacity', v / 100);
+    }
+});
 
 document.getElementById('download').addEventListener('click', () => {
     const out = denormalizeForExport(data, currentRegion);
