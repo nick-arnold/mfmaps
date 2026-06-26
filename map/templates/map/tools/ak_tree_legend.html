@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>LANDFIRE EVT Legend Editor</title>
+<title>Tree Species Color Editor</title>
 <link href="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.css" rel="stylesheet">
 <style>
     html, body { height: 100%; margin: 0; padding: 0; }
@@ -139,7 +140,7 @@
 </head>
 <body>
 
-<h1>LANDFIRE EVT Legend Editor</h1>
+<h1>Tree Species Color Editor</h1>
 
 <div class="controls">
     <select id="region">
@@ -179,6 +180,9 @@
     </div>
 </div>
 
+<script>
+    window.MFMAPS_STYLE_URL = "{% static 'map/styles/bright-mfmaps.json' %}";
+</script>
 <script src="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
 
@@ -215,12 +219,12 @@ const REGIONS = {
 // =============================================================================
 const STORAGE_KEY = 'mfmaps-legend-edits';
 
-let data = {};                  // flat: code → { name, rgb, hex, _alpha? }
-let alphaToCode = new Map();    // alpha index → code (for hover + recolor)
+let data = {};
+let alphaToCode = new Map();
 let conusOriginal = null;
 let currentRegion = 'ak';
 let map = null;
-let tileCache = new Map();      // cacheKey → ImageData (raw tile pixels, immutable)
+let tileCache = new Map();
 let pinnedCode = null;
 let pmtilesInstance = null;
 
@@ -486,20 +490,7 @@ async function setupMapForRegion(region) {
     if (!map) {
         map = new maplibregl.Map({
             container: 'map',
-            style: {
-                version: 8,
-                sources: {
-                    osm: {
-                        type: 'raster',
-                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                        tileSize: 256,
-                        attribution: '© OpenStreetMap',
-                    },
-                },
-                layers: [
-                    { id: 'osm', type: 'raster', source: 'osm' },
-                ],
-            },
+            style: window.MFMAPS_STYLE_URL,
             center: cfg.center,
             zoom: cfg.zoom,
         });
@@ -690,7 +681,6 @@ async function loadRegion(region) {
         const raw = await resp.json();
         data = normalizeLoad(raw, region);
 
-        // Merge in any locally saved edits
         const edits = loadSavedEdits(region);
         for (const [code, edit] of Object.entries(edits)) {
             if (data[code]) {
