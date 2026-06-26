@@ -557,6 +557,7 @@ function refreshMapLayer() {
 // Replace recolorProtocol with one that uses the pmtiles JS lib for tile fetch
 // (since the source URL is the pmtiles archive, not a real tile URL).
 function recolorProtocolViaPmtiles(params, abortController) {
+    console.log('[recolor] request', params.url);
     return new Promise(async (resolve, reject) => {
         try {
             // URL format: recolor://<pmtiles-url>#z/x/y
@@ -578,6 +579,7 @@ function recolorProtocolViaPmtiles(params, abortController) {
                     const blob = await new Promise(r => c.toBlob(r, 'image/png'));
                     const buf = await blob.arrayBuffer();
                     resolve({ data: buf });
+                    console.log('[recolor] resolving', cacheKey, 'bytes:', buf.byteLength);
                     return;
                 }
                 const blob = new Blob([tile.data], { type: 'image/png' });
