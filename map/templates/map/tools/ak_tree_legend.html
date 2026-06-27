@@ -704,11 +704,12 @@ async function loadRegion(region) {
         // Try staging first, fall back to production
         const stagingUrl = REGIONS[region].legendUrl.replace('_legend.json', '_legend_staging.json');
         let raw = null;
+        let fromStaging = false;
         try {
             const stagingResp = await fetch(stagingUrl, { cache: 'no-store' });
             if (stagingResp.ok) {
                 raw = await stagingResp.json();
-                statusEl.textContent = '(staging)';
+                fromStaging = true;
             }
         } catch {
             // Ignore staging fetch errors, fall through to production
@@ -718,6 +719,24 @@ async function loadRegion(region) {
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             raw = await resp.json();
         }
+
+        data = normalizeLoad(raw, region);
+
+        const edits = loadSavedEdits(region);
+        for (const [code, edit] of Object.entries(edits)) {
+            if (data[code]) {
+                data[code].rgb = edit.rgb;
+                data[code].hex = edit.hex;
+            }
+        }
+
+        statusEl.textContent = fromStaging ? '(staging)' : '';
+        render(searchEl.value);
+        await setupMapForRegion(region);
+    } catch (err) {
+        statusEl.textContent = `Load failed: ${err.message}`;
+    }
+}
 
 // =============================================================================
 // Events
