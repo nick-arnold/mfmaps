@@ -10,6 +10,8 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.views.decorators.http import require_http_methods
+
 
 def home(request):
     return render(request, 'home.html')
@@ -64,6 +66,38 @@ def save_legend_staging(request, region):
 
     return JsonResponse({'ok': True, 'key': key})
 
+
+@staff_member_required
+@require_http_methods(['DELETE'])
+@csrf_exempt
+def delete_legend_staging(request, region):
+    if region not in ('conus', 'ak', 'hi'):
+        return JsonResponse({'error': 'invalid region'}, status=400)
+
+    if region == 'conus':
+        label = 'treemap_composite_conus'
+    else:
+        label = f'landfire_evt_{region}'
+    key = f'tree-species/{label}_legend_staging.json'
+
+    try:
+        s3 = boto3.client(
+            's3',
+            endpoint_url=settings.DO_SPACES_ENDPOINT,
+            aws_access_key_id=settings.DO_SPACES_KEY,
+            aws_secret_access_key=settings.DO_SPACES_SECRET,
+            region_name=settings.DO_SPACES_REGION,
+            config=Config(signature_version='s3v4'),
+        )
+        s3.delete_object(
+            Bucket=settings.DO_SPACES_BUCKET,
+            Key=key,
+        )
+    except Exception as e:
+        return JsonResponse({'error': f'delete failed: {e}'}, status=500)
+
+    return JsonResponse({'ok': True, 'key': key})
+
 urlpatterns = [
     path('', home, name='home'),
     path('robots.txt', robots_txt, name='robots'),
@@ -80,4 +114,5 @@ urlpatterns = [
 
     path('tools/legend-editor/', legend_editor, name='legend_editor'),
     path('tools/legend-editor/save/<str:region>/', save_legend_staging, name='save_legend_staging'),
+    path('tools/legend-editor/delete-staging/<str:region>/', delete_legend_staging, name='delete_legend_staging'),
 ]
