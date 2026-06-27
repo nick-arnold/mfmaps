@@ -30,6 +30,13 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
+DO_SPACES_KEY = os.environ.get('DO_SPACES_KEY', '')
+DO_SPACES_SECRET = os.environ.get('DO_SPACES_SECRET', '')
+DO_SPACES_ENDPOINT = os.environ.get('DO_SPACES_ENDPOINT', 'https://sfo3.digitaloceanspaces.com')
+DO_SPACES_BUCKET = os.environ.get('DO_SPACES_BUCKET', 'mfmaps-tiles')
+DO_SPACES_REGION = os.environ.get('DO_SPACES_REGION', 'sfo3')
+
+
 # Application definition
 
 INSTALLED_APPS = [
