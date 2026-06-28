@@ -55,13 +55,10 @@ function wireUrlSync() {
         const c = state.map.getCenter();
         const z = state.map.getZoom();
         const hash = `#${z.toFixed(1)}/${c.lat.toFixed(4)}/${c.lng.toFixed(4)}`;
-        // replaceState rather than location.hash assignment: no per-pan history
-        // entry, and no 'hashchange' event firing back at us.
         window.history.replaceState(null, '', hash);
     };
 
     state.map.on('moveend', update);
-    // Write the initial hash so a fresh load immediately has a shareable URL.
     update();
 }
 
@@ -82,7 +79,7 @@ export function initMap() {
     };
 
     if (hashState) {
-        mapOpts.center = [hashState.lng, hashState.lat]; // MapLibre wants [lng, lat]
+        mapOpts.center = [hashState.lng, hashState.lat];
         mapOpts.zoom = hashState.zoom;
     } else {
         mapOpts.bounds = US_BOUNDS;
@@ -116,15 +113,9 @@ function addSourcesAndLayers() {
     const { map } = state;
     const empty = { type: 'FeatureCollection', features: [] };
 
-    // Anchor for inserting our terrain layers into Bright's stack.
-    // Everything inserted before this id renders beneath Bright's transportation,
-    // railway, bridge, label, and POI layers — but on top of Bright's landcover,
-    // landuse, water, and buildings. That places hillshade and contours where
-    // they cartographically belong: above the fills, below the lines.
     const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
 
     // --- Terrain hillshade (CONUS) ------------------------------------
-    // Four resolution tiers, each scoped to the zoom range it was encoded for.
     const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
 
     const terrainTiers = [
@@ -268,11 +259,10 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Tree species composite ----------------------------------------
-    // Single RGBA tileset, every FORTYPCD colored randomly for inspection.
-    // Hover handler (wireTreeSpeciesHover) reads the raw tile bytes via the
-    // pmtiles JS library and looks up the exact RGB in the legend JSON,
-    // showing the forest type name in a follow-cursor tooltip.
+    // --- Tree species composite (CONUS) --------------------------------
+    // New dual-layer architecture: this is the display tile (full color,
+    // alpha=255). Hover lookup reads the parallel _data.pmtiles file via
+    // the pmtiles JS library, never added to the style.
     map.addSource('tree-species', {
         type: 'raster',
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
@@ -294,10 +284,8 @@ function addSourcesAndLayers() {
     }, BASEMAP_LINE_ANCHOR);
 
     // --- LANDFIRE EVT — Alaska + Hawaii --------------------------------
-    // Same composite pattern as CONUS TreeMap but with LANDFIRE's official
-    // EVT colors baked into RGBA. Hover lookup reads RGB and matches the
-    // legend exactly (no alpha trick needed since colors come from a
-    // designed palette, not random generation).
+    // Will switch to dual-layer architecture once the AK/HI pipeline rerun
+    // completes. Until then these use the alpha-index trick for hover.
     [
         { region: 'ak', file: 'landfire_evt_ak.pmtiles' },
         { region: 'hi', file: 'landfire_evt_hi.pmtiles' },
@@ -1452,47 +1440,56 @@ function wireHydroInteractions() {
 // right region based on the lng/lat (CONUS bbox, AK bbox, HI bbox) and reads
 // the underlying tile pixel for exact species lookup.
 //
-// CONUS uses the alpha channel as a species index (random-color composite).
-// AK and HI use direct RGB match against LANDFIRE's designed palette.
+// CONUS uses dual-layer architecture: a display tile (RGBA at alpha=255) and
+// a parallel data tile (FORTYPCD encoded as R high byte + G low byte) for
+// bulletproof species lookup.
+//
+// AK and HI still use the old alpha-channel-as-species-index trick until
+// their pipelines are rerun with the new architecture.
 
 const TREE_SPECIES_REGIONS = [
     {
         name: 'conus',
-        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
-        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
-        bbox: [-125.5, 24.0, -66.0, 50.0],   // CONUS roughly
-        lookupType: 'alpha',                  // alpha index → legend.by_alpha
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data.pmtiles',
+        legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
+        bbox: [-125.5, 24.0, -66.0, 50.0],
+        lookupType: 'data-tile',
         maxZoom: 14,
     },
     {
         name: 'ak',
-        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
-        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
-        bbox: [-180.0, 51.0, -129.0, 72.0],   // Alaska
-        lookupType: 'rgb',                    // exact RGB → legend entry
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
+        dataPmtilesUrl: null,
+        legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
+        bbox: [-180.0, 51.0, -129.0, 72.0],
+        lookupType: 'alpha-index',
         maxZoom: 12,
     },
     {
         name: 'hi',
-        pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
-        legendUrl:  'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
-        bbox: [-161.0, 18.5, -154.5, 23.0],   // Hawaii
-        lookupType: 'rgb',
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
+        dataPmtilesUrl: null,
+        legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
+        bbox: [-161.0, 18.5, -154.5, 23.0],
+        lookupType: 'alpha-index',
         maxZoom: 12,
     },
 ];
 
-const _treeRegionState = new Map(); // name → { pmtiles, lookupByAlpha?, lookupByRgb?, tileCache }
+const _treeRegionState = new Map();
 let _treeTooltipEl = null;
 
 function getRegionState(region) {
     if (_treeRegionState.has(region.name)) return _treeRegionState.get(region.name);
     const s = {
         pmtiles: new pmtiles.PMTiles(region.pmtilesUrl),
-        lookupByAlpha: null,
-        lookupByRgb: null,
+        dataPmtiles: region.dataPmtilesUrl ? new pmtiles.PMTiles(region.dataPmtilesUrl) : null,
+        lookupByFortypcd: null,   // CONUS: { code: { name, hex, rgb } }
+        lookupByAlpha: null,      // AK/HI alpha-index path (legacy)
         legendLoaded: false,
-        tileCache: new Map(),
+        displayTileCache: new Map(),
+        dataTileCache: new Map(),
     };
     _treeRegionState.set(region.name, s);
     return s;
@@ -1504,18 +1501,27 @@ async function loadRegionLegend(region) {
     try {
         const resp = await fetch(region.legendUrl);
         const raw = await resp.json();
-        if (region.lookupType === 'alpha') {
-            // CONUS: { by_fortypcd, by_alpha }
-            s.lookupByAlpha = new Map();
-            for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
-                s.lookupByAlpha.set(parseInt(alphaStr, 10), info);
+        if (region.lookupType === 'data-tile') {
+            // New CONUS format: { by_fortypcd: { code: { name, rgb, hex } } }
+            s.lookupByFortypcd = new Map();
+            const src = raw.by_fortypcd || raw;
+            for (const [code, info] of Object.entries(src)) {
+                s.lookupByFortypcd.set(code, info);
             }
         } else {
-            // AK / HI: { "code": { name, rgb, hex } }
-            s.lookupByRgb = new Map();
-            for (const [code, info] of Object.entries(raw)) {
-                const [r, g, b] = info.rgb;
-                s.lookupByRgb.set(`${r},${g},${b}`, { code, ...info });
+            // AK/HI alpha-index: { by_evt_code: {... alpha ...}, by_alpha: {...} }
+            // OR legacy flat { "code": { name, rgb, hex } } — both supported
+            s.lookupByAlpha = new Map();
+            if (raw.by_alpha) {
+                for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
+                    s.lookupByAlpha.set(parseInt(alphaStr, 10), info);
+                }
+            } else if (raw.by_evt_code) {
+                for (const [code, info] of Object.entries(raw.by_evt_code)) {
+                    if (info.alpha != null) {
+                        s.lookupByAlpha.set(info.alpha, { ...info, evt_code: parseInt(code, 10) });
+                    }
+                }
             }
         }
         s.legendLoaded = true;
@@ -1582,13 +1588,13 @@ function lngLatToTilePixel(lng, lat, zoom) {
     return { x, y, px, py };
 }
 
-async function fetchTileImageData(regionState, z, x, y) {
+async function fetchAndCacheTile(pmtilesInst, cache, z, x, y) {
     const key = `${z}/${x}/${y}`;
-    if (regionState.tileCache.has(key)) return regionState.tileCache.get(key);
+    if (cache.has(key)) return cache.get(key);
 
     let tileBytes;
     try {
-        const result = await regionState.pmtiles.getZxy(z, x, y);
+        const result = await pmtilesInst.getZxy(z, x, y);
         if (!result) return null;
         tileBytes = result.data;
     } catch (err) {
@@ -1611,11 +1617,11 @@ async function fetchTileImageData(regionState, z, x, y) {
         ctx.drawImage(img, 0, 0);
         const data = ctx.getImageData(0, 0, 256, 256);
 
-        if (regionState.tileCache.size > 200) {
-            const firstKey = regionState.tileCache.keys().next().value;
-            regionState.tileCache.delete(firstKey);
+        if (cache.size > 200) {
+            const firstKey = cache.keys().next().value;
+            cache.delete(firstKey);
         }
-        regionState.tileCache.set(key, data);
+        cache.set(key, data);
         return data;
     } finally {
         URL.revokeObjectURL(url);
@@ -1630,22 +1636,23 @@ async function lookupTreeSpeciesAt(lngLat) {
     const z = Math.min(region.maxZoom, Math.floor(state.map.getZoom()));
     const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
 
-    const imageData = await fetchTileImageData(s, z, x, y);
-    if (!imageData) return null;
+    const displayImg = await fetchAndCacheTile(s.pmtiles, s.displayTileCache, z, x, y);
+    if (!displayImg) return null;
 
     const idx = (py * 256 + px) * 4;
-    const r = imageData.data[idx];
-    const g = imageData.data[idx + 1];
-    const b = imageData.data[idx + 2];
-    const a = imageData.data[idx + 3];
-
+    const a = displayImg.data[idx + 3];
     if (a === 0) return null;
 
-    if (region.lookupType === 'alpha') {
-        return s.lookupByAlpha ? (s.lookupByAlpha.get(a) || null) : null;
-    } else {
-        return s.lookupByRgb ? (s.lookupByRgb.get(`${r},${g},${b}`) || null) : null;
+    if (region.lookupType === 'data-tile') {
+        if (!s.dataPmtiles || !s.lookupByFortypcd) return null;
+        const dataImg = await fetchAndCacheTile(s.dataPmtiles, s.dataTileCache, z, x, y);
+        if (!dataImg) return null;
+        const fortypcd = (dataImg.data[idx] << 8) | dataImg.data[idx + 1];
+        if (fortypcd === 0) return null;
+        return s.lookupByFortypcd.get(String(fortypcd)) || null;
     }
+    // alpha-index
+    return s.lookupByAlpha ? (s.lookupByAlpha.get(a) || null) : null;
 }
 
 function wireTreeSpeciesHover() {
@@ -1653,7 +1660,6 @@ function wireTreeSpeciesHover() {
     let lastTimer = null;
 
     map.on('mousemove', (e) => {
-        // Any tree-species layer visible? If none are on, no tooltip.
         const anyVisible = ['tree-species-layer', 'tree-species-ak-layer', 'tree-species-hi-layer']
             .some(id => map.getLayer(id)
                 && map.getLayoutProperty(id, 'visibility') !== 'none');
