@@ -189,28 +189,40 @@
 <script>
 // =============================================================================
 // Region configuration
+//
+// lookupType: 'data-tile'  - new architecture (CONUS): display tile is full
+//                            color RGBA, separate data tile encodes FORTYPCD
+//                            per pixel as R high byte + G low byte.
+//             'alpha-index' - old architecture (AK/HI for now): alpha channel
+//                             of the display tile encodes a species index.
 // =============================================================================
 const REGIONS = {
     ak: {
         legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
         pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
+        dataPmtilesUrl: null,
         center: [-149.9, 64.5],
         zoom: 5,
         maxZoom: 14,
+        lookupType: 'alpha-index',
     },
     hi: {
         legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
         pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
+        dataPmtilesUrl: null,
         center: [-156.4, 20.7],
         zoom: 7,
         maxZoom: 14,
+        lookupType: 'alpha-index',
     },
     conus: {
         legendUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
         pmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data.pmtiles',
         center: [-122.6, 44.0],
         zoom: 6,
         maxZoom: 14,
+        lookupType: 'data-tile',
     },
 };
 
@@ -220,13 +232,15 @@ const REGIONS = {
 const STORAGE_KEY = 'mfmaps-legend-edits';
 
 let data = {};
-let alphaToCode = new Map();
+let alphaToCode = new Map();   // only used for AK/HI alpha-index lookup
 let conusOriginal = null;
 let currentRegion = 'ak';
 let map = null;
-let tileCache = new Map();
+let displayTileCache = new Map();  // cacheKey -> ImageData (raw display tile)
+let dataTileCache = new Map();     // cacheKey -> ImageData (data tile, CONUS only)
 let pinnedCode = null;
-let pmtilesInstance = null;
+let pmtilesInstance = null;        // display PMTiles for current region
+let dataPmtilesInstance = null;    // data PMTiles for current region (null for AK/HI)
 
 const rowsEl = document.getElementById('rows');
 const countEl = document.getElementById('count');
@@ -302,18 +316,34 @@ function hexToRgb(hex) {
 
 // =============================================================================
 // Legend normalization
+//
+// CONUS new format: { by_fortypcd: { code: { name, rgb, hex } } }
+// CONUS old format (alpha trick): { by_fortypcd: { code: { name, rgb, hex, alpha } }, by_alpha: {...} }
+// AK/HI new format: { by_evt_code: { code: { name, rgb, hex, alpha } }, by_alpha: {...} }
+// AK/HI old flat format: { code: { name, rgb, hex } }
+//
+// We normalize all to a flat { code: { name, rgb, hex, _alpha? } } for editing.
 // =============================================================================
 function normalizeLoad(raw, region) {
     alphaToCode = new Map();
-    if (region === 'conus' && raw.by_fortypcd) {
-        conusOriginal = raw;
-        const flat = {};
-        for (const [code, info] of Object.entries(raw.by_fortypcd)) {
-            flat[code] = { name: info.name, rgb: info.rgb, hex: info.hex, _alpha: info.alpha };
-            if (info.alpha != null) alphaToCode.set(info.alpha, code);
+    if (region === 'conus') {
+        // CONUS legend always has by_fortypcd at top level
+        if (raw.by_fortypcd) {
+            conusOriginal = raw;
+            const flat = {};
+            for (const [code, info] of Object.entries(raw.by_fortypcd)) {
+                flat[code] = { name: info.name, rgb: info.rgb, hex: info.hex };
+                if (info.alpha != null) {
+                    flat[code]._alpha = info.alpha;
+                    alphaToCode.set(info.alpha, code);
+                }
+            }
+            return flat;
         }
-        return flat;
+        conusOriginal = null;
+        return raw;
     }
+    // AK/HI
     if (raw.by_evt_code) {
         conusOriginal = null;
         const flat = {};
@@ -328,23 +358,14 @@ function normalizeLoad(raw, region) {
 }
 
 function denormalizeForExport(flat, region) {
-    if (region === 'conus' && conusOriginal) {
-        const out = { by_fortypcd: {}, by_alpha: {} };
+    if (region === 'conus') {
+        const out = { by_fortypcd: {} };
         for (const [code, info] of Object.entries(flat)) {
-            const alpha = info._alpha;
             out.by_fortypcd[code] = {
                 name: info.name,
                 rgb: info.rgb,
                 hex: info.hex,
-                alpha: alpha,
             };
-            if (alpha != null) {
-                out.by_alpha[String(alpha)] = {
-                    fortypcd: parseInt(code, 10),
-                    name: info.name,
-                    hex: info.hex,
-                };
-            }
         }
         return out;
     }
@@ -481,12 +502,71 @@ function togglePin(code) {
 }
 
 // =============================================================================
+// Tile fetching helpers
+// =============================================================================
+async function fetchAndDecodeTile(pmtilesInst, z, x, y) {
+    const tile = await pmtilesInst.getZxy(z, x, y);
+    if (!tile) return null;
+    const blob = new Blob([tile.data], { type: 'image/png' });
+    const bitmap = await createImageBitmap(blob);
+    const c = document.createElement('canvas');
+    c.width = bitmap.width; c.height = bitmap.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    return ctx.getImageData(0, 0, c.width, c.height);
+}
+
+async function getDisplayTile(z, x, y) {
+    const key = `${z}/${x}/${y}`;
+    if (displayTileCache.has(key)) return displayTileCache.get(key);
+    const imgData = await fetchAndDecodeTile(pmtilesInstance, z, x, y);
+    if (displayTileCache.size > 300) {
+        const k = displayTileCache.keys().next().value;
+        displayTileCache.delete(k);
+    }
+    displayTileCache.set(key, imgData);
+    return imgData;
+}
+
+async function getDataTile(z, x, y) {
+    if (!dataPmtilesInstance) return null;
+    const key = `${z}/${x}/${y}`;
+    if (dataTileCache.has(key)) return dataTileCache.get(key);
+    const imgData = await fetchAndDecodeTile(dataPmtilesInstance, z, x, y);
+    if (dataTileCache.size > 300) {
+        const k = dataTileCache.keys().next().value;
+        dataTileCache.delete(k);
+    }
+    dataTileCache.set(key, imgData);
+    return imgData;
+}
+
+// =============================================================================
 // Map + tile recoloring
 // =============================================================================
 const RECOLOR_PROTOCOL = 'recolor';
 
-function recolorPixels(imageData) {
-    const px = imageData.data;
+// For CONUS (data-tile): recolor each display pixel by looking up the matching
+// data tile's FORTYPCD at the same (px, py) and using the legend's current color.
+// For AK/HI (alpha-index): recolor by alpha channel as before.
+function recolorPixels(displayImageData, dataImageData, lookupType) {
+    const px = displayImageData.data;
+    if (lookupType === 'data-tile' && dataImageData) {
+        const dp = dataImageData.data;
+        for (let i = 0; i < px.length; i += 4) {
+            const a = px[i + 3];
+            if (a === 0) continue;
+            const fortypcd = (dp[i] << 8) | dp[i + 1];
+            if (fortypcd === 0) continue;
+            const info = data[String(fortypcd)];
+            if (!info) continue;
+            px[i] = info.rgb[0];
+            px[i + 1] = info.rgb[1];
+            px[i + 2] = info.rgb[2];
+        }
+        return;
+    }
+    // alpha-index path
     for (let i = 0; i < px.length; i += 4) {
         const a = px[i + 3];
         if (a === 0) continue;
@@ -511,6 +591,9 @@ async function setupMapForRegion(region) {
     }
 
     pmtilesInstance = new pmtiles.PMTiles(cfg.pmtilesUrl);
+    dataPmtilesInstance = cfg.dataPmtilesUrl
+        ? new pmtiles.PMTiles(cfg.dataPmtilesUrl)
+        : null;
 
     if (!map) {
         map = new maplibregl.Map({
@@ -572,39 +655,29 @@ function recolorProtocolViaPmtiles(params, abortController) {
             const x = parseInt(m[3], 10);
             const y = parseInt(m[4], 10);
 
-            const cacheKey = `${z}/${x}/${y}`;
-            let imageData = tileCache.get(cacheKey);
+            const cfg = REGIONS[currentRegion];
 
-            if (!imageData) {
-                const tile = await pmtilesInstance.getZxy(z, x, y);
-                if (!tile) {
-                    const c = document.createElement('canvas');
-                    c.width = 256; c.height = 256;
-                    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-                    const buf = await blob.arrayBuffer();
-                    resolve({ data: buf });
-                    return;
-                }
-                const blob = new Blob([tile.data], { type: 'image/png' });
-                const bitmap = await createImageBitmap(blob);
+            let displayImageData = await getDisplayTile(z, x, y);
+            if (!displayImageData) {
                 const c = document.createElement('canvas');
-                c.width = bitmap.width; c.height = bitmap.height;
-                const ctx = c.getContext('2d');
-                ctx.drawImage(bitmap, 0, 0);
-                imageData = ctx.getImageData(0, 0, c.width, c.height);
-                if (tileCache.size > 300) {
-                    const k = tileCache.keys().next().value;
-                    tileCache.delete(k);
-                }
-                tileCache.set(cacheKey, imageData);
+                c.width = 256; c.height = 256;
+                const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+                const buf = await blob.arrayBuffer();
+                resolve({ data: buf });
+                return;
+            }
+
+            let dataImageData = null;
+            if (cfg.lookupType === 'data-tile') {
+                dataImageData = await getDataTile(z, x, y);
             }
 
             const out = new ImageData(
-                new Uint8ClampedArray(imageData.data),
-                imageData.width,
-                imageData.height
+                new Uint8ClampedArray(displayImageData.data),
+                displayImageData.width,
+                displayImageData.height
             );
-            recolorPixels(out);
+            recolorPixels(out, dataImageData, cfg.lookupType);
 
             const c = document.createElement('canvas');
             c.width = out.width; c.height = out.height;
@@ -622,73 +695,76 @@ function recolorProtocolViaPmtiles(params, abortController) {
 // =============================================================================
 // Hover: map → editor highlight + tooltip
 // =============================================================================
-async function onMapHover(e) {
-    if (!pmtilesInstance) return;
+function pixelAt(lngLat) {
     const cfg = REGIONS[currentRegion];
     const zoom = Math.min(cfg.maxZoom, Math.floor(map.getZoom()));
-    const { lng, lat } = e.lngLat;
-
     const n = Math.pow(2, zoom);
-    const xFloat = (lng + 180) / 360 * n;
-    const latRad = lat * Math.PI / 180;
+    const xFloat = (lngLat.lng + 180) / 360 * n;
+    const latRad = lngLat.lat * Math.PI / 180;
     const yFloat = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-    const x = Math.floor(xFloat);
-    const y = Math.floor(yFloat);
-    const px = Math.floor((xFloat - x) * 256);
-    const py = Math.floor((yFloat - y) * 256);
+    return {
+        z: zoom,
+        x: Math.floor(xFloat),
+        y: Math.floor(yFloat),
+        px: Math.floor((xFloat - Math.floor(xFloat)) * 256),
+        py: Math.floor((yFloat - Math.floor(yFloat)) * 256),
+    };
+}
 
-    const cacheKey = `${zoom}/${x}/${y}`;
-    let imageData = tileCache.get(cacheKey);
-    if (!imageData) return;
+async function lookupSpeciesAt(lngLat) {
+    const cfg = REGIONS[currentRegion];
+    const { z, x, y, px, py } = pixelAt(lngLat);
 
+    const displayImg = displayTileCache.get(`${z}/${x}/${y}`);
+    if (!displayImg) return null;
     const idx = (py * 256 + px) * 4;
-    const a = imageData.data[idx + 3];
-    if (a === 0) {
+    const a = displayImg.data[idx + 3];
+    if (a === 0) return null;
+
+    if (cfg.lookupType === 'data-tile') {
+        const dataImg = dataTileCache.get(`${z}/${x}/${y}`);
+        if (!dataImg) return null;
+        const fortypcd = (dataImg.data[idx] << 8) | dataImg.data[idx + 1];
+        if (fortypcd === 0) return null;
+        const code = String(fortypcd);
+        return data[code] ? { code, ...data[code] } : null;
+    }
+    // alpha-index
+    const code = alphaToCode.get(a);
+    if (!code) return null;
+    return data[code] ? { code, ...data[code] } : null;
+}
+
+async function onMapHover(e) {
+    if (!pmtilesInstance) return;
+    const hit = await lookupSpeciesAt(e.lngLat);
+    if (!hit) {
         tooltipEl.style.display = 'none';
         highlightRow(null);
         return;
     }
-    const code = alphaToCode.get(a);
-    if (!code) return;
-    const entry = data[code];
-    if (!entry) return;
 
     tooltipEl.innerHTML =
         `<div style="display:flex;align-items:flex-start;gap:6px;">
             <span style="display:inline-block;width:10px;height:10px;flex-shrink:0;margin-top:3px;
-                background:${entry.hex};border:1px solid rgba(255,255,255,0.4);"></span>
-            <span>${entry.name}</span>
+                background:${hit.hex};border:1px solid rgba(255,255,255,0.4);"></span>
+            <span>${hit.name}</span>
         </div>`;
     tooltipEl.style.left = (e.point.x + 12) + 'px';
     tooltipEl.style.top = (e.point.y + 12) + 'px';
     tooltipEl.style.display = 'block';
 
-    highlightRow(code);
+    highlightRow(hit.code);
 }
 
 async function onMapClick(e) {
     if (!pmtilesInstance) return;
-    const cfg = REGIONS[currentRegion];
-    const zoom = Math.min(cfg.maxZoom, Math.floor(map.getZoom()));
-    const { lng, lat } = e.lngLat;
-    const n = Math.pow(2, zoom);
-    const xFloat = (lng + 180) / 360 * n;
-    const latRad = lat * Math.PI / 180;
-    const yFloat = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-    const x = Math.floor(xFloat);
-    const y = Math.floor(yFloat);
-    const px = Math.floor((xFloat - x) * 256);
-    const py = Math.floor((yFloat - y) * 256);
-    const imageData = tileCache.get(`${zoom}/${x}/${y}`);
-    if (!imageData) return;
-    const idx = (py * 256 + px) * 4;
-    const a = imageData.data[idx + 3];
-    if (a === 0) {
+    const hit = await lookupSpeciesAt(e.lngLat);
+    if (!hit) {
         togglePin(null);
         return;
     }
-    const code = alphaToCode.get(a);
-    if (code) togglePin(code);
+    togglePin(hit.code);
 }
 
 // =============================================================================
@@ -698,7 +774,8 @@ async function loadRegion(region) {
     currentRegion = region;
     statusEl.textContent = 'Loading…';
     rowsEl.innerHTML = '';
-    tileCache.clear();
+    displayTileCache.clear();
+    dataTileCache.clear();
     pinnedCode = null;
     try {
         // Try staging first, fall back to production
@@ -794,7 +871,7 @@ document.getElementById('reset').addEventListener('click', async () => {
     loadRegion(currentRegion);
 });
 
-loadRegion('ak');
+loadRegion('conus');
 </script>
 
 </body>
