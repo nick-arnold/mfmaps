@@ -296,7 +296,7 @@ function addSourcesAndLayers() {
             url: `pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/${r.file}`,
             tileSize: 256,
             minzoom: 4,
-            maxzoom: 12,
+            maxzoom: 14,
         });
         map.addLayer({
             id: `${id}-layer`,
@@ -1460,20 +1460,20 @@ const TREE_SPECIES_REGIONS = [
     {
         name: 'ak',
         pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
-        dataPmtilesUrl: null,
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_data.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
         bbox: [-180.0, 51.0, -129.0, 72.0],
-        lookupType: 'alpha-index',
-        maxZoom: 12,
+        lookupType: 'data-tile',
+        maxZoom: 14,
     },
     {
         name: 'hi',
         pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
-        dataPmtilesUrl: null,
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_data.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
         bbox: [-161.0, 18.5, -154.5, 23.0],
-        lookupType: 'alpha-index',
-        maxZoom: 12,
+        lookupType: 'data-tile',
+        maxZoom: 14,
     },
 ];
 
@@ -1502,9 +1502,9 @@ async function loadRegionLegend(region) {
         const resp = await fetch(region.legendUrl);
         const raw = await resp.json();
         if (region.lookupType === 'data-tile') {
-            // New CONUS format: { by_fortypcd: { code: { name, rgb, hex } } }
+            // Dual-layer format. CONUS: { by_fortypcd: {...} }. AK/HI: { by_evt_code: {...} }
             s.lookupByFortypcd = new Map();
-            const src = raw.by_fortypcd || raw;
+            const src = raw.by_fortypcd || raw.by_evt_code || raw;
             for (const [code, info] of Object.entries(src)) {
                 s.lookupByFortypcd.set(code, info);
             }
