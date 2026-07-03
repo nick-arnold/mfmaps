@@ -124,18 +124,18 @@ function addSourcesAndLayers() {
     const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
 
     const terrainTiers = [
-        { id: 'terrain-z3-4',   file: 'conus_z3-4.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'terrain-z5-7',   file: 'conus_z5-7.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'terrain-z8-10',  file: 'conus_z8-10.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'terrain-z11-12', file: 'conus_z11-12.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
-        { id: 'alaska-z3-4',    file: 'alaska_z3-4.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'alaska-z5-7',    file: 'alaska_z5-7.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'alaska-z8-10',   file: 'alaska_z8-10.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'alaska-z11-12',  file: 'alaska_z11-12.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
-        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 }
+        { id: 'terrain-z3-4',   file: 'conus_z3-4_v1.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'terrain-z5-7',   file: 'conus_z5-7_v1.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'terrain-z8-10',  file: 'conus_z8-10_v1.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'terrain-z11-12', file: 'conus_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
+        { id: 'alaska-z3-4',    file: 'alaska_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'alaska-z5-7',    file: 'alaska_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'alaska-z8-10',   file: 'alaska_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'alaska-z11-12',  file: 'alaska_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
+        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
+        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
+        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
+        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
     ];
 
     terrainTiers.forEach(tier => {
@@ -166,9 +166,9 @@ function addSourcesAndLayers() {
     const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
 
     const slopeTiers = [
-        { id: 'slope-conus',  file: 'slope_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'slope-alaska', file: 'slope_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 22 }
+        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
     ];
 
     slopeTiers.forEach(tier => {
@@ -209,9 +209,9 @@ function addSourcesAndLayers() {
 
     // --- Terrain derivatives: aspect (per-region) ---------------------
     const aspectTiers = [
-        { id: 'aspect-conus',  file: 'aspect_conus_z11-12.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12.pmtiles', minzoom: 11, maxzoom: 22 }
+        { id: 'aspect-conus',  file: 'aspect_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
     ];
 
     aspectTiers.forEach(tier => {
@@ -240,9 +240,9 @@ function addSourcesAndLayers() {
     const CANOPY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/canopy';
 
     [
-        { id: 'canopy-conus',   file: 'conus_canopy.pmtiles' },
-        { id: 'canopy-seak',    file: 'seak_canopy.pmtiles'  },
-        { id: 'canopy-hawaii',  file: 'hawaii_canopy.pmtiles' }
+        { id: 'canopy-conus',  file: 'conus_canopy_v1.pmtiles'  },
+        { id: 'canopy-seak',   file: 'seak_canopy_v1.pmtiles'   },
+        { id: 'canopy-hawaii', file: 'hawaii_canopy_v1.pmtiles'  }
     ].forEach(region => {
         map.addSource(region.id, {
             type: 'raster',
@@ -272,7 +272,7 @@ function addSourcesAndLayers() {
     [
         { id: 'tree-species',    region: 'conus', opacity: 0.40 },
         { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
-        { id: 'tree-species-hi', region: 'hi',   opacity: 0.40 },
+        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28 },
     ].forEach(cfg => {
         map.addSource(cfg.id, {
             type: 'raster',
@@ -314,7 +314,7 @@ function addSourcesAndLayers() {
         CONTOUR_ZOOM_TIERS.forEach(tier => {
             const interval = CONTOUR_REGION_INTERVALS[region][tier.zoom];
             const srcId = `contours-${region}-z${tier.zoom}`;
-            const file  = `${region}_contour_${interval}_z${tier.zoom}.pmtiles`;
+            const file  = `${region}_contour_${interval}_z${tier.zoom}_v1.pmtiles`;
 
             map.addSource(srcId, {
                 type: 'vector',
@@ -1433,8 +1433,8 @@ function wireHydroInteractions() {
 const TREE_SPECIES_REGIONS = [
     {
         name: 'conus',
-        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
-        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data.pmtiles',
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_v1.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data_v1.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
         bbox: [-125.5, 24.0, -66.0, 50.0],
         lookupType: 'data-tile',
@@ -1442,8 +1442,8 @@ const TREE_SPECIES_REGIONS = [
     },
     {
         name: 'ak',
-        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak.pmtiles',
-        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_data.pmtiles',
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_v1.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_data_v1.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_ak_legend.json',
         bbox: [-180.0, 51.0, -129.0, 72.0],
         lookupType: 'data-tile',
@@ -1451,8 +1451,8 @@ const TREE_SPECIES_REGIONS = [
     },
     {
         name: 'hi',
-        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi.pmtiles',
-        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_data.pmtiles',
+        pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_v1.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_data_v1.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/landfire_evt_hi_legend.json',
         bbox: [-161.0, 18.5, -154.5, 23.0],
         lookupType: 'data-tile',
