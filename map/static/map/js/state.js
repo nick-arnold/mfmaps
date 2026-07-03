@@ -9,7 +9,33 @@ export const state = {
     queryMode: false,
     crosshairMode: false,
     openPopup: null,
+
+    // Tree species picker: Set of "region:code" strings (e.g. "conus:201")
+    // Empty set = no filter, show all species with their default colors
+    treeSpeciesSelection: new Set(),
 };
+
+// localStorage helpers for species selection persistence
+const SPECIES_SELECTION_KEY = 'mfmaps-tree-species-selection';
+
+export function loadTreeSpeciesSelection() {
+    try {
+        const raw = localStorage.getItem(SPECIES_SELECTION_KEY);
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+        return new Set();
+    }
+}
+
+export function saveTreeSpeciesSelection(selection) {
+    try {
+        localStorage.setItem(SPECIES_SELECTION_KEY, JSON.stringify([...selection]));
+    } catch {
+        // Ignore quota errors
+    }
+}
 
 export const LAYER_IDS = {
     observations: ['observations-layer'],

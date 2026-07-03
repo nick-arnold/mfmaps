@@ -4,6 +4,7 @@
 
 import { state, LAYER_IDS, H3_RES } from './state.js';
 import { escapeHtml } from './api.js';
+import { registerSpeciesFilterProtocol } from './species-filter.js';
 
 const US_BOUNDS = [
     [-125.0, 24.5],
@@ -68,6 +69,7 @@ export function initMap() {
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
+        registerSpeciesFilterProtocol();
         state._pmtilesRegistered = true;
     }
 
@@ -259,49 +261,31 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Tree species composite (CONUS) --------------------------------
-    // New dual-layer architecture: this is the display tile (full color,
-    // alpha=255). Hover lookup reads the parallel _data.pmtiles file via
-    // the pmtiles JS library, never added to the style.
-    map.addSource('tree-species', {
-        type: 'raster',
-        url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus.pmtiles',
-        tileSize: 256,
-        minzoom: 4,
-        maxzoom: 14,
-    });
-    map.addLayer({
-        id: 'tree-species-layer',
-        type: 'raster',
-        source: 'tree-species',
-        minzoom: 4,
-        maxzoom: 22,
-        paint: {
-            'raster-opacity': .35,
-            'raster-resampling': 'nearest',
-        },
-        layout: { visibility: 'none' }
-    }, BASEMAP_LINE_ANCHOR);
-
-    // --- LANDFIRE EVT — Alaska + Hawaii --------------------------------
-    // Will switch to dual-layer architecture once the AK/HI pipeline rerun
-    // completes. Until then these use the alpha-index trick for hover.
+    // --- Tree species (dual-layer: display + data) ---------------------
+    // The display raster is fetched through the speciesfilter:// protocol
+    // rather than pmtiles:// directly. When state.treeSpeciesSelection is
+    // empty, the protocol passes the display tile through unchanged. When
+    // non-empty, it composites the display tile with the parallel data tile
+    // and sets alpha=0 for any pixel whose FORTYPCD/EVT is not selected.
+    //
+    // Three separate sources — one per region — so each region's selection
+    // can be filtered against its own data tile.
     [
-        { region: 'ak', file: 'landfire_evt_ak.pmtiles' },
-        { region: 'hi', file: 'landfire_evt_hi.pmtiles' },
-    ].forEach(r => {
-        const id = `tree-species-${r.region}`;
-        map.addSource(id, {
+        { id: 'tree-species',    region: 'conus' },
+        { id: 'tree-species-ak', region: 'ak' },
+        { id: 'tree-species-hi', region: 'hi' },
+    ].forEach(cfg => {
+        map.addSource(cfg.id, {
             type: 'raster',
-            url: `pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/${r.file}`,
+            tiles: [`speciesfilter://${cfg.region}/{z}/{x}/{y}`],
             tileSize: 256,
             minzoom: 4,
             maxzoom: 14,
         });
         map.addLayer({
-            id: `${id}-layer`,
+            id: `${cfg.id}-layer`,
             type: 'raster',
-            source: id,
+            source: cfg.id,
             minzoom: 4,
             maxzoom: 22,
             paint: {
@@ -1688,6 +1672,44 @@ function wireTreeSpeciesHover() {
     map.on('mouseout', hideTreeTooltip);
 }
 
+// -----------------------------------------------------------------------------
+// Exports for species picker + speciesfilter:// protocol
+// -----------------------------------------------------------------------------
+
+export function getTreeSpeciesRegions() {
+    return TREE_SPECIES_REGIONS;
+}
+
+export function getRegionByName(name) {
+    return TREE_SPECIES_REGIONS.find(r => r.name === name) || null;
+}
+
+// Returns { display, data } PMTiles instances for a region, reusing the same
+// instances the hover lookup uses so tile fetches share the pmtiles directory
+// cache. Both are lazy-created inside getRegionState().
+export function getRegionPmtilesForFilter(region) {
+    const s = getRegionState(region);
+    return { display: s.pmtiles, data: s.dataPmtiles };
+}
+
+// Force MapLibre to re-request all tree-species tiles. Called when the user
+// changes their species selection so the speciesfilter:// protocol re-runs
+// with the new selection set.
+export function reloadSpeciesFilterSources() {
+    const map = state.map;
+    if (!map) return;
+    const stamp = Date.now();
+    [
+        { id: 'tree-species',    region: 'conus' },
+        { id: 'tree-species-ak', region: 'ak' },
+        { id: 'tree-species-hi', region: 'hi' },
+    ].forEach(cfg => {
+        const src = map.getSource(cfg.id);
+        if (!src) return;
+        src.setTiles([`speciesfilter://${cfg.region}/{z}/{x}/{y}?v=${stamp}`]);
+    });
+}
+
 // =============================================================================
 // Crosshair pick mode
 // =============================================================================
@@ -1714,7 +1736,7 @@ function computeFeatureBbox(fragments) {
         collectCoords(f.geometry, lngs, lats);
     }
     if (!lngs.length) return null;
-    return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+    return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lngs)];
 }
 
 function collectCoords(geometry, lngs, lats) {

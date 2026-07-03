@@ -2,8 +2,9 @@
 // MF Maps — entry point
 // =============================================================================
 
-import { state } from './state.js';
+import { state, loadTreeSpeciesSelection } from './state.js';
 import { fetchAuthState, initAuth, setAuthChangeHandler } from './auth.js';
+import { initSpeciesPicker } from './species-picker.js';
 import {
     initMap,
     initLayerPanels,
@@ -22,6 +23,9 @@ import {
 import { loadReports } from './reports.js';
 
 async function main() {
+    // Restore any previously-selected species from localStorage
+    state.treeSpeciesSelection = loadTreeSpeciesSelection();
+
     // 1. Initialize the map and wait for its 'load' event
     await initMap();
 
@@ -31,6 +35,7 @@ async function main() {
 
     // 2. Wire UI that depends on the map being ready
     initLayerPanels();
+    initSpeciesPicker();
     initQueryMode();
     initGeolocate();
     initCrosshair();
