@@ -1,9 +1,10 @@
 // =============================================================================
 // Tree species picker modal + button wiring
 // -----------------------------------------------------------------------------
-// Loads all three region legends, presents a searchable multi-select modal,
-// persists selection to localStorage via state helpers, and triggers a reload
-// of the species raster sources so the speciesfilter:// protocol re-composites.
+// Loads all three region legends, presents a searchable multi-select modal
+// with quick-select mushroom collections, persists selection to localStorage
+// via state helpers, and triggers a reload of the species raster sources so
+// the speciesfilter:// protocol re-composites.
 // =============================================================================
 
 import { state, saveTreeSpeciesSelection } from './state.js';
@@ -13,7 +14,167 @@ import {
     reloadSpeciesFilterSources,
 } from './map-setup.js';
 
-// Flat list of all species across regions: [{ region, code, name, hex }]
+// =============================================================================
+// Mushroom → tree association collections
+// =============================================================================
+// Each collection defines name fragments matched case-insensitively against
+// catalog entry names. A catalog entry matches if its lowercased name includes
+// any fragment. Fragments are genus-level so they match across species
+// (e.g. 'spruce' matches 'Engelmann spruce', 'Sitka spruce', etc.)
+// =============================================================================
+
+const MUSHROOM_COLLECTIONS = [
+    {
+        id: 'morel',
+        label: 'Morel',
+        icon: '🍄',
+        description: 'Elm, ash, cottonwood, aspen, apple — and post-fire conifers: Douglas-fir, true firs, spruce, larch',
+        match: [
+            'elm', 'ash',
+            'cottonwood', 'aspen', 'poplar',
+            'apple', 'crabapple',
+            'douglas-fir', 'douglas fir',
+            'true fir', 'white fir', 'red fir', 'grand fir',
+            'subalpine fir', 'pacific silver fir',
+            'spruce', 'larch', 'tamarack',
+        ],
+    },
+    {
+        id: 'chanterelle',
+        label: 'Chanterelle',
+        icon: '🟡',
+        description: 'Douglas-fir, spruce, hemlock, tanoak, oak, beech, hickory',
+        match: [
+            'douglas-fir', 'douglas fir',
+            'spruce', 'hemlock',
+            'tanoak', 'tan oak',
+            'oak', 'beech', 'hickory',
+        ],
+    },
+    {
+        id: 'matsutake',
+        label: 'Matsutake',
+        icon: '⚪',
+        description: 'Pine specialist; Douglas-fir as secondary host in PNW',
+        match: [
+            'pine',
+            'douglas-fir', 'douglas fir',
+        ],
+    },
+    {
+        id: 'porcini',
+        label: 'Porcini',
+        icon: '🍂',
+        description: 'Spruce, fir, larch, pine (subalpine), beech, oak',
+        match: [
+            'spruce', 'fir', 'larch', 'tamarack', 'pine', 'beech', 'oak',
+        ],
+    },
+    {
+        id: 'hedgehog',
+        label: 'Hedgehog',
+        icon: '🦔',
+        description: 'Conifers broadly — spruce, fir, pine, hemlock — plus oak and beech',
+        match: [
+            'spruce', 'fir', 'pine', 'hemlock', 'oak', 'beech',
+        ],
+    },
+    {
+        id: 'yellowfoot',
+        label: 'Yellowfoot',
+        icon: '🌿',
+        description: 'Spruce, hemlock, Douglas-fir, alder (PNW riparian)',
+        match: [
+            'spruce', 'hemlock',
+            'douglas-fir', 'douglas fir',
+            'alder',
+        ],
+    },
+    {
+        id: 'black-trumpet',
+        label: 'Black Trumpet',
+        icon: '🎺',
+        description: 'Oak and beech in the East; Douglas-fir and tanoak in the West',
+        match: [
+            'oak', 'beech',
+            'douglas-fir', 'douglas fir',
+            'tanoak', 'tan oak',
+        ],
+    },
+    {
+        id: 'lions-mane',
+        label: "Lion's Mane",
+        icon: '🦁',
+        description: 'Hardwoods only — oak, beech, maple, walnut, elm',
+        match: [
+            'oak', 'beech', 'maple', 'walnut', 'elm',
+        ],
+    },
+    {
+        id: 'chicken-woods',
+        label: 'Chicken of the Woods',
+        icon: '🐔',
+        description: 'Oak strongly preferred; also cherry, locust, willow',
+        match: [
+            'oak', 'cherry', 'locust', 'willow',
+        ],
+    },
+    {
+        id: 'maitake',
+        label: 'Hen of the Woods',
+        icon: '🌳',
+        description: 'Old-growth oak at the base; occasionally beech and maple',
+        match: [
+            'oak', 'beech', 'maple',
+        ],
+    },
+    {
+        id: 'candy-cap',
+        label: 'Candy Cap',
+        icon: '🍬',
+        description: 'Live oak, tanoak, madrone, Douglas-fir (CA/PNW)',
+        match: [
+            'oak', 'tanoak', 'tan oak',
+            'madrone', 'arbutus',
+            'douglas-fir', 'douglas fir',
+        ],
+    },
+];
+
+// -----------------------------------------------------------------------------
+// Resolve a collection to a Set of "region:code" keys using the loaded catalog.
+// -----------------------------------------------------------------------------
+function resolveCollection(collection, catalog) {
+    const keys = new Set();
+    for (const row of catalog) {
+        const nameLower = row.name.toLowerCase();
+        for (const fragment of collection.match) {
+            if (nameLower.includes(fragment)) {
+                keys.add(`${row.region}:${row.code}`);
+                break; // one fragment match per row is sufficient
+            }
+        }
+    }
+    return keys;
+}
+
+// Return the Set of collection IDs whose resolved keys are fully contained
+// in the current working set (i.e. the collection is "active").
+function getActiveCollectionIds(catalog, working) {
+    const active = new Set();
+    for (const col of MUSHROOM_COLLECTIONS) {
+        const keys = resolveCollection(col, catalog);
+        if (keys.size > 0 && [...keys].every(k => working.has(k))) {
+            active.add(col.id);
+        }
+    }
+    return active;
+}
+
+// =============================================================================
+// Catalog loader
+// =============================================================================
+
 let _catalog = null;
 let _catalogPromise = null;
 
@@ -50,6 +211,10 @@ async function loadCatalog() {
 
     return _catalogPromise;
 }
+
+// =============================================================================
+// Render helpers
+// =============================================================================
 
 const REGION_BADGE = {
     conus: { label: 'CONUS', cls: 'bg-secondary' },
@@ -88,8 +253,20 @@ function renderList(container, catalog, query, selected) {
         return;
     }
 
-    // Simple render — a few thousand rows is fine for a one-shot innerHTML.
     container.innerHTML = filtered.map(r => renderRow(r, selected)).join('');
+}
+
+function renderCollectionPills(pillsEl, activeIds) {
+    pillsEl.innerHTML = MUSHROOM_COLLECTIONS.map(col => {
+        const isActive = activeIds.has(col.id);
+        return `<button type="button"
+                    class="btn btn-sm me-1 mb-1 collection-chip ${isActive ? 'btn-success' : 'btn-outline-secondary'}"
+                    data-collection-id="${escapeHtml(col.id)}"
+                    title="${escapeHtml(col.description)}"
+                    style="font-size:0.78rem;">
+                ${col.icon} ${escapeHtml(col.label)}
+            </button>`;
+    }).join('');
 }
 
 function updateCountBadges(count) {
@@ -104,11 +281,13 @@ function updateCountBadges(count) {
     });
 }
 
+// =============================================================================
+// Main init
+// =============================================================================
+
 export async function initSpeciesPicker() {
     updateCountBadges(state.treeSpeciesSelection.size);
 
-    // "Choose species" button — one lives in each layer panel (desktop + mobile)
-    // and both share the same modal target.
     document.body.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action="open-species-picker"]');
         if (!btn) return;
@@ -135,57 +314,124 @@ export async function initSpeciesPicker() {
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
 
-        const listEl = document.getElementById('speciesPickerList');
-        const searchEl = document.getElementById('speciesPickerSearch');
-        const countEl = document.getElementById('speciesPickerSelectedCount');
+        const listEl    = document.getElementById('speciesPickerList');
+        const searchEl  = document.getElementById('speciesPickerSearch');
+        const countEl   = document.getElementById('speciesPickerSelectedCount');
+        const pillsEl   = document.getElementById('speciesCollectionPills');
 
         listEl.innerHTML = '<div class="p-3 text-muted small">Loading…</div>';
+        if (pillsEl) pillsEl.innerHTML = '<div class="p-1 text-muted small" style="font-size:0.78rem;">Loading…</div>';
+
         const catalog = await loadCatalog();
 
         // Working copy of selection — only committed on Done
         const working = new Set(state.treeSpeciesSelection);
+
+        // -------------------------------------------------------------------
+        // Helpers that keep pills + count in sync with `working`
+        // -------------------------------------------------------------------
 
         const updateCount = () => {
             countEl.textContent = working.size
                 ? `${working.size} selected`
                 : 'None selected';
         };
+
+        const refreshPills = () => {
+            if (!pillsEl) return;
+            renderCollectionPills(pillsEl, getActiveCollectionIds(catalog, working));
+        };
+
         updateCount();
-
         renderList(listEl, catalog, searchEl.value || '', working);
+        refreshPills();
 
+        // -------------------------------------------------------------------
         // Search filter
-        const onSearch = () => {
+        // -------------------------------------------------------------------
+        searchEl.oninput = () => {
             renderList(listEl, catalog, searchEl.value || '', working);
         };
-        searchEl.oninput = onSearch;
 
-        // Row toggle (event delegation)
+        // -------------------------------------------------------------------
+        // Species row toggle (event delegation)
+        // -------------------------------------------------------------------
         listEl.onclick = (e) => {
             const label = e.target.closest('.species-row');
             if (!label) return;
             const key = label.dataset.key;
             if (!key) return;
 
-            // Let the native checkbox toggle, then sync
-            // (works whether user clicked the label or the checkbox itself)
             const cb = label.querySelector('input[type="checkbox"]');
-            if (e.target !== cb) {
-                // Manual toggle when clicking the label area
-                cb.checked = !cb.checked;
-            }
+            if (e.target !== cb) cb.checked = !cb.checked;
             if (cb.checked) working.add(key); else working.delete(key);
+
             updateCount();
+            refreshPills(); // active state may change as user tweaks individual rows
         };
 
+        // -------------------------------------------------------------------
+        // Collection pill toggle (event delegation)
+        //
+        // Toggle semantics:
+        //   Active  → remove all keys that aren't also in another active collection
+        //   Inactive → add all keys for this collection
+        //
+        // This means two active collections that share tree species (e.g.
+        // chanterelle + porcini both include spruce) will keep those shared
+        // species in the working set when one collection is deactivated.
+        // -------------------------------------------------------------------
+        if (pillsEl) {
+            pillsEl.onclick = (e) => {
+                const chip = e.target.closest('.collection-chip');
+                if (!chip) return;
+                const colId = chip.dataset.collectionId;
+                const col = MUSHROOM_COLLECTIONS.find(c => c.id === colId);
+                if (!col) return;
+
+                const keys = resolveCollection(col, catalog);
+                const activeIds = getActiveCollectionIds(catalog, working);
+
+                if (activeIds.has(colId)) {
+                    // Deactivate — but only remove keys not covered by other
+                    // currently-active collections
+                    const otherActiveKeys = new Set();
+                    for (const otherId of activeIds) {
+                        if (otherId === colId) continue;
+                        const otherCol = MUSHROOM_COLLECTIONS.find(c => c.id === otherId);
+                        if (otherCol) {
+                            for (const k of resolveCollection(otherCol, catalog)) {
+                                otherActiveKeys.add(k);
+                            }
+                        }
+                    }
+                    for (const k of keys) {
+                        if (!otherActiveKeys.has(k)) working.delete(k);
+                    }
+                } else {
+                    // Activate — add all keys for this collection
+                    for (const k of keys) working.add(k);
+                }
+
+                updateCount();
+                refreshPills();
+                renderList(listEl, catalog, searchEl.value || '', working);
+            };
+        }
+
+        // -------------------------------------------------------------------
         // Clear all
+        // -------------------------------------------------------------------
         document.getElementById('speciesPickerClear').onclick = () => {
             working.clear();
             renderList(listEl, catalog, searchEl.value || '', working);
+            refreshPills();
             updateCount();
         };
 
-        // Done — commit
+        // -------------------------------------------------------------------
+        // Done — commit working set to state and reload tiles
+        // -------------------------------------------------------------------
         document.getElementById('speciesPickerDone').onclick = () => {
             state.treeSpeciesSelection = working;
             saveTreeSpeciesSelection(working);
