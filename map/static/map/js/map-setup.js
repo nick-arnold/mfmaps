@@ -270,9 +270,9 @@ function addSourcesAndLayers() {
     // loaded at startup. This eliminates the display/data tile drift that
     // came from building the two artifacts with different pipelines.
     [
-        { id: 'tree-species',    region: 'conus' },
-        { id: 'tree-species-ak', region: 'ak' },
-        { id: 'tree-species-hi', region: 'hi' },
+        { id: 'tree-species',    region: 'conus', opacity: 0.40 },
+        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
+        { id: 'tree-species-hi', region: 'hi',   opacity: 0.40 },
     ].forEach(cfg => {
         map.addSource(cfg.id, {
             type: 'raster',
@@ -288,7 +288,7 @@ function addSourcesAndLayers() {
             minzoom: 4,
             maxzoom: 22,
             paint: {
-                'raster-opacity': 0.4,
+                'raster-opacity': cfg.opacity,
                 'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
