@@ -499,14 +499,28 @@
                  autocomplete="off">
         </div>
         <div class="d-flex justify-content-between align-items-center">
-          <span id="speciesPickerSelectedCount"
-                class="small text-muted">None selected</span>
+          <button type="button"
+                  class="btn btn-link btn-sm text-muted p-0 text-decoration-none d-flex align-items-center gap-1"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#speciesSelectedCollapse"
+                  aria-expanded="false"
+                  aria-controls="speciesSelectedCollapse">
+              <span id="speciesPickerCountText">None selected</span>
+              <i class="bi bi-chevron-down"
+                 id="speciesSelectedChevron"
+                 style="font-size:0.65rem;transition:transform 0.2s;"></i>
+          </button>
           <button type="button"
                   id="speciesPickerClear"
                   class="btn btn-link btn-sm text-muted p-0">
-            Clear all
+              Clear all
           </button>
-        </div>
+      </div>
+      <div class="collapse" id="speciesSelectedCollapse">
+          <div id="speciesSelectedListInner"
+               style="max-height:120px;overflow-y:auto;padding:2px 0 4px;">
+          </div>
+      </div>
       </div>
 
       <div class="modal-body p-0" style="overflow-y: auto;">

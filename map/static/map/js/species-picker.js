@@ -17,11 +17,6 @@ import {
 // =============================================================================
 // Mushroom → tree association collections
 // =============================================================================
-// Each collection defines name fragments matched case-insensitively against
-// catalog entry names. A catalog entry matches if its lowercased name includes
-// any fragment. Fragments are genus-level so they match across species
-// (e.g. 'spruce' matches 'Engelmann spruce', 'Sitka spruce', etc.)
-// =============================================================================
 
 const MUSHROOM_COLLECTIONS = [
     {
@@ -30,18 +25,16 @@ const MUSHROOM_COLLECTIONS = [
         icon: '🍄',
         description: 'Elm, ash, cottonwood, apple — and post-fire conifers: Douglas-fir, true firs, spruce, larch',
         match: [
-            // Eastern hardwood morels — dying/dead host trees
             'american elm', 'slippery elm',
             'white ash', 'green ash', 'black ash',
             'black cottonwood', 'eastern cottonwood',
             'quaking aspen', 'bigtooth aspen',
-            'apple',    // orchard and wild apple, reliable
-            // Post-fire conifer morels
+            'apple', 'crabapple',
             'douglas-fir', 'douglas fir',
             'subalpine fir', 'grand fir', 'white fir', 'red fir', 'pacific silver fir',
             'engelmann spruce', 'sitka spruce', 'white spruce',
             'western larch', 'subalpine larch',
-            'lodgepole pine',   // burns prolifically, good post-fire morel habitat
+            'lodgepole pine',
         ],
     },
     {
@@ -50,16 +43,13 @@ const MUSHROOM_COLLECTIONS = [
         icon: '🟡',
         description: 'Douglas-fir, Sitka/Engelmann spruce, western hemlock, tanoak, white/red/chestnut oak, American beech',
         match: [
-            // Western conifers
             'douglas-fir', 'douglas fir',
             'sitka spruce', 'engelmann spruce',
             'western hemlock',
             'tanoak', 'tan oak',
-            // Eastern hardwoods
             'white oak', 'red oak', 'black oak', 'scarlet oak', 'chestnut oak',
             'american beech',
             'eastern hemlock',
-            // West coast oaks
             'oregon white oak', 'california black oak',
         ],
     },
@@ -82,11 +72,9 @@ const MUSHROOM_COLLECTIONS = [
         icon: '🍂',
         description: 'Subalpine conifers — Engelmann spruce, subalpine fir, larch — plus beech and oak at lower elevations',
         match: [
-            // Subalpine conifers (B. rex-veris / king bolete core habitat)
             'engelmann spruce', 'sitka spruce', 'white spruce', 'red spruce',
             'subalpine fir', 'pacific silver fir',
             'western larch', 'subalpine larch',
-            // Lower elevation (B. edulis complex)
             'ponderosa pine', 'lodgepole pine',
             'douglas-fir', 'douglas fir',
             'american beech',
@@ -116,7 +104,7 @@ const MUSHROOM_COLLECTIONS = [
             'sitka spruce', 'engelmann spruce',
             'western hemlock',
             'douglas-fir', 'douglas fir',
-            'red alder',    // riparian PNW, common co-occurring
+            'red alder',
         ],
     },
     {
@@ -125,10 +113,8 @@ const MUSHROOM_COLLECTIONS = [
         icon: '🎺',
         description: 'Oak and beech in the East; Douglas-fir and tanoak in the West',
         match: [
-            // Eastern
             'white oak', 'red oak', 'black oak', 'chestnut oak',
             'american beech',
-            // Western
             'douglas-fir', 'douglas fir',
             'tanoak', 'tan oak',
         ],
@@ -165,7 +151,6 @@ const MUSHROOM_COLLECTIONS = [
         icon: '🌳',
         description: 'Old-growth oak at the base, almost exclusively. Occasional beech and maple.',
         match: [
-            // Oak is the overwhelming primary host
             'white oak', 'red oak', 'bur oak', 'chestnut oak',
             'black oak', 'scarlet oak',
             'american beech',
@@ -186,9 +171,7 @@ const MUSHROOM_COLLECTIONS = [
     },
 ];
 
-// -----------------------------------------------------------------------------
-// Resolve a collection to a Set of "region:code" keys using the loaded catalog.
-// -----------------------------------------------------------------------------
+// Resolve a collection to a Set of "region:code" keys from the loaded catalog.
 function resolveCollection(collection, catalog) {
     const keys = new Set();
     for (const row of catalog) {
@@ -196,15 +179,14 @@ function resolveCollection(collection, catalog) {
         for (const fragment of collection.match) {
             if (nameLower.includes(fragment)) {
                 keys.add(`${row.region}:${row.code}`);
-                break; // one fragment match per row is sufficient
+                break;
             }
         }
     }
     return keys;
 }
 
-// Return the Set of collection IDs whose resolved keys are fully contained
-// in the current working set (i.e. the collection is "active").
+// Return IDs of collections whose resolved keys are fully contained in working.
 function getActiveCollectionIds(catalog, working) {
     const active = new Set();
     for (const col of MUSHROOM_COLLECTIONS) {
@@ -359,10 +341,13 @@ export async function initSpeciesPicker() {
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
 
-        const listEl    = document.getElementById('speciesPickerList');
-        const searchEl  = document.getElementById('speciesPickerSearch');
-        const countEl   = document.getElementById('speciesPickerSelectedCount');
-        const pillsEl   = document.getElementById('speciesCollectionPills');
+        const listEl        = document.getElementById('speciesPickerList');
+        const searchEl      = document.getElementById('speciesPickerSearch');
+        const countTextEl   = document.getElementById('speciesPickerCountText');
+        const pillsEl       = document.getElementById('speciesCollectionPills');
+        const collapseEl    = document.getElementById('speciesSelectedCollapse');
+        const listInnerEl   = document.getElementById('speciesSelectedListInner');
+        const chevronEl     = document.getElementById('speciesSelectedChevron');
 
         listEl.innerHTML = '<div class="p-3 text-muted small">Loading…</div>';
         if (pillsEl) pillsEl.innerHTML = '<div class="p-1 text-muted small" style="font-size:0.78rem;">Loading…</div>';
@@ -373,13 +358,51 @@ export async function initSpeciesPicker() {
         const working = new Set(state.treeSpeciesSelection);
 
         // -------------------------------------------------------------------
-        // Helpers that keep pills + count in sync with `working`
+        // Chevron rotation on collapse show/hide
         // -------------------------------------------------------------------
+        if (collapseEl && chevronEl) {
+            collapseEl.addEventListener('show.bs.collapse', () => {
+                chevronEl.style.transform = 'rotate(180deg)';
+            });
+            collapseEl.addEventListener('hide.bs.collapse', () => {
+                chevronEl.style.transform = 'rotate(0deg)';
+            });
+        }
 
-        const updateCount = () => {
-            countEl.textContent = working.size
-                ? `${working.size} selected`
-                : 'None selected';
+        // -------------------------------------------------------------------
+        // refreshSelectedPanel — keeps count text + expandable list in sync
+        // -------------------------------------------------------------------
+        const refreshSelectedPanel = () => {
+            const count = working.size;
+
+            // Update the count toggle text
+            if (countTextEl) {
+                countTextEl.textContent = count ? `${count} selected` : 'None selected';
+            }
+
+            // If nothing selected, collapse the list and bail
+            if (!listInnerEl) return;
+            if (count === 0) {
+                listInnerEl.innerHTML = '';
+                if (collapseEl) {
+                    bootstrap.Collapse.getInstance(collapseEl)?.hide();
+                }
+                return;
+            }
+
+            // Populate the selected list (sorted alphabetically)
+            const selectedRows = catalog
+                .filter(r => working.has(`${r.region}:${r.code}`))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            listInnerEl.innerHTML = selectedRows.map(r => `
+                <div class="d-flex align-items-center gap-2 px-2 py-1" style="font-size:0.78rem;">
+                    <span style="display:inline-block;width:10px;height:10px;flex-shrink:0;
+                                 background:${escapeHtml(r.hex)};
+                                 border:1px solid rgba(0,0,0,0.15);border-radius:2px;"></span>
+                    <span class="text-secondary">${escapeHtml(r.name)}</span>
+                </div>
+            `).join('');
         };
 
         const refreshPills = () => {
@@ -387,7 +410,7 @@ export async function initSpeciesPicker() {
             renderCollectionPills(pillsEl, getActiveCollectionIds(catalog, working));
         };
 
-        updateCount();
+        refreshSelectedPanel();
         renderList(listEl, catalog, searchEl.value || '', working);
         refreshPills();
 
@@ -411,20 +434,12 @@ export async function initSpeciesPicker() {
             if (e.target !== cb) cb.checked = !cb.checked;
             if (cb.checked) working.add(key); else working.delete(key);
 
-            updateCount();
-            refreshPills(); // active state may change as user tweaks individual rows
+            refreshSelectedPanel();
+            refreshPills();
         };
 
         // -------------------------------------------------------------------
         // Collection pill toggle (event delegation)
-        //
-        // Toggle semantics:
-        //   Active  → remove all keys that aren't also in another active collection
-        //   Inactive → add all keys for this collection
-        //
-        // This means two active collections that share tree species (e.g.
-        // chanterelle + porcini both include spruce) will keep those shared
-        // species in the working set when one collection is deactivated.
         // -------------------------------------------------------------------
         if (pillsEl) {
             pillsEl.onclick = (e) => {
@@ -438,8 +453,7 @@ export async function initSpeciesPicker() {
                 const activeIds = getActiveCollectionIds(catalog, working);
 
                 if (activeIds.has(colId)) {
-                    // Deactivate — but only remove keys not covered by other
-                    // currently-active collections
+                    // Deactivate — remove keys not covered by other active collections
                     const otherActiveKeys = new Set();
                     for (const otherId of activeIds) {
                         if (otherId === colId) continue;
@@ -458,7 +472,7 @@ export async function initSpeciesPicker() {
                     for (const k of keys) working.add(k);
                 }
 
-                updateCount();
+                refreshSelectedPanel();
                 refreshPills();
                 renderList(listEl, catalog, searchEl.value || '', working);
             };
@@ -471,7 +485,7 @@ export async function initSpeciesPicker() {
             working.clear();
             renderList(listEl, catalog, searchEl.value || '', working);
             refreshPills();
-            updateCount();
+            refreshSelectedPanel();
         };
 
         // -------------------------------------------------------------------
