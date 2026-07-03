@@ -99,11 +99,14 @@ export function initMap() {
     state.map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
 
     return new Promise((resolve) => {
-        state.map.on('load', () => {
+        state.map.on('load', async () => {
             addSourcesAndLayers();
             wireHydroInteractions();
             wireTreeSpeciesHover();
             wireUrlSync();
+            // Preload region legends so the speciesfilter:// protocol can render
+            // tiles without a per-tile legend fetch race.
+            await preloadTreeSpeciesLegends();
             resolve();
         });
     });
@@ -261,15 +264,11 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Tree species (dual-layer: display + data) ---------------------
-    // The display raster is fetched through the speciesfilter:// protocol
-    // rather than pmtiles:// directly. When state.treeSpeciesSelection is
-    // empty, the protocol passes the display tile through unchanged. When
-    // non-empty, it composites the display tile with the parallel data tile
-    // and sets alpha=0 for any pixel whose FORTYPCD/EVT is not selected.
-    //
-    // Three separate sources — one per region — so each region's selection
-    // can be filtered against its own data tile.
+    // --- Tree species (single-source, rendered from data tile) ----------
+    // Only the data PMTiles is used — the speciesfilter:// protocol reads
+    // FORTYPCD/EVT codes from each pixel and colors them via the legend
+    // loaded at startup. This eliminates the display/data tile drift that
+    // came from building the two artifacts with different pipelines.
     [
         { id: 'tree-species',    region: 'conus' },
         { id: 'tree-species-ak', region: 'ak' },
@@ -289,7 +288,7 @@ function addSourcesAndLayers() {
             minzoom: 4,
             maxzoom: 22,
             paint: {
-                'raster-opacity': 0.35,
+                'raster-opacity': 0.7,
                 'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
@@ -1675,6 +1674,28 @@ function wireTreeSpeciesHover() {
 // -----------------------------------------------------------------------------
 // Exports for species picker + speciesfilter:// protocol
 // -----------------------------------------------------------------------------
+
+// Load all region legends into state.treeSpeciesLegends up front. Called
+// during map init so the speciesfilter:// protocol never has to await a
+// legend fetch on a hot path.
+async function preloadTreeSpeciesLegends() {
+    await Promise.all(TREE_SPECIES_REGIONS.map(async (region) => {
+        try {
+            const resp = await fetch(region.legendUrl);
+            const raw = await resp.json();
+            const src = raw.by_fortypcd || raw.by_evt_code || raw;
+            const m = new Map();
+            for (const [code, info] of Object.entries(src)) {
+                if (!info || !info.hex) continue;
+                m.set(parseInt(code, 10), info);
+            }
+            state.treeSpeciesLegends[region.name] = m;
+        } catch (err) {
+            console.warn(`Legend preload failed for ${region.name}:`, err);
+            state.treeSpeciesLegends[region.name] = new Map();
+        }
+    }));
+}
 
 export function getTreeSpeciesRegions() {
     return TREE_SPECIES_REGIONS;
