@@ -288,7 +288,7 @@ function addSourcesAndLayers() {
             minzoom: 4,
             maxzoom: 22,
             paint: {
-                'raster-opacity': 0.7,
+                'raster-opacity': 0.4,
                 'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
