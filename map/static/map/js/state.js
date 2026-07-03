@@ -10,6 +10,10 @@ export const state = {
     crosshairMode: false,
     openPopup: null,
 
+    // Tree species legends, loaded once at startup, keyed by region name.
+    // Each value is a Map from code (as number) to { name, hex, rgb }.
+    treeSpeciesLegends: {},
+    
     // Tree species picker: Set of "region:code" strings (e.g. "conus:201")
     // Empty set = no filter, show all species with their default colors
     treeSpeciesSelection: new Set(),
