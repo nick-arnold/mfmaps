@@ -120,6 +120,18 @@ export async function initSpeciesPicker() {
         const modalEl = document.getElementById('speciesPickerModal');
         if (!modalEl) return;
 
+        // On mobile, the picker button lives inside the layers offcanvas. If
+        // that's open, hide it first — a modal-inside-offcanvas positions
+        // wrong on iOS Safari and the backdrops fight each other.
+        const layersSheet = document.getElementById('layersSheet');
+        const offcanvas = layersSheet ? bootstrap.Offcanvas.getInstance(layersSheet) : null;
+        if (offcanvas && layersSheet.classList.contains('show')) {
+            offcanvas.hide();
+            await new Promise(resolve => {
+                layersSheet.addEventListener('hidden.bs.offcanvas', resolve, { once: true });
+            });
+        }
+
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
 
