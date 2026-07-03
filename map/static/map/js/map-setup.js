@@ -1616,26 +1616,32 @@ async function lookupTreeSpeciesAt(lngLat) {
     if (!region) return null;
 
     const s = await loadRegionLegend(region);
+    if (!s.dataPmtiles) return null;
+
     const z = Math.min(region.maxZoom, Math.floor(state.map.getZoom()));
     const { x, y, px, py } = lngLatToTilePixel(lngLat.lng, lngLat.lat, z);
 
-    const displayImg = await fetchAndCacheTile(s.pmtiles, s.displayTileCache, z, x, y);
-    if (!displayImg) return null;
+    const dataImg = await fetchAndCacheTile(s.dataPmtiles, s.dataTileCache, z, x, y);
+    if (!dataImg) return null;
 
     const idx = (py * 256 + px) * 4;
-    const a = displayImg.data[idx + 3];
-    if (a === 0) return null;
+    const code = (dataImg.data[idx] << 8) | dataImg.data[idx + 1];
+    if (code === 0) return null;
 
-    if (region.lookupType === 'data-tile') {
-        if (!s.dataPmtiles || !s.lookupByFortypcd) return null;
-        const dataImg = await fetchAndCacheTile(s.dataPmtiles, s.dataTileCache, z, x, y);
-        if (!dataImg) return null;
-        const fortypcd = (dataImg.data[idx] << 8) | dataImg.data[idx + 1];
-        if (fortypcd === 0) return null;
-        return s.lookupByFortypcd.get(String(fortypcd)) || null;
+    // Respect the active filter — if there's a selection and this code isn't
+    // in it, the pixel is transparent on screen, so don't report a species.
+    if (state.treeSpeciesSelection && state.treeSpeciesSelection.size > 0) {
+        const key = `${region.name}:${code}`;
+        if (!state.treeSpeciesSelection.has(key)) return null;
     }
-    // alpha-index
-    return s.lookupByAlpha ? (s.lookupByAlpha.get(a) || null) : null;
+
+    // Look up in the preloaded legend (state) or fall back to the region state map
+    const preloaded = state.treeSpeciesLegends?.[region.name];
+    if (preloaded) {
+        const info = preloaded.get(code);
+        if (info) return info;
+    }
+    return s.lookupByFortypcd ? (s.lookupByFortypcd.get(String(code)) || null) : null;
 }
 
 function wireTreeSpeciesHover() {
