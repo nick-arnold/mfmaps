@@ -32,7 +32,7 @@ export async function fetchAuthState() {
 }
 
 function renderAccountMenus() {
-    const html = state.currentUser
+    const authItems = state.currentUser
         ? `
             <li class="dropdown-header small text-muted">Signed in as</li>
             <li class="dropdown-item-text small fw-bold text-truncate" style="max-width:240px">${state.currentUser.email}</li>
@@ -44,6 +44,17 @@ function renderAccountMenus() {
             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#signupModal"><i class="bi bi-person-plus me-2"></i>Create account</a></li>
           `;
 
+    const utilityItems = `
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <button class="dropdown-item refresh-app-btn" type="button">
+                <i class="bi bi-arrow-clockwise me-2"></i>Refresh app
+            </button>
+        </li>
+    `;
+
+    const html = authItems + utilityItems;
+
     document.querySelectorAll('#accountMenu, #accountMenuMobile').forEach(el => {
         el.innerHTML = html;
     });
@@ -54,6 +65,27 @@ function renderAccountMenus() {
             await logout();
         });
     });
+
+    // Wire the refresh button (rebound each render since innerHTML wipes handlers)
+    document.querySelectorAll('.refresh-app-btn').forEach(btn => {
+        btn.addEventListener('click', forceRefresh);
+    });
+}
+
+async function forceRefresh() {
+    try {
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+    } catch (err) {
+        console.warn('Cache/SW clear failed:', err);
+    }
+    window.location.reload();
 }
 
 // --- Auth actions ---------------------------------------------------------

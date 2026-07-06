@@ -23,6 +23,30 @@ import {
 } from './observations.js';
 import { loadReports } from './reports.js';
 
+async function forceRefresh() {
+    try {
+        // Kill any cache API entries
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        // Unregister any service workers
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+    } catch (err) {
+        console.warn('Cache/SW clear failed:', err);
+    }
+    window.location.reload();
+}
+
+function wireRefreshButtons() {
+    document.querySelectorAll('.refresh-app-btn').forEach(btn => {
+        btn.addEventListener('click', forceRefresh);
+    });
+}
+
 async function main() {
     // Restore any previously-selected species from localStorage
     state.treeSpeciesSelection = loadTreeSpeciesSelection();
@@ -48,6 +72,7 @@ async function main() {
     // 3. Auth forms and account menus
     initAuth();
     initObservationForms();
+    wireRefreshButtons();
 
     // 4. When the user logs in or out, reload the observations layer
     setAuthChangeHandler(() => {
