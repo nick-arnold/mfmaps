@@ -354,7 +354,7 @@ map.addLayer({
     minzoom: 3,
     maxzoom: 22,
     paint: {
-        'line-color': '#ff6b35',  // warmer orange for glow
+        'line-color': '#c8422e',  // warmer orange for glow
         'line-width': ['interpolate', ['linear'], ['zoom'],
             3, 3,
             6, 5,
