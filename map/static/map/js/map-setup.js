@@ -2123,21 +2123,28 @@ export function initBurnSeverityControls() {
         .map(y => `<option value="${y}" ${y === savedYear ? 'selected' : ''}>${y}</option>`)
         .join('');
 
-    selects.forEach(sel => {
-        sel.innerHTML = options;
-        sel.addEventListener('change', (e) => {
-            const year = parseInt(e.target.value, 10);
-            selects.forEach(other => { if (other !== e.target) other.value = String(year); });
-
-            // Apply immediately if the group is on; otherwise just persist
-            if (isLayerGroupVisible('burn-severity')) {
-                setBurnSeverityYear(year);
-            } else {
-                state.burnSeverityYear = year;
-                saveBurnSeverityYear(year);
-            }
+        selects.forEach(sel => {
+            sel.innerHTML = options;
+            sel.addEventListener('change', (e) => {
+                const year = parseInt(e.target.value, 10);
+                selects.forEach(other => { if (other !== e.target) other.value = String(year); });
+        
+                // Check if ANY burn severity layer is currently visible.
+                // Can't use isLayerGroupVisible here because that checks only the
+                // first layer in the group, and only one year is on at a time.
+                const anyVisible = LAYER_IDS['burn-severity'].some(id => {
+                    return state.map.getLayer(id) &&
+                           state.map.getLayoutProperty(id, 'visibility') === 'visible';
+                });
+        
+                if (anyVisible) {
+                    setBurnSeverityYear(year);
+                } else {
+                    state.burnSeverityYear = year;
+                    saveBurnSeverityYear(year);
+                }
+            });
         });
-    });
 
     state.burnSeverityYear = savedYear;
 
