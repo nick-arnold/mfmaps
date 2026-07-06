@@ -345,25 +345,48 @@ function addSourcesAndLayers() {
         type: 'vector',
         url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_perimeters.pmtiles`,
     });
-    map.addLayer({
-        id: 'burn-severity-perimeters-line',
-        type: 'line',
-        source: 'burn-severity-perimeters',
-        'source-layer': 'perimeters',
-        minzoom: 3,
-        maxzoom: 22,
-        paint: {
-            'line-color': '#c8422e',
-            'line-width': ['interpolate', ['linear'], ['zoom'],
-                3, 0.4,
-                6, 0.7,
-                10, 1.2,
-                14, 1.8,
-            ],
-            'line-opacity': 0.85,
-        },
-        layout: { visibility: 'none' }
-    }, BASEMAP_LINE_ANCHOR);
+    // Outer halo — soft, blurred, low opacity
+map.addLayer({
+    id: 'burn-severity-perimeters-halo',
+    type: 'line',
+    source: 'burn-severity-perimeters',
+    'source-layer': 'perimeters',
+    minzoom: 3,
+    maxzoom: 22,
+    paint: {
+        'line-color': '#ff6b35',  // warmer orange for glow
+        'line-width': ['interpolate', ['linear'], ['zoom'],
+            3, 3,
+            6, 5,
+            10, 8,
+            14, 12,
+        ],
+        'line-opacity': 0.4,
+        'line-blur': 4,
+    },
+    layout: { visibility: 'none' }
+}, BASEMAP_LINE_ANCHOR);
+
+// Crisp inner stroke — the actual perimeter
+map.addLayer({
+    id: 'burn-severity-perimeters-line',
+    type: 'line',
+    source: 'burn-severity-perimeters',
+    'source-layer': 'perimeters',
+    minzoom: 3,
+    maxzoom: 22,
+    paint: {
+        'line-color': '#c8422e',
+        'line-width': ['interpolate', ['linear'], ['zoom'],
+            3, 1.0,
+            6, 1.6,
+            10, 2.4,
+            14, 3.2,
+        ],
+        'line-opacity': 0.95,
+    },
+    layout: { visibility: 'none' }
+}, BASEMAP_LINE_ANCHOR);
 
     // --- Contours (per-region, per-zoom tiers) ------------------------
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
