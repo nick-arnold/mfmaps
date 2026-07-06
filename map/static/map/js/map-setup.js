@@ -2,7 +2,19 @@
 // Map initialization, sources/layers, geolocation, query mode, mode tabs
 // =============================================================================
 
-import { state, LAYER_IDS, H3_RES, BURN_SEVERITY_REGIONS, BURN_SEVERITY_ALL_YEARS, loadBurnSeverityYear, saveBurnSeverityYear, loadBurnSeverityPerimeterVisible, saveBurnSeverityPerimeterVisible } from './state.js';
+import {
+    state,
+    LAYER_IDS,
+    H3_RES,
+    BURN_SEVERITY_REGIONS,
+    BURN_SEVERITY_ALL_YEARS,
+    loadBurnSeverityYear,
+    saveBurnSeverityYear,
+    loadBurnSeverityPerimeterVisible,
+    saveBurnSeverityPerimeterVisible,
+    loadBurnSeverityPerimeterMatchYear,
+    saveBurnSeverityPerimeterMatchYear,
+} from './state.js';
 import { escapeHtml } from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
 
@@ -105,12 +117,12 @@ export function initMap() {
             wireTreeSpeciesHover();
             wireUrlSync();
             await preloadTreeSpeciesLegends();
-    
+
             // Force a repaint once sources settle to unblock hillshade rendering
             state.map.once('idle', () => {
                 state.map.triggerRepaint();
             });
-    
+
             resolve();
         });
     });
@@ -320,7 +332,7 @@ function addSourcesAndLayers() {
                 minzoom: 3,
                 maxzoom: 22,
                 paint: {
-                    'raster-opacity': 0.75,
+                    'raster-opacity': 0.4,
                     'raster-resampling': 'nearest',
                 },
                 layout: { visibility: 'none' }
@@ -1526,8 +1538,8 @@ function getRegionState(region) {
     const s = {
         pmtiles: new pmtiles.PMTiles(region.pmtilesUrl),
         dataPmtiles: region.dataPmtilesUrl ? new pmtiles.PMTiles(region.dataPmtilesUrl) : null,
-        lookupByFortypcd: null,   // CONUS: { code: { name, hex, rgb } }
-        lookupByAlpha: null,      // AK/HI alpha-index path (legacy)
+        lookupByFortypcd: null,
+        lookupByAlpha: null,
         legendLoaded: false,
         displayTileCache: new Map(),
         dataTileCache: new Map(),
@@ -1543,15 +1555,12 @@ async function loadRegionLegend(region) {
         const resp = await fetch(region.legendUrl);
         const raw = await resp.json();
         if (region.lookupType === 'data-tile') {
-            // Dual-layer format. CONUS: { by_fortypcd: {...} }. AK/HI: { by_evt_code: {...} }
             s.lookupByFortypcd = new Map();
             const src = raw.by_fortypcd || raw.by_evt_code || raw;
             for (const [code, info] of Object.entries(src)) {
                 s.lookupByFortypcd.set(code, info);
             }
         } else {
-            // AK/HI alpha-index: { by_evt_code: {... alpha ...}, by_alpha: {...} }
-            // OR legacy flat { "code": { name, rgb, hex } } — both supported
             s.lookupByAlpha = new Map();
             if (raw.by_alpha) {
                 for (const [alphaStr, info] of Object.entries(raw.by_alpha)) {
@@ -1686,14 +1695,11 @@ async function lookupTreeSpeciesAt(lngLat) {
     const code = (dataImg.data[idx] << 8) | dataImg.data[idx + 1];
     if (code === 0) return null;
 
-    // Respect the active filter — if there's a selection and this code isn't
-    // in it, the pixel is transparent on screen, so don't report a species.
     if (state.treeSpeciesSelection && state.treeSpeciesSelection.size > 0) {
         const key = `${region.name}:${code}`;
         if (!state.treeSpeciesSelection.has(key)) return null;
     }
 
-    // Look up in the preloaded legend (state) or fall back to the region state map
     const preloaded = state.treeSpeciesLegends?.[region.name];
     if (preloaded) {
         const info = preloaded.get(code);
@@ -1739,9 +1745,6 @@ function wireTreeSpeciesHover() {
 // Exports for species picker + speciesfilter:// protocol
 // -----------------------------------------------------------------------------
 
-// Load all region legends into state.treeSpeciesLegends up front. Called
-// during map init so the speciesfilter:// protocol never has to await a
-// legend fetch on a hot path.
 async function preloadTreeSpeciesLegends() {
     await Promise.all(TREE_SPECIES_REGIONS.map(async (region) => {
         try {
@@ -1769,17 +1772,11 @@ export function getRegionByName(name) {
     return TREE_SPECIES_REGIONS.find(r => r.name === name) || null;
 }
 
-// Returns { display, data } PMTiles instances for a region, reusing the same
-// instances the hover lookup uses so tile fetches share the pmtiles directory
-// cache. Both are lazy-created inside getRegionState().
 export function getRegionPmtilesForFilter(region) {
     const s = getRegionState(region);
     return { display: s.pmtiles, data: s.dataPmtiles };
 }
 
-// Force MapLibre to re-request all tree-species tiles. Called when the user
-// changes their species selection so the speciesfilter:// protocol re-runs
-// with the new selection set.
 export function reloadSpeciesFilterSources() {
     const map = state.map;
     if (!map) return;
@@ -2082,6 +2079,7 @@ export function setBurnSeverityYear(year) {
     state.burnSeverityYear = year;
     saveBurnSeverityYear(year);
 
+    // Toggle raster visibility per year
     Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
         years.forEach(y => {
             const layerId = `burn-severity-${region}-${y}-layer`;
@@ -2090,6 +2088,9 @@ export function setBurnSeverityYear(year) {
             map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
         });
     });
+
+    // Perimeter filter follows the year only if the user hasn't opted out
+    applyPerimeterFilter();
 }
 
 export function hideBurnSeverityRasters() {
@@ -2116,6 +2117,31 @@ export function setBurnSeverityPerimeterVisible(visible) {
     }
 }
 
+// Filter perimeter layer to match year (if match-year is on) or show all.
+// ig_date is stored as an ISO-ish string starting with "YYYY-...".
+function applyPerimeterFilter() {
+    const map = state.map;
+    if (!map || !map.getLayer('burn-severity-perimeters-line')) return;
+
+    if (state.burnSeverityPerimeterMatchYear && state.burnSeverityYear != null) {
+        const yearPrefix = String(state.burnSeverityYear);
+        map.setFilter('burn-severity-perimeters-line', [
+            '==',
+            ['slice', ['get', 'ig_date'], 0, 4],
+            yearPrefix,
+        ]);
+    } else {
+        // Show all perimeters — no filter
+        map.setFilter('burn-severity-perimeters-line', null);
+    }
+}
+
+export function setBurnSeverityPerimeterMatchYear(match) {
+    state.burnSeverityPerimeterMatchYear = match;
+    saveBurnSeverityPerimeterMatchYear(match);
+    applyPerimeterFilter();
+}
+
 export function initBurnSeverityControls() {
     const selects = document.querySelectorAll('.burn-severity-year-select');
     const savedYear = loadBurnSeverityYear() ?? BURN_SEVERITY_ALL_YEARS[0];
@@ -2123,31 +2149,35 @@ export function initBurnSeverityControls() {
         .map(y => `<option value="${y}" ${y === savedYear ? 'selected' : ''}>${y}</option>`)
         .join('');
 
-        selects.forEach(sel => {
-            sel.innerHTML = options;
-            sel.addEventListener('change', (e) => {
-                const year = parseInt(e.target.value, 10);
-                selects.forEach(other => { if (other !== e.target) other.value = String(year); });
-        
-                // Check if ANY burn severity layer is currently visible.
-                // Can't use isLayerGroupVisible here because that checks only the
-                // first layer in the group, and only one year is on at a time.
-                const anyVisible = LAYER_IDS['burn-severity'].some(id => {
-                    return state.map.getLayer(id) &&
-                           state.map.getLayoutProperty(id, 'visibility') === 'visible';
-                });
-        
-                if (anyVisible) {
-                    setBurnSeverityYear(year);
-                } else {
-                    state.burnSeverityYear = year;
-                    saveBurnSeverityYear(year);
-                }
+    selects.forEach(sel => {
+        sel.innerHTML = options;
+        sel.addEventListener('change', (e) => {
+            const year = parseInt(e.target.value, 10);
+            selects.forEach(other => { if (other !== e.target) other.value = String(year); });
+
+            // Check if ANY burn severity layer is currently visible.
+            // Can't use isLayerGroupVisible here because that checks only the
+            // first layer in the group, and only one year is on at a time.
+            const anyVisible = LAYER_IDS['burn-severity'].some(id => {
+                return state.map.getLayer(id) &&
+                       state.map.getLayoutProperty(id, 'visibility') === 'visible';
             });
+
+            if (anyVisible) {
+                setBurnSeverityYear(year);
+            } else {
+                state.burnSeverityYear = year;
+                saveBurnSeverityYear(year);
+                // Even if rasters are off, if the perimeter is on and
+                // match-year is on, we still want the perimeter to update.
+                applyPerimeterFilter();
+            }
         });
+    });
 
     state.burnSeverityYear = savedYear;
 
+    // Perimeter visibility toggle
     const perimVisible = loadBurnSeverityPerimeterVisible();
     const perimToggles = document.querySelectorAll('.burn-severity-perimeter-toggle');
     perimToggles.forEach(cb => {
@@ -2161,4 +2191,19 @@ export function initBurnSeverityControls() {
     if (perimVisible) {
         setBurnSeverityPerimeterVisible(true);
     }
+
+    // Match-year toggle for perimeter
+    state.burnSeverityPerimeterMatchYear = loadBurnSeverityPerimeterMatchYear();
+    const matchToggles = document.querySelectorAll('.burn-severity-perimeter-match-toggle');
+    matchToggles.forEach(cb => {
+        cb.checked = state.burnSeverityPerimeterMatchYear;
+        cb.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            matchToggles.forEach(other => { if (other !== e.target) other.checked = on; });
+            setBurnSeverityPerimeterMatchYear(on);
+        });
+    });
+
+    // Apply the initial filter based on loaded state
+    applyPerimeterFilter();
 }

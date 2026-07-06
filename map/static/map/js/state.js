@@ -22,6 +22,10 @@ export const state = {
     burnSeverityYear: null,
     // Burn severity perimeter toggle (independent of raster year)
     burnSeverityPerimeterVisible: false,
+    // When true, the perimeter layer is filtered to just fires ignited in
+    // the currently selected burnSeverityYear. When false, all perimeters
+    // (1984–present) are shown at once.
+    burnSeverityPerimeterMatchYear: true,
 };
 
 // localStorage helpers for species selection persistence
@@ -49,6 +53,7 @@ export function saveTreeSpeciesSelection(selection) {
 // Burn severity year persistence
 const BURN_SEVERITY_YEAR_KEY = 'mfmaps-burn-severity-year';
 const BURN_SEVERITY_PERIM_KEY = 'mfmaps-burn-severity-perimeter';
+const BURN_SEVERITY_PERIM_MATCH_KEY = 'mfmaps-burn-severity-perimeter-match';
 
 export function loadBurnSeverityYear() {
     try {
@@ -84,6 +89,24 @@ export function loadBurnSeverityPerimeterVisible() {
 export function saveBurnSeverityPerimeterVisible(visible) {
     try {
         localStorage.setItem(BURN_SEVERITY_PERIM_KEY, visible ? '1' : '0');
+    } catch {
+        // Ignore
+    }
+}
+
+export function loadBurnSeverityPerimeterMatchYear() {
+    try {
+        const v = localStorage.getItem(BURN_SEVERITY_PERIM_MATCH_KEY);
+        // Default to true when never set — matching-year is the sensible default
+        return v === null ? true : v === '1';
+    } catch {
+        return true;
+    }
+}
+
+export function saveBurnSeverityPerimeterMatchYear(match) {
+    try {
+        localStorage.setItem(BURN_SEVERITY_PERIM_MATCH_KEY, match ? '1' : '0');
     } catch {
         // Ignore
     }
