@@ -2,7 +2,7 @@
 // Map initialization, sources/layers, geolocation, query mode, mode tabs
 // =============================================================================
 
-import { state, LAYER_IDS, H3_RES } from './state.js';
+import { state, LAYER_IDS, H3_RES, BURN_SEVERITY_REGIONS, BURN_SEVERITY_ALL_YEARS, loadBurnSeverityYear, saveBurnSeverityYear, loadBurnSeverityPerimeterVisible, saveBurnSeverityPerimeterVisible } from './state.js';
 import { escapeHtml } from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
 
@@ -294,6 +294,60 @@ function addSourcesAndLayers() {
             layout: { visibility: 'none' }
         }, BASEMAP_LINE_ANCHOR);
     });
+
+    // --- Burn severity (MTBS annual mosaics, per-region per-year) --------
+    const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/burn-severity';
+
+    Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
+        years.forEach(year => {
+            const srcId = `burn-severity-${region}-${year}`;
+            const layerId = `${srcId}-layer`;
+            map.addSource(srcId, {
+                type: 'raster',
+                url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_${region}_${year}.pmtiles`,
+                tileSize: 256,
+                minzoom: 3,
+                maxzoom: 12,
+            });
+            map.addLayer({
+                id: layerId,
+                type: 'raster',
+                source: srcId,
+                minzoom: 3,
+                maxzoom: 22,
+                paint: {
+                    'raster-opacity': 0.75,
+                    'raster-resampling': 'nearest',
+                },
+                layout: { visibility: 'none' }
+            }, BASEMAP_LINE_ANCHOR);
+        });
+    });
+
+    // --- Burn severity fire perimeters (national vector) ----------------
+    map.addSource('burn-severity-perimeters', {
+        type: 'vector',
+        url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_perimeters.pmtiles`,
+    });
+    map.addLayer({
+        id: 'burn-severity-perimeters-line',
+        type: 'line',
+        source: 'burn-severity-perimeters',
+        'source-layer': 'perimeters',
+        minzoom: 3,
+        maxzoom: 22,
+        paint: {
+            'line-color': '#c8422e',
+            'line-width': ['interpolate', ['linear'], ['zoom'],
+                3, 0.4,
+                6, 0.7,
+                10, 1.2,
+                14, 1.8,
+            ],
+            'line-opacity': 0.85,
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
 
     // --- Contours (per-region, per-zoom tiers) ------------------------
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
@@ -1838,6 +1892,17 @@ function renderPanelInto(template, container, contextSuffix) {
 }
 
 export function setLayerGroupVisibility(group, visible) {
+    // Burn severity: only ONE year visible at a time
+    if (group === 'burn-severity') {
+        if (visible) {
+            const year = state.burnSeverityYear ?? BURN_SEVERITY_ALL_YEARS[0];
+            setBurnSeverityYear(year);
+        } else {
+            hideBurnSeverityRasters();
+        }
+        return;
+    }
+
     (LAYER_IDS[group] || []).forEach(id => {
         if (state.map.getLayer(id)) {
             state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
@@ -1998,4 +2063,91 @@ export function initModeTabs(onSavedActivate, onReportsActivate) {
     document.querySelectorAll('.app-tab, .dock-tab').forEach(tab => {
         tab.addEventListener('click', () => setMode(tab.dataset.mode, onSavedActivate, onReportsActivate));
     });
+}
+
+// -----------------------------------------------------------------------------
+// Burn severity year picker + perimeter toggle
+// -----------------------------------------------------------------------------
+
+// Show a single year across all regions where data exists.
+// Turns off all other burn severity raster layers.
+export function setBurnSeverityYear(year) {
+    const map = state.map;
+    if (!map) return;
+
+    state.burnSeverityYear = year;
+    saveBurnSeverityYear(year);
+
+    Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
+        years.forEach(y => {
+            const layerId = `burn-severity-${region}-${y}-layer`;
+            if (!map.getLayer(layerId)) return;
+            const visible = (y === year);
+            map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+        });
+    });
+}
+
+export function hideBurnSeverityRasters() {
+    const map = state.map;
+    if (!map) return;
+    Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
+        years.forEach(y => {
+            const layerId = `burn-severity-${region}-${y}-layer`;
+            if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', 'none');
+            }
+        });
+    });
+}
+
+export function setBurnSeverityPerimeterVisible(visible) {
+    const map = state.map;
+    if (!map) return;
+    state.burnSeverityPerimeterVisible = visible;
+    saveBurnSeverityPerimeterVisible(visible);
+    if (map.getLayer('burn-severity-perimeters-line')) {
+        map.setLayoutProperty('burn-severity-perimeters-line',
+            'visibility', visible ? 'visible' : 'none');
+    }
+}
+
+export function initBurnSeverityControls() {
+    const selects = document.querySelectorAll('.burn-severity-year-select');
+    const savedYear = loadBurnSeverityYear() ?? BURN_SEVERITY_ALL_YEARS[0];
+    const options = BURN_SEVERITY_ALL_YEARS
+        .map(y => `<option value="${y}" ${y === savedYear ? 'selected' : ''}>${y}</option>`)
+        .join('');
+
+    selects.forEach(sel => {
+        sel.innerHTML = options;
+        sel.addEventListener('change', (e) => {
+            const year = parseInt(e.target.value, 10);
+            selects.forEach(other => { if (other !== e.target) other.value = String(year); });
+
+            // Apply immediately if the group is on; otherwise just persist
+            if (isLayerGroupVisible('burn-severity')) {
+                setBurnSeverityYear(year);
+            } else {
+                state.burnSeverityYear = year;
+                saveBurnSeverityYear(year);
+            }
+        });
+    });
+
+    state.burnSeverityYear = savedYear;
+
+    const perimVisible = loadBurnSeverityPerimeterVisible();
+    const perimToggles = document.querySelectorAll('.burn-severity-perimeter-toggle');
+    perimToggles.forEach(cb => {
+        cb.checked = perimVisible;
+        cb.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            perimToggles.forEach(other => { if (other !== e.target) other.checked = on; });
+            setBurnSeverityPerimeterVisible(on);
+        });
+    });
+    if (perimVisible) {
+        setBurnSeverityPerimeterVisible(true);
+    }
 }

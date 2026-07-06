@@ -13,6 +13,7 @@ import {
     initGeolocate,
     initModeTabs,
     initCrosshair,
+    initBurnSeverityControls,
 } from './map-setup.js';
 import {
     wireMapClicks,
@@ -36,6 +37,7 @@ async function main() {
     // 2. Wire UI that depends on the map being ready
     initLayerPanels();
     initSpeciesPicker();
+    initBurnSeverityControls();
     initQueryMode();
     initGeolocate();
     initCrosshair();

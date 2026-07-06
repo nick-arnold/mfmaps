@@ -13,10 +13,15 @@ export const state = {
     // Tree species legends, loaded once at startup, keyed by region name.
     // Each value is a Map from code (as number) to { name, hex, rgb }.
     treeSpeciesLegends: {},
-    
+
     // Tree species picker: Set of "region:code" strings (e.g. "conus:201")
     // Empty set = no filter, show all species with their default colors
     treeSpeciesSelection: new Set(),
+
+    // Burn severity: currently displayed year (single-select). null = none.
+    burnSeverityYear: null,
+    // Burn severity perimeter toggle (independent of raster year)
+    burnSeverityPerimeterVisible: false,
 };
 
 // localStorage helpers for species selection persistence
@@ -40,6 +45,77 @@ export function saveTreeSpeciesSelection(selection) {
         // Ignore quota errors
     }
 }
+
+// Burn severity year persistence
+const BURN_SEVERITY_YEAR_KEY = 'mfmaps-burn-severity-year';
+const BURN_SEVERITY_PERIM_KEY = 'mfmaps-burn-severity-perimeter';
+
+export function loadBurnSeverityYear() {
+    try {
+        const raw = localStorage.getItem(BURN_SEVERITY_YEAR_KEY);
+        if (!raw) return null;
+        const n = parseInt(raw, 10);
+        return isFinite(n) ? n : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveBurnSeverityYear(year) {
+    try {
+        if (year == null) {
+            localStorage.removeItem(BURN_SEVERITY_YEAR_KEY);
+        } else {
+            localStorage.setItem(BURN_SEVERITY_YEAR_KEY, String(year));
+        }
+    } catch {
+        // Ignore
+    }
+}
+
+export function loadBurnSeverityPerimeterVisible() {
+    try {
+        return localStorage.getItem(BURN_SEVERITY_PERIM_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+export function saveBurnSeverityPerimeterVisible(visible) {
+    try {
+        localStorage.setItem(BURN_SEVERITY_PERIM_KEY, visible ? '1' : '0');
+    } catch {
+        // Ignore
+    }
+}
+
+// All burn severity display layer IDs — generated to match sources.
+// Kept flat here so LAYER_IDS['burn-severity'] can toggle the whole group
+// (used by setLayerGroupVisibility when the main group is turned off).
+const BURN_SEVERITY_YEARS = {
+    conus: [2020, 2021, 2022, 2023, 2024, 2025, 2026],
+    ak:    [2020, 2021, 2022, 2023, 2024],
+    hi:    [2021, 2022, 2023, 2024],
+};
+
+function buildBurnSeverityLayerIds() {
+    const ids = [];
+    for (const [region, years] of Object.entries(BURN_SEVERITY_YEARS)) {
+        for (const y of years) {
+            ids.push(`burn-severity-${region}-${y}-layer`);
+        }
+    }
+    return ids;
+}
+
+export const BURN_SEVERITY_REGIONS = BURN_SEVERITY_YEARS;
+
+// All unique years across regions, sorted descending (most recent first)
+export const BURN_SEVERITY_ALL_YEARS = (() => {
+    const s = new Set();
+    Object.values(BURN_SEVERITY_YEARS).forEach(arr => arr.forEach(y => s.add(y)));
+    return [...s].sort((a, b) => b - a);
+})();
 
 export const LAYER_IDS = {
     observations: ['observations-layer'],
@@ -86,8 +162,6 @@ export const LAYER_IDS = {
         'nhd-streams-label-medium',
         'nhd-streams-label-small',
         'nhd-waterbodies-label',
-        // Selected/hover overlays are intentionally excluded —
-        // they're driven by interaction, not the visibility toggle
     ],
     slope: [
         'slope-conus-layer',
@@ -104,6 +178,12 @@ export const LAYER_IDS = {
         'tree-species-ak-layer',
         'tree-species-hi-layer',
     ],
+    // Burn severity: raster layers per region/year (managed together;
+    // the main toggle turns the whole group off, the year dropdown picks
+    // which single year is visible when the group is on)
+    'burn-severity': buildBurnSeverityLayerIds(),
+    // Perimeter is toggled independently
+    'burn-severity-perimeter': ['burn-severity-perimeters-line'],
 };
 
 export const H3_RES = 8;

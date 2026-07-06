@@ -275,23 +275,47 @@
   </div>
 
   <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
-      Premium Layers <i class="bi bi-lock-fill ms-1"></i>
-  </h6>
-  <div class="form-check form-switch mb-2 opacity-50">
-      <input class="form-check-input" type="checkbox" disabled>
-      <label class="form-check-label">Morel probability</label>
-  </div>
-  <div class="form-check form-switch mb-2 opacity-50">
-      <input class="form-check-input" type="checkbox" disabled>
-      <label class="form-check-label">Burn severity</label>
-  </div>
-  <div class="form-check form-switch mb-2 opacity-50">
-      <input class="form-check-input" type="checkbox" disabled>
-      <label class="form-check-label">Soil temperature</label>
-  </div>
-  <p class="small text-muted mt-2">
-      Sign in to a paid plan to unlock premium layers.
-  </p>
+    Premium Layers <i class="bi bi-lock-fill ms-1"></i>
+</h6>
+<div class="form-check form-switch mb-2 opacity-50">
+    <input class="form-check-input" type="checkbox" disabled>
+    <label class="form-check-label">Morel probability</label>
+</div>
+
+<!-- Burn severity — collapsible group -->
+<div class="form-check form-switch mb-1">
+    <input class="form-check-input layer-toggle" type="checkbox"
+           id="layer-burn-severity-CTX" data-layer-group="burn-severity">
+    <label class="form-check-label" for="layer-burn-severity-CTX">
+        Burn severity
+    </label>
+</div>
+<div class="ps-3 mb-3 burn-severity-controls">
+    <div class="mb-2">
+        <label class="form-label small text-muted mb-1"
+               for="burn-severity-year-CTX">Fire year</label>
+        <select class="form-select form-select-sm burn-severity-year-select"
+                id="burn-severity-year-CTX"
+                data-context="CTX">
+            <!-- populated by JS -->
+        </select>
+    </div>
+    <div class="form-check form-switch mb-1">
+        <input class="form-check-input burn-severity-perimeter-toggle"
+               type="checkbox"
+               id="burn-severity-perimeter-CTX"
+               data-context="CTX">
+        <label class="form-check-label small"
+               for="burn-severity-perimeter-CTX">
+            Show fire perimeters
+        </label>
+    </div>
+</div>
+
+<div class="form-check form-switch mb-2 opacity-50">
+    <input class="form-check-input" type="checkbox" disabled>
+    <label class="form-check-label">Soil temperature</label>
+</div>
 
   <hr class="my-4">
 
