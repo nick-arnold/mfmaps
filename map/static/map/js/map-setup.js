@@ -104,9 +104,13 @@ export function initMap() {
             wireHydroInteractions();
             wireTreeSpeciesHover();
             wireUrlSync();
-            // Preload region legends so the speciesfilter:// protocol can render
-            // tiles without a per-tile legend fetch race.
             await preloadTreeSpeciesLegends();
+    
+            // Force a repaint once sources settle to unblock hillshade rendering
+            state.map.once('idle', () => {
+                state.map.triggerRepaint();
+            });
+    
             resolve();
         });
     });
