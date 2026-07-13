@@ -23,6 +23,14 @@ import {
 } from './observations.js';
 import { loadReports } from './reports.js';
 
+// Force a full reload if the page was restored from bfcache. Otherwise
+// Chrome may serve stale in-memory JS from a previous session.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
 async function forceRefresh() {
     try {
         // Kill any cache API entries
