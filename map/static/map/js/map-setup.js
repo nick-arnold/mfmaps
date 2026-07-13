@@ -79,7 +79,7 @@ function wireUrlSync() {
 
 export function initMap() {
 
-    console.log('map-setup.js loaded — version 2');
+    console.log('map-setup.js loaded — version 3');
 
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
