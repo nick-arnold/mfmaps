@@ -78,6 +78,9 @@ function wireUrlSync() {
 // --- Map init -------------------------------------------------------------
 
 export function initMap() {
+
+    console.log('map-setup.js loaded — version 1');
+
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
