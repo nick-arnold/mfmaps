@@ -22,6 +22,11 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
+# Cache-bust static assets on every deploy — inject the app version from the
+# build environment (typically a git short hash) and persist to runtime env.
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 ENV DJANGO_SETTINGS_MODULE=mfmaps_map.settings \
     SECRET_KEY=collectstatic-placeholder \
     DB_NAME=placeholder \

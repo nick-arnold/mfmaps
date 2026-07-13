@@ -18,6 +18,10 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# App version — set at deploy time via APP_VERSION env var (typically a git hash).
+# Used for cache-busting static assets so users always get the latest JS after a deploy.
+APP_VERSION = os.environ.get('APP_VERSION', 'dev')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -83,6 +87,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'mfmaps_map.context_processors.app_version',
             ],
         },
     },

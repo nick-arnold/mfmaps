@@ -583,6 +583,21 @@
 <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
 <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
 <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
-<script type="module" src="{% static 'map/js/app.js' %}?v={% now 'U' %}"></script>
+
+<script type="importmap">
+{
+    "imports": {
+        "./state.js":            "{% static 'map/js/state.js' %}?v={{ APP_VERSION }}",
+        "./map-setup.js":        "{% static 'map/js/map-setup.js' %}?v={{ APP_VERSION }}",
+        "./auth.js":             "{% static 'map/js/auth.js' %}?v={{ APP_VERSION }}",
+        "./api.js":              "{% static 'map/js/api.js' %}?v={{ APP_VERSION }}",
+        "./observations.js":     "{% static 'map/js/observations.js' %}?v={{ APP_VERSION }}",
+        "./reports.js":          "{% static 'map/js/reports.js' %}?v={{ APP_VERSION }}",
+        "./species-picker.js":   "{% static 'map/js/species-picker.js' %}?v={{ APP_VERSION }}",
+        "./species-filter.js":   "{% static 'map/js/species-filter.js' %}?v={{ APP_VERSION }}"
+    }
+}
+</script>
+<script type="module" src="{% static 'map/js/app.js' %}?v={{ APP_VERSION }}"></script>
 </body>
 </html>
