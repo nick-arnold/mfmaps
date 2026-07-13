@@ -14,7 +14,13 @@ from django.views.decorators.http import require_http_methods
 
 
 def home(request):
-    return render(request, 'home.html')
+    response = render(request, 'home.html')
+    # Prevent browsers from caching the HTML entry page — the page contains
+    # version-busted script URLs, and if the HTML itself is cached, users
+    # keep loading old script URLs and never see updates.
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    return response
 
 
 def robots_txt(request):
