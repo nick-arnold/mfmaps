@@ -44,10 +44,9 @@ async function forceRefresh() {
     } catch (err) {
         console.warn('Cache/SW clear failed:', err);
     }
-    // Force reload by appending a cache-busting query param to the current URL
     const url = new URL(window.location.href);
-    url.searchParams.set('_refresh', Date.now());
-    window.location.replace(url.toString());
+    url.searchParams.set('_r', Date.now());
+    window.location.href = url.toString();
 }
 
 function wireRefreshButtons() {
@@ -59,6 +58,12 @@ function wireRefreshButtons() {
 async function main() {
     // Restore any previously-selected species from localStorage
     state.treeSpeciesSelection = loadTreeSpeciesSelection();
+
+    if (new URL(window.location.href).searchParams.has('_r')) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('_r');
+        window.history.replaceState({}, '', cleanUrl.toString());
+    }
 
     // 1. Initialize the map and wait for its 'load' event
     await initMap();
