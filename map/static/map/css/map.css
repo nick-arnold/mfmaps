@@ -669,16 +669,41 @@ body.list-mode .fab-stack {
     position: relative;
 }
 
-.info-sheet .offcanvas-header::before {
-    content: '';
+.info-sheet .offcanvas-header {
+    padding-top: 22px;
+}
+
+.info-sheet-drag-handle {
     position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;
+}
+
+.info-sheet-drag-handle::before {
+    content: '';
     width: 40px;
     height: 4px;
     border-radius: 2px;
     background: rgba(0, 0, 0, 0.15);
+}
+
+.info-sheet-drag-handle:active {
+    cursor: grabbing;
+}
+
+.info-sheet.is-dragging {
+    transition: none !important;
+}
+
+.info-sheet.is-expanded {
+    height: 92vh !important;
 }
 
 .info-sheet .offcanvas-title {

@@ -1395,6 +1395,68 @@ function initHydroInfoUI() {
         clearSelectedHydro();
         state.openPopup = null;
     });
+    initHydroInfoDragToExpand();
+}
+
+function initHydroInfoDragToExpand() {
+    const sheetEl = document.getElementById('hydroInfoSheet');
+    const handleEl = document.getElementById('hydroInfoSheetDragHandle');
+    if (!sheetEl || !handleEl) return;
+
+    const DEFAULT_VH = 58;
+    const EXPANDED_VH = 92;
+
+    let startY = 0;
+    let startHeightPx = 0;
+    let dragging = false;
+
+    function vhToPx(vh) {
+        return window.innerHeight * (vh / 100);
+    }
+
+    function onPointerDown(e) {
+        dragging = true;
+        startY = e.clientY;
+        startHeightPx = sheetEl.getBoundingClientRect().height;
+        sheetEl.classList.add('is-dragging');
+        handleEl.setPointerCapture(e.pointerId);
+    }
+
+    function onPointerMove(e) {
+        if (!dragging) return;
+        const delta = startY - e.clientY; // dragging up = positive
+        const minPx = vhToPx(DEFAULT_VH) * 0.85;
+        const maxPx = vhToPx(EXPANDED_VH);
+        const newHeight = Math.min(maxPx, Math.max(minPx, startHeightPx + delta));
+        sheetEl.style.height = `${newHeight}px`;
+    }
+
+    function onPointerUp() {
+        if (!dragging) return;
+        dragging = false;
+        sheetEl.classList.remove('is-dragging');
+
+        const currentPx = sheetEl.getBoundingClientRect().height;
+        const midpointPx = (vhToPx(DEFAULT_VH) + vhToPx(EXPANDED_VH)) / 2;
+
+        sheetEl.style.height = '';
+        if (currentPx > midpointPx) {
+            sheetEl.classList.add('is-expanded');
+        } else {
+            sheetEl.classList.remove('is-expanded');
+        }
+    }
+
+    handleEl.addEventListener('pointerdown', onPointerDown);
+    handleEl.addEventListener('pointermove', onPointerMove);
+    handleEl.addEventListener('pointerup', onPointerUp);
+    handleEl.addEventListener('pointercancel', onPointerUp);
+
+    // Always reopen at the default (non-expanded) height for a fresh selection
+    sheetEl.addEventListener('show.bs.offcanvas', () => {
+        sheetEl.classList.remove('is-expanded');
+        sheetEl.style.height = '';
+    });
 }
 
 function showHydroInfo(feature, lngLat) {
