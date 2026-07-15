@@ -14,7 +14,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gdal-bin python3-gdal tippecanoe
-          pip install h5py numpy rasterio requests awscli pmtiles mb-util
+          pip install h5py numpy rasterio requests awscli pmtiles
+          pip install git+https://github.com/mapbox/mbutil.git
 
       - name: Write netrc
         run: |
