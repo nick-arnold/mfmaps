@@ -4,8 +4,7 @@
 
 import { state } from './state.js';
 import { apiFetch, showToast, escapeHtml } from './api.js';
-import { zoomToH3Res, isLayerGroupVisible, enterCrosshairMode } from './map-setup.js';
-
+import { zoomToH3Res, isLayerGroupVisible, enterCrosshairMode, showInfoPanel, closeInfoPanel } from './map-setup.js';
 // --- Module state ---------------------------------------------------------
 
 let observationMode = null;      // 'create' | 'edit' | 'edit-drag' | null
@@ -53,14 +52,12 @@ export function wireMapClicks() {
 
 function showObservationPopup(feature) {
     const p = feature.properties;
-    const coords = feature.geometry.coordinates;
     const species = p.species_name || '(no species)';
     const when = new Date(p.recorded_at).toLocaleString();
     const notes = p.notes ? `<div class="popup-notes">${escapeHtml(p.notes)}</div>` : '';
 
-    const html = `
+    const bodyHtml = `
         <div class="observation-popup">
-            <div class="popup-species">${escapeHtml(species)}</div>
             <div class="popup-meta">${when}</div>
             ${notes}
             <div class="popup-h3">res 10 · ${p.h3_cell_res_10}</div>
@@ -75,21 +72,15 @@ function showObservationPopup(feature) {
         </div>
     `;
 
-    if (state.openPopup) state.openPopup.remove();
-    state.openPopup = new maplibregl.Popup({ offset: 14, closeButton: true })
-        .setLngLat(coords)
-        .setHTML(html)
-        .addTo(state.map);
+    const bodyEl = showInfoPanel({ title: species, bodyHtml });
+    if (!bodyEl) return;
 
-    const root = state.openPopup.getElement();
-    root.querySelector('[data-action="edit"]').addEventListener('click', () => {
-        state.openPopup.remove();
-        state.openPopup = null;
+    bodyEl.querySelector('[data-action="edit"]').addEventListener('click', () => {
+        closeInfoPanel();
         startEditObservation(feature);
     });
-    root.querySelector('[data-action="delete"]').addEventListener('click', () => {
-        state.openPopup.remove();
-        state.openPopup = null;
+    bodyEl.querySelector('[data-action="delete"]').addEventListener('click', () => {
+        closeInfoPanel();
         startDeleteObservation(feature);
     });
 }

@@ -1383,27 +1383,59 @@ function wireHydroInfoComments(containerEl, gnisId, gnisName, lngLat, feature) {
     loadComments();
 }
 
-function closeHydroInfo() {
+let infoPanelCloseHandler = null;
+
+export function closeInfoPanel() {
     document.getElementById('sidePanelInfo')?.classList.add('d-none');
     const offcanvasEl = document.getElementById('hydroInfoSheet');
     if (offcanvasEl) {
         const instance = bootstrap.Offcanvas.getInstance(offcanvasEl);
         if (instance) instance.hide();
     }
-    clearSelectedHydro();
-    state.openPopup = null;
+    if (infoPanelCloseHandler) {
+        const handler = infoPanelCloseHandler;
+        infoPanelCloseHandler = null;
+        handler();
+    }
 }
 
-function initHydroInfoUI() {
-    document.getElementById('sidePanelInfoClose')?.addEventListener('click', closeHydroInfo);
+export function showInfoPanel({ title, bodyHtml, onClose }) {
+    infoPanelCloseHandler = onClose || null;
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+
+    if (isDesktop) {
+        const panel = document.getElementById('sidePanelInfo');
+        const titleEl = document.getElementById('sidePanelInfoTitle');
+        const bodyEl = document.getElementById('sidePanelInfoBody');
+        if (!panel || !titleEl || !bodyEl) return null;
+        titleEl.textContent = title;
+        bodyEl.innerHTML = bodyHtml;
+        panel.classList.remove('d-none');
+        return bodyEl;
+    } else {
+        const sheetEl = document.getElementById('hydroInfoSheet');
+        const titleEl = document.getElementById('hydroInfoSheetLabel');
+        const bodyEl = document.getElementById('hydroInfoSheetBody');
+        if (!sheetEl || !titleEl || !bodyEl) return null;
+        titleEl.textContent = title;
+        bodyEl.innerHTML = bodyHtml;
+        const instance = bootstrap.Offcanvas.getOrCreateInstance(sheetEl);
+        instance.show();
+        return bodyEl;
+    }
+}
+
+function initInfoPanelUI() {
+    document.getElementById('sidePanelInfoClose')?.addEventListener('click', closeInfoPanel);
     const offcanvasEl = document.getElementById('hydroInfoSheet');
     offcanvasEl?.addEventListener('hidden.bs.offcanvas', () => {
-        clearSelectedHydro();
-        state.openPopup = null;
+        if (infoPanelCloseHandler) {
+            const handler = infoPanelCloseHandler;
+            infoPanelCloseHandler = null;
+            handler();
+        }
     });
 }
-
-
 
 function showHydroInfo(feature, lngLat) {
     const p = feature.properties || {};
@@ -1439,37 +1471,22 @@ function showHydroInfo(feature, lngLat) {
         : '';
 
     const bodyHtml = `<div class="hydro-info">${rowsHtml}${commentsHtml}</div>`;
-    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
 
-    if (isDesktop) {
-        const panel = document.getElementById('sidePanelInfo');
-        const titleEl = document.getElementById('sidePanelInfoTitle');
-        const bodyEl = document.getElementById('sidePanelInfoBody');
-        if (!panel || !titleEl || !bodyEl) return;
-        titleEl.textContent = title;
-        bodyEl.innerHTML = bodyHtml;
-        panel.classList.remove('d-none');
-        wireHydroInfoComments(bodyEl, gnisId, gnisName, lngLat, feature);
-    } else {
-        const sheetEl = document.getElementById('hydroInfoSheet');
-        const titleEl = document.getElementById('hydroInfoSheetLabel');
-        const bodyEl = document.getElementById('hydroInfoSheetBody');
-        if (!sheetEl || !titleEl || !bodyEl) return;
-        titleEl.textContent = title;
-        bodyEl.innerHTML = bodyHtml;
-        const instance = bootstrap.Offcanvas.getOrCreateInstance(sheetEl);
-        instance.show();
+    const bodyEl = showInfoPanel({
+        title,
+        bodyHtml,
+        onClose: () => { clearSelectedHydro(); },
+    });
+    if (bodyEl) {
         wireHydroInfoComments(bodyEl, gnisId, gnisName, lngLat, feature);
     }
-
-    state.openPopup = true;
 }
 
 function wireHydroInteractions() {
     const map = state.map;
     let lastHoveredKey = null;
 
-    initHydroInfoUI();
+    initInfoPanelUI();
 
     map.on('mousemove', (e) => {
         if (state.queryMode) return;
@@ -1501,7 +1518,7 @@ function wireHydroInteractions() {
         }
         const feat = queryNearbyHydroFeature(e.point);
         if (!feat) {
-            closeHydroInfo();
+            closeInfoPanel();
             return;
         }
         setSelectedHydro(findAllFragments(feat));
