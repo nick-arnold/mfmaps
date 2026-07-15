@@ -1016,7 +1016,7 @@ map.addLayer({
         }
     });
 
-
+}
 // --- Hydrography interactions: hover + click select + popup --------------
 
 const HYDRO_INTERACTIVE_LAYERS = [
