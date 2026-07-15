@@ -53,6 +53,15 @@
         <div class="side-panel-body">
             <!-- Filled by JS from template -->
         </div>
+        <div id="sidePanelInfo" class="side-panel-info d-none">
+          <div class="side-panel-info-header">
+              <h6 class="mb-0" id="sidePanelInfoTitle">—</h6>
+              <button type="button" class="btn-close btn-close-sm" id="sidePanelInfoClose" aria-label="Close"></button>
+          </div>
+          <div class="side-panel-info-body" id="sidePanelInfoBody">
+              <!-- filled by JS -->
+          </div>
+      </div>
     </aside>
 
     <div id="map"></div>
@@ -375,6 +384,16 @@
     <div class="offcanvas-body" id="layersSheetBody">
         <!-- filled by JS -->
     </div>
+</div>
+
+<div class="offcanvas offcanvas-bottom info-sheet" tabindex="-1" id="hydroInfoSheet" aria-labelledby="hydroInfoSheetLabel">
+  <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="hydroInfoSheetLabel">—</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body" id="hydroInfoSheetBody">
+      <!-- filled by JS -->
+  </div>
 </div>
 
 <!-- Login modal -->
