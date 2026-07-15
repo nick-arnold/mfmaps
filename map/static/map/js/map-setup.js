@@ -5,7 +5,6 @@
 import {
     state,
     LAYER_IDS,
-    H3_RES,
     BURN_SEVERITY_REGIONS,
     BURN_SEVERITY_ALL_YEARS,
     loadBurnSeverityYear,
@@ -1003,32 +1002,6 @@ map.addLayer({
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // H3 hexes
-    map.addSource('h3-hexes', { type: 'geojson', data: empty });
-    map.addLayer({
-        id: 'h3-hexes-fill',
-        type: 'fill',
-        source: 'h3-hexes',
-        paint: {
-            'fill-color': [
-                'interpolate', ['linear'], ['get', 'count'],
-                1, '#fee5d9',
-                2, '#fcae91',
-                4, '#fb6a4a',
-                8, '#cb181d'
-            ],
-            'fill-opacity': 0.55
-        },
-        layout: { visibility: 'none' }
-    });
-    map.addLayer({
-        id: 'h3-hexes-line',
-        type: 'line',
-        source: 'h3-hexes',
-        paint: { 'line-color': '#2c5530', 'line-width': 1, 'line-opacity': 0.7 },
-        layout: { visibility: 'none' }
-    });
-
     // Observations
     map.addSource('observations', { type: 'geojson', data: empty });
     map.addLayer({
@@ -1043,21 +1016,6 @@ map.addLayer({
         }
     });
 
-    // User's H3 cell from geolocation
-    map.addSource('user-h3', { type: 'geojson', data: empty });
-    map.addLayer({
-        id: 'user-h3-fill',
-        type: 'fill',
-        source: 'user-h3',
-        paint: { 'fill-color': '#2c5530', 'fill-opacity': 0.2 }
-    });
-    map.addLayer({
-        id: 'user-h3-line',
-        type: 'line',
-        source: 'user-h3',
-        paint: { 'line-color': '#2c5530', 'line-width': 2 }
-    });
-}
 
 // --- Hydrography interactions: hover + click select + popup --------------
 
@@ -2025,21 +1983,10 @@ export function initQueryMode() {
 export function initGeolocate() {
     state.geolocate.on('geolocate', (position) => {
         const { latitude, longitude } = position.coords;
-        const cell = h3.latLngToCell(latitude, longitude, H3_RES);
-        const boundary = h3.cellToBoundary(cell, false).map(([lat, lng]) => [lng, lat]);
-        boundary.push(boundary[0]);
-        state.map.getSource('user-h3').setData({
-            type: 'FeatureCollection',
-            features: [{
-                type: 'Feature',
-                geometry: { type: 'Polygon', coordinates: [boundary] },
-                properties: { h3: cell }
-            }]
-        });
+        
         const html = `
             <div class="mb-1"><strong>Lat:</strong> ${latitude.toFixed(5)}</div>
             <div class="mb-1"><strong>Lng:</strong> ${longitude.toFixed(5)}</div>
-            <div class="mb-1"><strong>H3 cell (res ${H3_RES}):</strong> <code class="small">${cell}</code></div>
         `;
         document.querySelectorAll('.user-location-info').forEach(el => { el.innerHTML = html; });
     });

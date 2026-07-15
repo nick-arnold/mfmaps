@@ -142,7 +142,6 @@ export const BURN_SEVERITY_ALL_YEARS = (() => {
 
 export const LAYER_IDS = {
     observations: ['observations-layer'],
-    'h3-hexes': ['h3-hexes-fill', 'h3-hexes-line'],
     canopy: ['canopy-conus-layer', 'canopy-seak-layer', 'canopy-hawaii-layer'],
     trails: [
         'trails-track',
