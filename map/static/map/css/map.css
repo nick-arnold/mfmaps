@@ -609,22 +609,28 @@ body.list-mode .fab-stack {
     min-height: 0;
 }
 
-.side-panel-info {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    background: #ffffff;
-    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.1);
+.side-panel {
     position: relative;
-    z-index: 1;
 }
 
-.side-panel-info::before {
-    content: '';
-    height: 3px;
-    background: var(--brand-green);
-    flex-shrink: 0;
+.side-panel-body {
+    flex: 1;
+    min-height: 0;
+}
+
+.side-panel-info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 66%;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    z-index: 2;
 }
 
 .side-panel-info-header {
@@ -632,14 +638,13 @@ body.list-mode .fab-stack {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     background: var(--brand-green);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     flex-shrink: 0;
 }
 
 .side-panel-info-header h6 {
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     font-weight: 700;
     color: #ffffff;
     overflow: hidden;
@@ -714,4 +719,74 @@ body.list-mode .fab-stack {
     text-overflow: ellipsis;
     white-space: nowrap;
     padding-right: 8px;
+}
+
+/* ============================================================
+   Hydro comments — card styling
+   ============================================================ */
+
+   .hydro-comments {
+    background: rgba(44, 85, 48, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.hydro-comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.hydro-comment-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    background: #ffffff;
+    border-radius: 8px;
+    border-left: 3px solid var(--brand-green);
+    padding: 8px 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.hydro-comment-row.is-private {
+    border-left-color: var(--brand-orange);
+}
+
+.hydro-comment-avatar {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--brand-green);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 1px;
+}
+
+.hydro-comment-row.is-private .hydro-comment-avatar {
+    background: var(--brand-orange);
+}
+
+.hydro-comment-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.hydro-comment-form {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.hydro-comment-input:focus,
+.hydro-comment-edit-input:focus {
+    border-color: var(--brand-green) !important;
+    box-shadow: 0 0 0 0.2rem rgba(44, 85, 48, 0.15) !important;
 }

@@ -1227,36 +1227,42 @@ function hydroInfoRowsHtml(feature) {
 
 function renderCommentRow(c, currentUsername) {
     const when = new Date(c.created_at).toLocaleDateString();
-    const privateBadge = c.is_public === false
-        ? ' <span class="badge bg-secondary" style="font-size:0.6rem;">private</span>'
-        : '';
+    const isPrivate = c.is_public === false;
+    const initials = (c.username || '?').slice(0, 2);
     const mine = currentUsername && c.username === currentUsername;
     const editLink = mine
         ? `<button class="btn btn-link btn-sm p-0 ms-1 hydro-comment-edit"
                    data-comment-id="${escapeHtml(c.id)}"
                    style="font-size:0.7rem;">edit</button>`
         : '';
-    return `<div class="mb-2 hydro-comment-row" data-comment-id="${escapeHtml(c.id)}">
-        <div class="hydro-comment-display">
-            <span class="fw-semibold">${escapeHtml(c.username)}</span>
-            <span class="text-muted ms-1">${when}</span>${privateBadge}${editLink}
-            <div class="hydro-comment-body">${escapeHtml(c.body)}</div>
-        </div>
-        <div class="hydro-comment-edit-form d-none">
-            <textarea class="form-control form-control-sm hydro-comment-edit-input"
-                rows="2" maxlength="1000"
-                style="resize:none;font-size:0.78rem;">${escapeHtml(c.body)}</textarea>
-            <div class="d-flex align-items-center justify-content-between mt-1 gap-2">
-                <div class="form-check form-check-inline m-0">
-                    <input class="form-check-input hydro-comment-edit-public" type="checkbox" ${c.is_public ? 'checked' : ''}>
-                    <label class="form-check-label small text-muted" style="font-size:0.72rem;">Public</label>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-link text-muted hydro-comment-edit-cancel" style="font-size:0.75rem;">Cancel</button>
-                    <button class="btn btn-sm btn-outline-secondary hydro-comment-edit-save" style="font-size:0.75rem;">Update</button>
-                </div>
+    const privateBadge = isPrivate
+        ? ' <span class="badge" style="font-size:0.6rem;background:var(--brand-orange);">private</span>'
+        : '';
+
+    return `<div class="hydro-comment-row${isPrivate ? ' is-private' : ''}" data-comment-id="${escapeHtml(c.id)}">
+        <div class="hydro-comment-avatar">${escapeHtml(initials)}</div>
+        <div class="hydro-comment-content">
+            <div class="hydro-comment-display">
+                <span class="fw-semibold">${escapeHtml(c.username)}</span>
+                <span class="text-muted ms-1">${when}</span>${privateBadge}${editLink}
+                <div class="hydro-comment-body">${escapeHtml(c.body)}</div>
             </div>
-            <div class="hydro-comment-edit-error text-danger small mt-1 d-none" style="font-size:0.72rem;"></div>
+            <div class="hydro-comment-edit-form d-none">
+                <textarea class="form-control form-control-sm hydro-comment-edit-input"
+                    rows="2" maxlength="1000"
+                    style="resize:none;font-size:0.78rem;">${escapeHtml(c.body)}</textarea>
+                <div class="d-flex align-items-center justify-content-between mt-1 gap-2">
+                    <div class="form-check form-check-inline m-0">
+                        <input class="form-check-input hydro-comment-edit-public" type="checkbox" ${c.is_public ? 'checked' : ''}>
+                        <label class="form-check-label small text-muted" style="font-size:0.72rem;">Public</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-link text-muted hydro-comment-edit-cancel" style="font-size:0.75rem;">Cancel</button>
+                        <button class="btn btn-sm btn-outline-secondary hydro-comment-edit-save" style="font-size:0.75rem;">Update</button>
+                    </div>
+                </div>
+                <div class="hydro-comment-edit-error text-danger small mt-1 d-none" style="font-size:0.72rem;"></div>
+            </div>
         </div>
     </div>`;
 }
