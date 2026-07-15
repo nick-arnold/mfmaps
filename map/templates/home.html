@@ -206,120 +206,142 @@
 </nav>
 
 <template id="layerPanelTemplate">
-  <h6 class="text-uppercase text-muted small fw-bold mb-2">Reference</h6>
-  <div class="form-check form-switch mb-3">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
-      <label class="form-check-label" for="layer-hydrography-CTX">
-          Hydrography
-      </label>
-  </div>
-  <div class="form-check form-switch mb-2">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-canopy-CTX" data-layer-group="canopy">
-      <label class="form-check-label" for="layer-canopy-CTX">
-          Tree canopy cover
-      </label>
-  </div>
-  <div class="form-check form-switch mb-3">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-slope-CTX" data-layer-group="slope">
-      <label class="form-check-label" for="layer-slope-CTX">
-          Slope
-      </label>
-  </div>
-  <div class="form-check form-switch mb-3">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-aspect-CTX" data-layer-group="aspect">
-      <label class="form-check-label" for="layer-aspect-CTX">
-          North facing aspect
-      </label>
-  </div>
-  <div class="form-check form-switch mb-1">
-    <input class="form-check-input layer-toggle" type="checkbox"
-           id="layer-tree-species-CTX" data-layer-group="tree-species">
-    <label class="form-check-label" for="layer-tree-species-CTX">
-        Tree species
-    </label>
-</div>
-<div class="ps-3 mb-3">
-    <button type="button"
-            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
-            data-action="open-species-picker">
-        <i class="bi bi-funnel"></i>
-        <span>Choose species…</span>
-        <span class="badge bg-primary species-picker-count d-none">0</span>
-    </button>
-</div>
-  <div class="tree-species-legend-wrap d-none mb-3 ps-3">
-    <div class="small text-muted mb-1">Forest types</div>
-    <div class="tree-species-legend"
-         style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
-        <em class="text-muted small">Loading…</em>
+
+  <div class="layer-section" data-section-key="terrain">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2">Terrain</h6>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-slope-CTX" data-layer-group="slope">
+        <label class="form-check-label" for="layer-slope-CTX">
+            Slope
+        </label>
     </div>
-</div>
-  <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Free Layers</h6>
-  <div class="form-check form-switch mb-2">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-observations-CTX" data-layer-group="observations" checked>
-      <label class="form-check-label" for="layer-observations-CTX">
-          My observations
-      </label>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-aspect-CTX" data-layer-group="aspect">
+        <label class="form-check-label" for="layer-aspect-CTX">
+            North facing aspect
+        </label>
+    </div>
   </div>
 
-  <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
-    Premium Layers <i class="bi bi-lock-fill ms-1"></i>
-</h6>
-<div class="form-check form-switch mb-2 opacity-50">
-    <input class="form-check-input" type="checkbox" disabled>
-    <label class="form-check-label">Morel probability</label>
-</div>
+  <div class="layer-section" data-section-key="vegetation">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Vegetation</h6>
 
-<!-- Burn severity — collapsible group -->
-<div class="form-check form-switch mb-1">
-    <input class="form-check-input layer-toggle" type="checkbox"
-           id="layer-burn-severity-CTX" data-layer-group="burn-severity">
-    <label class="form-check-label" for="layer-burn-severity-CTX">
-        Burn severity
-    </label>
-</div>
-<div class="ps-3 mb-3 burn-severity-controls">
-  <div class="mb-2">
-      <label class="form-label small text-muted mb-1"
-             for="burn-severity-year-CTX">Fire year</label>
-      <select class="form-select form-select-sm burn-severity-year-select"
-              id="burn-severity-year-CTX"
-              data-context="CTX">
-          <!-- populated by JS -->
-      </select>
-  </div>
-  <div class="form-check form-switch mb-1">
-      <input class="form-check-input burn-severity-perimeter-toggle"
-             type="checkbox"
-             id="burn-severity-perimeter-CTX"
-             data-context="CTX">
-      <label class="form-check-label small"
-             for="burn-severity-perimeter-CTX">
-          Show fire perimeters
-      </label>
-  </div>
-  <div class="form-check form-switch mb-1 ps-4">
-      <input class="form-check-input burn-severity-perimeter-match-toggle"
-             type="checkbox"
-             id="burn-severity-perimeter-match-CTX"
-             data-context="CTX"
-             checked>
-      <label class="form-check-label small text-muted"
-             for="burn-severity-perimeter-match-CTX">
-          Match selected year
-      </label>
-  </div>
-</div>
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-canopy-CTX" data-layer-group="canopy">
+        <label class="form-check-label" for="layer-canopy-CTX">
+            Tree canopy cover
+        </label>
+    </div>
 
-<div class="form-check form-switch mb-2 opacity-50">
-    <input class="form-check-input" type="checkbox" disabled>
-    <label class="form-check-label">Soil temperature</label>
-</div>
+    <div class="form-check form-switch mb-1">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-tree-species-CTX" data-layer-group="tree-species">
+        <label class="form-check-label" for="layer-tree-species-CTX">
+            Tree species
+        </label>
+    </div>
+    <div class="ps-3 mb-3">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                data-action="open-species-picker">
+            <i class="bi bi-funnel"></i>
+            <span>Choose species…</span>
+            <span class="badge bg-primary species-picker-count d-none">0</span>
+        </button>
+    </div>
+    <div class="tree-species-legend-wrap d-none mb-3 ps-3">
+        <div class="small text-muted mb-1">Forest types</div>
+        <div class="tree-species-legend"
+             style="max-height: 240px; overflow-y: auto; padding-right: 4px;">
+            <em class="text-muted small">Loading…</em>
+        </div>
+    </div>
+  </div>
+
+  <div class="layer-section" data-section-key="hydrography">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Hydrography</h6>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
+        <label class="form-check-label" for="layer-hydrography-CTX">
+            Streams &amp; waterbodies
+        </label>
+    </div>
+  </div>
+
+  <div class="layer-section" data-section-key="my-data">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">My Data</h6>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-observations-CTX" data-layer-group="observations" checked>
+        <label class="form-check-label" for="layer-observations-CTX">
+            My observations
+        </label>
+    </div>
+  </div>
+
+  <div class="layer-section" data-section-key="premium">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
+        Premium Layers <i class="bi bi-lock-fill ms-1"></i>
+    </h6>
+
+    <div class="form-check form-switch mb-2 opacity-50">
+        <input class="form-check-input" type="checkbox" disabled>
+        <label class="form-check-label">Morel probability</label>
+    </div>
+
+    <div class="form-check form-switch mb-1">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-burn-severity-CTX" data-layer-group="burn-severity">
+        <label class="form-check-label" for="layer-burn-severity-CTX">
+            Burn severity
+        </label>
+    </div>
+    <div class="ps-3 mb-3 burn-severity-controls">
+      <div class="mb-2">
+          <label class="form-label small text-muted mb-1"
+                 for="burn-severity-year-CTX">Fire year</label>
+          <select class="form-select form-select-sm burn-severity-year-select"
+                  id="burn-severity-year-CTX"
+                  data-context="CTX">
+              <!-- populated by JS -->
+          </select>
+      </div>
+      <div class="form-check form-switch mb-1">
+          <input class="form-check-input burn-severity-perimeter-toggle"
+                 type="checkbox"
+                 id="burn-severity-perimeter-CTX"
+                 data-context="CTX">
+          <label class="form-check-label small"
+                 for="burn-severity-perimeter-CTX">
+              Show fire perimeters
+          </label>
+      </div>
+      <div class="form-check form-switch mb-1 ps-4">
+          <input class="form-check-input burn-severity-perimeter-match-toggle"
+                 type="checkbox"
+                 id="burn-severity-perimeter-match-CTX"
+                 data-context="CTX"
+                 checked>
+          <label class="form-check-label small text-muted"
+                 for="burn-severity-perimeter-match-CTX">
+              Match selected year
+          </label>
+      </div>
+    </div>
+
+    <div class="form-check form-switch mb-0 opacity-50">
+        <input class="form-check-input" type="checkbox" disabled>
+        <label class="form-check-label">Soil temperature</label>
+    </div>
+  </div>
 
   <hr class="my-4">
 
@@ -327,6 +349,7 @@
   <div class="user-location-info small text-muted">
       Tap the locate button to find your H3 cell.
   </div>
+
 </template>
 
 <!-- Mobile bottom-sheet (offcanvas) -->
