@@ -614,8 +614,17 @@ body.list-mode .fab-stack {
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    border-top: 2px solid rgba(0, 0, 0, 0.08);
     background: #ffffff;
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+}
+
+.side-panel-info::before {
+    content: '';
+    height: 3px;
+    background: var(--brand-green);
+    flex-shrink: 0;
 }
 
 .side-panel-info-header {
@@ -624,7 +633,7 @@ body.list-mode .fab-stack {
     justify-content: space-between;
     gap: 8px;
     padding: 10px 14px;
-    background: rgba(44, 85, 48, 0.04);
+    background: var(--brand-green);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     flex-shrink: 0;
 }
@@ -632,7 +641,7 @@ body.list-mode .fab-stack {
 .side-panel-info-header h6 {
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--brand-green);
+    color: #ffffff;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -650,7 +659,7 @@ body.list-mode .fab-stack {
    ============================================================ */
 
 .info-sheet {
-    height: 45vh;
+    height: 58vh;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
 }
