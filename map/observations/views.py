@@ -51,7 +51,7 @@ class WaterbodyCommentViewSet(
             return qs.filter(is_public=True)
 
         if scope == 'public':
-            return qs.filter(is_public=True).order_by('-created_at')
+            return qs.filter(is_public=True).order_by('-created_at')[:10]
 
         if not self.request.user.is_authenticated:
             return qs.none()
