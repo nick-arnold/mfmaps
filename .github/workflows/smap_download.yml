@@ -14,8 +14,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y gdal-bin python3-gdal tippecanoe
-          pip install h5py numpy rasterio requests awscli pmtiles
+          pip install h5py numpy rasterio requests awscli
           pip install git+https://github.com/mapbox/mbutil.git
+          wget -q https://github.com/protomaps/go-pmtiles/releases/download/v1.22.3/go-pmtiles_1.22.3_Linux_x86_64.tar.gz -O pmtiles.tar.gz
+          tar -xf pmtiles.tar.gz pmtiles
+          sudo mv pmtiles /usr/local/bin/
 
       - name: Write netrc
         run: |
