@@ -207,8 +207,8 @@
 
 <template id="layerPanelTemplate">
 
-  <div class="layer-section" data-section-key="terrain">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2">Terrain</h6>
+  <details class="layer-section" data-section-key="terrain" open>
+    <summary class="text-uppercase text-muted small fw-bold mb-2">Terrain</summary>
 
     <div class="form-check form-switch mb-3">
         <input class="form-check-input layer-toggle" type="checkbox"
@@ -225,10 +225,10 @@
             North facing aspect
         </label>
     </div>
-  </div>
+  </details>
 
-  <div class="layer-section" data-section-key="vegetation">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Vegetation</h6>
+  <details class="layer-section" data-section-key="vegetation" open>
+    <summary class="text-uppercase text-muted small fw-bold mb-2">Vegetation</summary>
 
     <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
@@ -261,10 +261,10 @@
             <em class="text-muted small">Loading…</em>
         </div>
     </div>
-  </div>
+  </details>
 
-  <div class="layer-section" data-section-key="hydrography">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">Hydrography</h6>
+  <details class="layer-section" data-section-key="hydrography">
+    <summary class="text-uppercase text-muted small fw-bold mb-2">Hydrography</summary>
 
     <div class="form-check form-switch mb-3">
         <input class="form-check-input layer-toggle" type="checkbox"
@@ -273,10 +273,10 @@
             Streams &amp; waterbodies
         </label>
     </div>
-  </div>
+  </details>
 
-  <div class="layer-section" data-section-key="my-data">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">My Data</h6>
+  <details class="layer-section" data-section-key="my-data" open>
+    <summary class="text-uppercase text-muted small fw-bold mb-2">My Data</summary>
 
     <div class="form-check form-switch mb-3">
         <input class="form-check-input layer-toggle" type="checkbox"
@@ -285,12 +285,12 @@
             My observations
         </label>
     </div>
-  </div>
+  </details>
 
-  <div class="layer-section" data-section-key="premium">
-    <h6 class="text-uppercase text-muted small fw-bold mb-2 mt-4">
+  <details class="layer-section" data-section-key="premium">
+    <summary class="text-uppercase text-muted small fw-bold mb-2">
         Premium Layers <i class="bi bi-lock-fill ms-1"></i>
-    </h6>
+    </summary>
 
     <div class="form-check form-switch mb-2 opacity-50">
         <input class="form-check-input" type="checkbox" disabled>
@@ -341,7 +341,7 @@
         <input class="form-check-input" type="checkbox" disabled>
         <label class="form-check-label">Soil temperature</label>
     </div>
-  </div>
+  </details>
 
   <hr class="my-4">
 
