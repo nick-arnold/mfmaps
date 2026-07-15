@@ -664,52 +664,28 @@ body.list-mode .fab-stack {
    Mobile info sheet (separate offcanvas from the Layers sheet)
    ============================================================ */
 
-.info-sheet {
-    height: 58vh;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-}
+   .info-sheet {
+        --bs-offcanvas-height: 88vh;
+        height: 88vh !important;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+    }
 
 .info-sheet .offcanvas-header {
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     position: relative;
 }
 
-.info-sheet .offcanvas-header {
-    padding-top: 22px;
-}
-
-.info-sheet-drag-handle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 26px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    touch-action: none;
-}
-
-.info-sheet-drag-handle::before {
+.info-sheet .offcanvas-header::before {
     content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
     width: 40px;
     height: 4px;
     border-radius: 2px;
     background: rgba(0, 0, 0, 0.15);
-}
-
-.info-sheet-drag-handle:active {
-    cursor: grabbing;
-}
-
-.info-sheet.is-dragging {
-    transition: none !important;
-}
-
-.info-sheet.is-expanded {
-    height: 92vh !important;
 }
 
 .info-sheet .offcanvas-title {
