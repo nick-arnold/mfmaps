@@ -165,6 +165,18 @@ export const LAYER_IDS = {
         'hawaii-z8-10-hillshade',
         'hawaii-z11-12-hillshade',
     ],
+    contour: (() => {
+        const regions = ['conus', 'alaska', 'hawaii'];
+        const zoomTiers = [10, 11, 12, 13];
+        const ids = [];
+        regions.forEach(region => {
+            zoomTiers.forEach(z => {
+                ids.push(`contour-intermediate-${region}-z${z}`);
+                ids.push(`contour-index-${region}-z${z}`);
+            });
+        });
+        return ids;
+    })(),
     hydrography: [
         // CONUS + Hawaii
         'nhd-conus-streams',

@@ -209,7 +209,21 @@
 
   <details class="layer-section" data-section-key="terrain" open>
     <summary class="text-uppercase text-muted small fw-bold mb-2">Terrain</summary>
-
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input layer-toggle" type="checkbox"
+              id="layer-contour-CTX" data-layer-group="contour" checked>
+        <label class="form-check-label" for="layer-contour-CTX">
+            Contour lines
+        </label>
+    </div>
+    
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input layer-toggle" type="checkbox"
+              id="layer-terrain-CTX" data-layer-group="terrain" checked>
+        <label class="form-check-label" for="layer-terrain-CTX">
+            Hillshade
+        </label>
+    </div>
     <div class="form-check form-switch mb-3">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-slope-CTX" data-layer-group="slope">
