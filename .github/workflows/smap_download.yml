@@ -1,0 +1,93 @@
+name: SMAP Soil Moisture Download
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 10am UTC daily
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: pip install h5py numpy rasterio requests
+
+      - name: Write netrc
+        run: |
+          echo "machine urs.earthdata.nasa.gov login ${{ secrets.EARTHDATA_USERNAME }} password ${{ secrets.EARTHDATA_PASSWORD }}" > ~/.netrc
+          chmod 600 ~/.netrc
+
+      - name: Download and convert SMAP
+        run: |
+          python3 << 'PYEOF'
+          import requests, h5py, numpy as np, rasterio, json, os
+          from rasterio.transform import from_bounds
+          from rasterio.crs import CRS
+          from datetime import datetime, timedelta
+
+          # Find latest granule via CMR
+          today = datetime.utcnow()
+          start = (today - timedelta(days=5)).strftime('%Y-%m-%d')
+          end = today.strftime('%Y-%m-%d')
+          url = f"https://cmr.earthdata.nasa.gov/search/granules.json?short_name=SPL3SMP_E&version=006&temporal={start},{end}&page_size=1&sort_key=-start_date"
+          r = requests.get(url)
+          granules = r.json()['feed']['entry']
+          if not granules:
+              raise RuntimeError('No granules found')
+          
+          granule = granules[0]
+          date_str = granule['time_start'][:10]
+          links = granule['links']
+          h5_url = next(l['href'] for l in links if l['href'].endswith('.h5') and 'nsidc' in l['href'])
+          filename = h5_url.split('/')[-1]
+          print(f'Downloading {filename} for {date_str}')
+
+          # Download with netrc auth
+          session = requests.Session()
+          r = session.get(h5_url, stream=True)
+          r.raise_for_status()
+          with open(filename, 'wb') as f:
+              for chunk in r.iter_content(chunk_size=8192):
+                  f.write(chunk)
+
+          # Convert to GeoTIFF
+          with h5py.File(filename, 'r') as f:
+              am = f['Soil_Moisture_Retrieval_Data_AM']
+              sm_am = am['soil_moisture'][:]
+              lats = am['latitude'][:]
+              lons = am['longitude'][:]
+              pm = f['Soil_Moisture_Retrieval_Data_PM']
+              sm_pm = pm['soil_moisture_pm'][:]
+
+          sm_am = np.where(sm_am == -9999.0, np.nan, sm_am)
+          sm_pm = np.where(sm_pm == -9999.0, np.nan, sm_pm)
+          sm = np.where(np.isnan(sm_am), sm_pm, sm_am)
+          lats = np.where(lats == -9999.0, np.nan, lats)
+          lons = np.where(lons == -9999.0, np.nan, lons)
+
+          lat_min, lat_max = float(np.nanmin(lats)), float(np.nanmax(lats))
+          lon_min, lon_max = float(np.nanmin(lons)), float(np.nanmax(lons))
+          rows, cols = sm.shape
+          transform = from_bounds(lon_min, lat_min, lon_max, lat_max, cols, rows)
+          if lats[0,0] > lats[-1,0]:
+              sm = np.flipud(sm)
+
+          tif_name = f"smap_{date_str.replace('-', '')}.tif"
+          with rasterio.open(tif_name, 'w', driver='GTiff',
+              height=rows, width=cols, count=1, dtype='float32',
+              crs=CRS.from_epsg(4326), transform=transform,
+              nodata=np.nan, compress='deflate') as dst:
+              dst.write(sm.astype('float32'), 1)
+          print(f'Wrote {tif_name}')
+          PYEOF
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+        run: |
+          pip install awscli
+          aws s3 cp smap_*.tif s3://mfmaps-source/soil-moisture/ \
+            --endpoint-url https://sfo3.digitaloceanspaces.com \
+            --acl public-read
