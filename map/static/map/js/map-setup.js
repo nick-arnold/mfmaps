@@ -390,6 +390,59 @@ map.addLayer({
     layout: { visibility: 'none' }
 }, BASEMAP_LINE_ANCHOR);
 
+    // --- Soil moisture (SMAP daily, raster + isolines) ----------------
+const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
+
+map.addSource('soil-moisture-raster', {
+    type: 'raster',
+    url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/smap_raster_latest.pmtiles`,
+    tileSize: 256,
+    minzoom: 3,
+    maxzoom: 8,
+});
+map.addLayer({
+    id: 'soil-moisture-raster-layer',
+    type: 'raster',
+    source: 'soil-moisture-raster',
+    minzoom: 3,
+    maxzoom: 22,
+    paint: {
+        'raster-opacity': 0.35,
+        'raster-resampling': 'linear',
+    },
+    layout: { visibility: 'none' }
+}, BASEMAP_LINE_ANCHOR);
+
+map.addSource('soil-moisture-isolines', {
+    type: 'vector',
+    url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/smap_isolines_latest.pmtiles`,
+});
+map.addLayer({
+    id: 'soil-moisture-isolines-layer',
+    type: 'line',
+    source: 'soil-moisture-isolines',
+    'source-layer': 'isolines',
+    minzoom: 3,
+    maxzoom: 22,
+    paint: {
+        'line-color': [
+            'interpolate', ['linear'],
+            ['get', 'soil_moisture'],
+            0.0,  '#ffffe5',
+            0.15, '#78c679',
+            0.30, '#1d91c0',
+            0.50, '#0c2c84',
+        ],
+        'line-width': ['interpolate', ['linear'], ['zoom'],
+            3, 0.5,
+            6, 0.8,
+            8, 1.2,
+        ],
+        'line-opacity': 0.8,
+    },
+    layout: { visibility: 'none' }
+}, BASEMAP_LINE_ANCHOR);
+
     // --- Contours (per-region, per-zoom tiers) ------------------------
     const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
     const CONTOUR_REGION_INTERVALS = {
@@ -2235,4 +2288,9 @@ export function initBurnSeverityControls() {
 
     // Apply the initial filter based on loaded state
     applyPerimeterFilter();
+}
+
+export function initSoilMoistureControls() {
+    // Nothing needed for now — toggles handled by initLayerPanels.
+    // Future: date picker for historical archive.
 }

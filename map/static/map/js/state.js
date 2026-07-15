@@ -218,6 +218,9 @@ export const LAYER_IDS = {
     'burn-severity': buildBurnSeverityLayerIds(),
     // Perimeter is toggled independently
     'burn-severity-perimeter': ['burn-severity-perimeters-line'],
+
+    'soil-moisture-raster': ['soil-moisture-raster-layer'],
+    'soil-moisture-isolines': ['soil-moisture-isolines-layer'],
 };
 
 export const H3_RES = 8;

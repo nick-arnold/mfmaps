@@ -14,6 +14,7 @@ import {
     initModeTabs,
     initCrosshair,
     initBurnSeverityControls,
+    initSoilMoistureControls,
 } from './map-setup.js';
 import {
     wireMapClicks,
