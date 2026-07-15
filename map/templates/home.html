@@ -11,8 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.css" rel="stylesheet">
 
-    <link href="{% static 'map/css/map.css' %}" rel="stylesheet">
-</head>
+    <link href="{% static 'map/css/map.css' %}?v={% now 'U' %}" rel="stylesheet"></head>
 <body>
 
 <!-- Desktop top bar -->

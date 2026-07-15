@@ -216,7 +216,8 @@ body {
    ============================================================ */
 
 .layers-sheet {
-    height: 88vh;
+    --bs-offcanvas-height: 88vh;
+    height: 88vh !important;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
 }
