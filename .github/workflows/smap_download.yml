@@ -28,66 +28,91 @@ jobs:
       - name: Download and convert SMAP to GeoTIFF
         run: |
           python3 << 'PYEOF'
-          import requests, h5py, numpy as np, rasterio
+          import requests, h5py, numpy as np, rasterio, os
           from rasterio.transform import from_bounds
           from rasterio.crs import CRS
           from datetime import datetime, timedelta
 
           today = datetime.utcnow()
-          start = (today - timedelta(days=5)).strftime('%Y-%m-%d')
+          start = (today - timedelta(days=6)).strftime('%Y-%m-%d')
           end = today.strftime('%Y-%m-%d')
-          url = f"https://cmr.earthdata.nasa.gov/search/granules.json?short_name=SPL3SMP_E&version=006&temporal={start},{end}&page_size=1&sort_key=-start_date"
+          url = f"https://cmr.earthdata.nasa.gov/search/granules.json?short_name=SPL3SMP_E&version=006&temporal={start},{end}&page_size=4&sort_key=-start_date"
           r = requests.get(url)
           granules = r.json()['feed']['entry']
           if not granules:
               raise RuntimeError('No granules found')
 
-          granule = granules[0]
-          date_str = granule['time_start'][:10]
-          links = granule['links']
-          h5_url = next(l['href'] for l in links if l['href'].endswith('.h5') and 'nsidc' in l['href'])
-          filename = h5_url.split('/')[-1]
-          print(f'Downloading {filename} for {date_str}')
-
+          date_str = granules[0]['time_start'][:10]
           with open('SMAP_DATE', 'w') as f:
               f.write(date_str)
 
-          session = requests.Session()
-          r = session.get(h5_url, stream=True)
-          r.raise_for_status()
-          with open(filename, 'wb') as f:
-              for chunk in r.iter_content(chunk_size=8192):
-                  f.write(chunk)
-          print(f'Downloaded {filename}')
+          tif_files = []
+          for granule in granules:
+              g_date = granule['time_start'][:10]
+              links = granule['links']
+              try:
+                  h5_url = next(l['href'] for l in links if l['href'].endswith('.h5') and 'nsidc' in l['href'])
+              except StopIteration:
+                  continue
+              filename = h5_url.split('/')[-1]
+              print(f'Downloading {filename} for {g_date}')
 
-          with h5py.File(filename, 'r') as f:
-              am = f['Soil_Moisture_Retrieval_Data_AM']
-              sm_am = am['soil_moisture'][:]
-              lats = am['latitude'][:]
-              lons = am['longitude'][:]
-              pm = f['Soil_Moisture_Retrieval_Data_PM']
-              sm_pm = pm['soil_moisture_pm'][:]
+              session = requests.Session()
+              r = session.get(h5_url, stream=True)
+              r.raise_for_status()
+              with open(filename, 'wb') as f:
+                  for chunk in r.iter_content(chunk_size=8192):
+                      f.write(chunk)
 
-          sm_am = np.where(sm_am == -9999.0, np.nan, sm_am)
-          sm_pm = np.where(sm_pm == -9999.0, np.nan, sm_pm)
-          sm = np.where(np.isnan(sm_am), sm_pm, sm_am)
-          lats = np.where(lats == -9999.0, np.nan, lats)
-          lons = np.where(lons == -9999.0, np.nan, lons)
+              with h5py.File(filename, 'r') as f:
+                  am = f['Soil_Moisture_Retrieval_Data_AM']
+                  sm_am = am['soil_moisture'][:]
+                  lats = am['latitude'][:]
+                  lons = am['longitude'][:]
+                  pm = f['Soil_Moisture_Retrieval_Data_PM']
+                  sm_pm = pm['soil_moisture_pm'][:]
 
-          lat_min, lat_max = float(np.nanmin(lats)), float(np.nanmax(lats))
-          lon_min, lon_max = float(np.nanmin(lons)), float(np.nanmax(lons))
-          rows, cols = sm.shape
-          transform = from_bounds(lon_min, lat_min, lon_max, lat_max, cols, rows)
-          if lats[0, 0] > lats[-1, 0]:
-              sm = np.flipud(sm)
+              sm_am = np.where(sm_am == -9999.0, np.nan, sm_am)
+              sm_pm = np.where(sm_pm == -9999.0, np.nan, sm_pm)
+              sm = np.where(np.isnan(sm_am), sm_pm, sm_am)
+              lats = np.where(lats == -9999.0, np.nan, lats)
+              lons = np.where(lons == -9999.0, np.nan, lons)
 
-          with rasterio.open('smap_raw.tif', 'w', driver='GTiff',
-              height=rows, width=cols, count=1, dtype='float32',
-              crs=CRS.from_epsg(4326), transform=transform,
-              nodata=np.nan, compress='deflate') as dst:
-              dst.write(sm.astype('float32'), 1)
-          print('Wrote smap_raw.tif')
+              lat_min, lat_max = float(np.nanmin(lats)), float(np.nanmax(lats))
+              lon_min, lon_max = float(np.nanmin(lons)), float(np.nanmax(lons))
+              rows, cols = sm.shape
+              transform = from_bounds(lon_min, lat_min, lon_max, lat_max, cols, rows)
+              if lats[0, 0] > lats[-1, 0]:
+                  sm = np.flipud(sm)
+
+              tif_name = f'smap_{g_date}.tif'
+              with rasterio.open(tif_name, 'w', driver='GTiff',
+                  height=rows, width=cols, count=1, dtype='float32',
+                  crs=CRS.from_epsg(4326), transform=transform,
+                  nodata=np.nan, compress='deflate') as dst:
+                  dst.write(sm.astype('float32'), 1)
+              tif_files.append(tif_name)
+              print(f'Wrote {tif_name}')
+
+          # Write file list for gdalbuildvrt
+          with open('tif_list.txt', 'w') as f:
+              f.write('\n'.join(tif_files))
+          print(f'Downloaded {len(tif_files)} granules: {tif_files}')
           PYEOF
+
+      - name: Mosaic last 4 days
+        run: |
+          # Build VRT with most-recent-first priority (first file wins where data exists)
+          gdalbuildvrt -input_file_list tif_list.txt \
+            -resolution highest \
+            -srcnodata nan \
+            -vrtnodata nan \
+            smap_mosaic.vrt
+          # Flatten to GeoTIFF
+          gdal_translate -of GTiff -co COMPRESS=DEFLATE \
+            smap_mosaic.vrt smap_raw.tif
+          echo "Mosaic complete"
+          gdalinfo -stats smap_raw.tif | grep -E "Minimum|Maximum|Mean|Valid"
 
       - name: Reproject to Web Mercator
         run: |
