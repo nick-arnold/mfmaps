@@ -68,11 +68,11 @@ jobs:
               pm = f['Soil_Moisture_Retrieval_Data_PM']
               sm_pm = pm['soil_moisture_pm'][:]
 
-          sm_am = np.where(sm_am == nan.0, np.nan, sm_am)
-          sm_pm = np.where(sm_pm == nan.0, np.nan, sm_pm)
+          sm_am = np.where(sm_am == -9999.0, np.nan, sm_am)
+          sm_pm = np.where(sm_pm == -9999.0, np.nan, sm_pm)
           sm = np.where(np.isnan(sm_am), sm_pm, sm_am)
-          lats = np.where(lats == nan.0, np.nan, lats)
-          lons = np.where(lons == nan.0, np.nan, lons)
+          lats = np.where(lats == -9999.0, np.nan, lats)
+          lons = np.where(lons == -9999.0, np.nan, lons)
 
           lat_min, lat_max = float(np.nanmin(lats)), float(np.nanmax(lats))
           lon_min, lon_max = float(np.nanmin(lons)), float(np.nanmax(lons))
