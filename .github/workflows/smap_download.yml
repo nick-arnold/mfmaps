@@ -1,1 +1,178 @@
-pbpaste > /Users/nick/Documents/websites/mfmaps/.github/workflows/smap_download.yml
+name: Soil Moisture Download
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 10am UTC daily
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin python3-gdal tippecanoe unzip
+          pip install cdsapi netCDF4 numpy rasterio requests awscli
+          pip install git+https://github.com/mapbox/mbutil.git
+          wget -q https://github.com/protomaps/go-pmtiles/releases/download/v1.22.3/go-pmtiles_1.22.3_Linux_x86_64.tar.gz -O pmtiles.tar.gz
+          tar -xf pmtiles.tar.gz pmtiles
+          sudo mv pmtiles /usr/local/bin/
+
+      - name: Write CDS API config
+        run: |
+          cat > ~/.cdsapirc << CDSEOF
+          url: ${{ secrets.CDS_URL }}
+          key: ${{ secrets.CDS_API_KEY }}
+          CDSEOF
+
+      - name: Download ERA5-Land soil moisture
+        run: |
+          python3 << 'PYEOF'
+          import cdsapi
+          import zipfile
+          import os
+          from datetime import datetime, timedelta
+
+          # Use data from 5 days ago to ensure availability (5 day latency)
+          target = datetime.utcnow() - timedelta(days=5)
+          year  = target.strftime('%Y')
+          month = target.strftime('%m')
+          day   = target.strftime('%d')
+          date_str = target.strftime('%Y-%m-%d')
+
+          print(f'Requesting ERA5-Land for {date_str}')
+          with open('ERA5_DATE', 'w') as f:
+              f.write(date_str)
+
+          c = cdsapi.Client()
+          c.retrieve(
+              'reanalysis-era5-land',
+              {
+                  'variable': 'volumetric_soil_water_layer_1',
+                  'year': year,
+                  'month': month,
+                  'day': day,
+                  'time': '12:00',
+                  'area': [72, -180, -60, 180],  # global
+                  'format': 'netcdf',
+              },
+              'era5_raw.zip'
+          )
+
+          # Unzip
+          with zipfile.ZipFile('era5_raw.zip', 'r') as z:
+              z.extractall('era5_extracted/')
+          
+          # Find the nc file
+          nc_files = [f for f in os.listdir('era5_extracted/') if f.endswith('.nc')]
+          print(f'Extracted: {nc_files}')
+          os.rename(f'era5_extracted/{nc_files[0]}', 'era5_raw.nc')
+          print('Done')
+          PYEOF
+
+      - name: Convert NetCDF to GeoTIFF
+        run: |
+          python3 << 'PYEOF'
+          import netCDF4 as nc
+          import numpy as np
+          import rasterio
+          from rasterio.transform import from_bounds
+          from rasterio.crs import CRS
+
+          ds = nc.Dataset('era5_raw.nc')
+          swvl1 = ds.variables['swvl1'][0, :, :]
+          lats = ds.variables['latitude'][:]
+          lons = ds.variables['longitude'][:]
+
+          lat_min, lat_max = float(lats.min()), float(lats.max())
+          lon_min, lon_max = float(lons.min()), float(lons.max())
+          print(f'Bounds: {lon_min:.2f} to {lon_max:.2f} lon, {lat_min:.2f} to {lat_max:.2f} lat')
+
+          # Mask fill values
+          swvl1 = np.where(swvl1 < 0, np.nan, swvl1)
+
+          rows, cols = swvl1.shape
+          transform = from_bounds(lon_min, lat_min, lon_max, lat_max, cols, rows)
+
+          with rasterio.open('era5_raw.tif', 'w', driver='GTiff',
+              height=rows, width=cols, count=1, dtype='float32',
+              crs=CRS.from_epsg(4326), transform=transform,
+              nodata=np.nan, compress='deflate') as dst:
+              dst.write(swvl1.astype('float32'), 1)
+
+          print(f'Valid pixels: {np.sum(~np.isnan(swvl1)):,}')
+          print(f'Value range: {np.nanmin(swvl1):.3f} - {np.nanmax(swvl1):.3f}')
+          print('Wrote era5_raw.tif')
+          PYEOF
+
+      - name: Reproject to Web Mercator
+        run: |
+          gdalwarp -t_srs EPSG:3857 -r bilinear \
+            -tr 9000 9000 \
+            -srcnodata nan \
+            -dstnodata nan \
+            era5_raw.tif era5_3857.tif
+
+      - name: Colorize raster (YlGnBu)
+        run: |
+          cat > colormap.txt << 'COLOREOF'
+          nv    0   0   0   0
+          0.00 255 255 217 255
+          0.05 237 248 177 255
+          0.10 199 233 180 255
+          0.15 127 205 187 255
+          0.20 65  182 196 255
+          0.25 29  145 192 255
+          0.35 34   94 168 255
+          0.50 37   52 148 255
+          0.70  8   29  88 255
+          COLOREOF
+          gdaldem color-relief era5_3857.tif colormap.txt era5_colored.tif -alpha
+
+      - name: Generate raster PMTiles
+        run: |
+          DATE=$(cat ERA5_DATE | tr -d '-')
+          gdal2tiles.py --zoom=3-8 --xyz --resampling=bilinear --processes=4 era5_colored.tif tiles_raster/
+          mb-util --image_format=png tiles_raster/ era5_raster.mbtiles
+          pmtiles convert era5_raster.mbtiles era5_raster_${DATE}.pmtiles
+          cp era5_raster_${DATE}.pmtiles era5_raster_latest.pmtiles
+
+      - name: Generate isoline PMTiles
+        run: |
+          DATE=$(cat ERA5_DATE | tr -d '-')
+          gdalwarp -t_srs EPSG:3857 -r bilinear \
+            -tr 1000 1000 \
+            -srcnodata nan \
+            -dstnodata nan \
+            era5_raw.tif era5_1km.tif
+          gdal_contour -a soil_moisture -i 0.05 \
+            -f GeoJSON era5_1km.tif isolines.geojson
+          tippecanoe \
+            --output=era5_isolines_${DATE}.pmtiles \
+            --minimum-zoom=3 \
+            --maximum-zoom=8 \
+            --layer=isolines \
+            --drop-densest-as-needed \
+            --force \
+            isolines.geojson
+          cp era5_isolines_${DATE}.pmtiles era5_isolines_latest.pmtiles
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+        run: |
+          DATE=$(cat ERA5_DATE | tr -d '-')
+          EP="--endpoint-url https://sfo3.digitaloceanspaces.com"
+
+          aws s3 cp era5_raw.tif s3://mfmaps-source/soil-moisture/era5_${DATE}.tif $EP --acl public-read
+
+          aws s3 cp era5_raster_${DATE}.pmtiles s3://mfmaps-tiles/soil-moisture/raster/era5_raster_${DATE}.pmtiles $EP --acl public-read
+          aws s3 cp era5_raster_latest.pmtiles s3://mfmaps-tiles/soil-moisture/raster/era5_raster_latest.pmtiles $EP --acl public-read
+
+          aws s3 cp era5_isolines_${DATE}.pmtiles s3://mfmaps-tiles/soil-moisture/isolines/era5_isolines_${DATE}.pmtiles $EP --acl public-read
+          aws s3 cp era5_isolines_latest.pmtiles s3://mfmaps-tiles/soil-moisture/isolines/era5_isolines_latest.pmtiles $EP --acl public-read
+
+          echo "Done"
