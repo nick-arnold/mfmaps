@@ -35,7 +35,6 @@ jobs:
           import os
           from datetime import datetime, timedelta
 
-          # Use data from 5 days ago to ensure availability (5 day latency)
           target = datetime.utcnow() - timedelta(days=5)
           year  = target.strftime('%Y')
           month = target.strftime('%m')
@@ -55,17 +54,15 @@ jobs:
                   'month': month,
                   'day': day,
                   'time': '12:00',
-                  'area': [72, -180, -60, 180],  # global
+                  'area': [72, -180, -60, 180],
                   'format': 'netcdf',
               },
               'era5_raw.zip'
           )
 
-          # Unzip
           with zipfile.ZipFile('era5_raw.zip', 'r') as z:
               z.extractall('era5_extracted/')
-          
-          # Find the nc file
+
           nc_files = [f for f in os.listdir('era5_extracted/') if f.endswith('.nc')]
           print(f'Extracted: {nc_files}')
           os.rename(f'era5_extracted/{nc_files[0]}', 'era5_raw.nc')
@@ -90,7 +87,6 @@ jobs:
           lon_min, lon_max = float(lons.min()), float(lons.max())
           print(f'Bounds: {lon_min:.2f} to {lon_max:.2f} lon, {lat_min:.2f} to {lat_max:.2f} lat')
 
-          # Mask fill values
           swvl1 = np.where(swvl1 < 0, np.nan, swvl1)
 
           rows, cols = swvl1.shape
@@ -142,13 +138,8 @@ jobs:
       - name: Generate isoline PMTiles
         run: |
           DATE=$(cat ERA5_DATE | tr -d '-')
-          gdalwarp -t_srs EPSG:3857 -r bilinear \
-            -tr 1000 1000 \
-            -srcnodata nan \
-            -dstnodata nan \
-            era5_raw.tif era5_1km.tif
           gdal_contour -a soil_moisture -i 0.05 \
-            -f GeoJSON era5_1km.tif isolines.geojson
+            -f GeoJSON era5_raw.tif isolines.geojson
           tippecanoe \
             --output=era5_isolines_${DATE}.pmtiles \
             --minimum-zoom=3 \
@@ -156,6 +147,7 @@ jobs:
             --layer=isolines \
             --drop-densest-as-needed \
             --force \
+            -s EPSG:4326 \
             isolines.geojson
           cp era5_isolines_${DATE}.pmtiles era5_isolines_latest.pmtiles
 
