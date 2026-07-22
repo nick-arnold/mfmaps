@@ -1,6 +1,25 @@
 // =============================================================================
 // Map initialization, sources/layers, geolocation, query mode, mode tabs
 // =============================================================================
+//
+// DEFERRED LAYER LOADING
+// ----------------------
+// On initial map load we register ONLY the layers a user sees immediately:
+//   - terrain hillshade
+//   - contours
+//   - trails
+//   - observations
+// (The basemap roads/buildings/labels come from the MapLibre style JSON and
+//  load independently of anything here.)
+//
+// Everything else — slope, aspect, canopy, tree species, burn severity,
+// soil moisture, and hydrography — is registered lazily the first time the
+// user toggles that group on. This keeps the initial map load fast.
+//
+// The mechanism: setLayerGroupVisibility() checks _registeredGroups; if the
+// group hasn't been registered yet it calls the matching register*() function
+// before flipping visibility. Each register*() is idempotent via the Set guard.
+// =============================================================================
 
 import {
     state,
@@ -22,8 +41,6 @@ const US_BOUNDS = [
     [-66.5, 49.5]
 ];
 
-
-
 // Shared color palette
 const STREAM_COLOR   = '#2e6f96';
 const WATER_FILL     = '#9ecbe0';
@@ -35,6 +52,44 @@ const SELECTED_COLOR = '#ff7a1a';
 // Contour palette (shared across all region/zoom tiers)
 const CONTOUR_INTERMEDIATE_COLOR = '#9a7b4f';
 const CONTOUR_INDEX_COLOR        = '#7a5f3a';
+
+// Anchor layer from the basemap style that deferred layers insert beneath.
+const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
+
+// CDN bases
+const TERRAIN_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
+const DERIVATIVES_BASE   = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
+const CANOPY_BASE        = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/canopy';
+const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/burn-severity';
+const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
+const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
+
+// Tracks which deferred groups have already had their sources+layers built.
+const _registeredGroups = new Set();
+
+// Maps a layer-group name (as used by the panel toggles + LAYER_IDS) to the
+// registration function that lazily builds it. Groups NOT in this map are
+// either registered eagerly at load (terrain, contour, trails, observations)
+// or need no registration.
+const DEFERRED_REGISTRARS = {
+    'slope':                   registerSlope,
+    'aspect':                  registerAspect,
+    'canopy':                  registerCanopy,
+    'tree-species':            registerTreeSpecies,
+    'burn-severity':           registerBurnSeverity,
+    'burn-severity-perimeter': registerBurnSeverity,
+    'soil-moisture-raster':    registerSoilMoisture,
+    'soil-moisture-isolines':  registerSoilMoisture,
+    'hydrography':             registerHydrography,
+};
+
+// Ensure a deferred group's sources+layers exist. Safe to call repeatedly.
+function ensureGroupRegistered(group) {
+    const registrar = DEFERRED_REGISTRARS[group];
+    if (!registrar) return;               // eager or unknown group — nothing to do
+    if (_registeredGroups.has(group)) return;
+    registrar();
+}
 
 // --- URL hash <-> map state ----------------------------------------------
 //
@@ -78,7 +133,7 @@ function wireUrlSync() {
 
 export function initMap() {
 
-    console.log('map-setup.js loaded — version 13');
+    console.log('map-setup.js loaded — version 14 (deferred layers)');
 
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
@@ -114,7 +169,7 @@ export function initMap() {
 
     return new Promise((resolve) => {
         state.map.on('load', async () => {
-            addSourcesAndLayers();
+            addEagerSourcesAndLayers();
             wireHydroInteractions();
             wireTreeSpeciesHover();
             wireUrlSync();
@@ -130,16 +185,22 @@ export function initMap() {
     });
 }
 
-// --- Sources and layers ---------------------------------------------------
+// =============================================================================
+// EAGER layers — registered immediately on load
+// =============================================================================
 
-function addSourcesAndLayers() {
+function addEagerSourcesAndLayers() {
+    registerTerrain();
+    registerContours();
+    registerTrails();
+    registerObservations();
+}
+
+// --- Terrain hillshade (CONUS / AK / HI) ---------------------------------
+
+function registerTerrain() {
+    if (_registeredGroups.has('terrain')) return;
     const { map } = state;
-    const empty = { type: 'FeatureCollection', features: [] };
-
-    const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
-
-    // --- Terrain hillshade (CONUS) ------------------------------------
-    const TERRAIN_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain';
 
     const terrainTiers = [
         { id: 'terrain-z3-4',   file: 'conus_z3-4_v1.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
@@ -180,271 +241,15 @@ function addSourcesAndLayers() {
         }, BASEMAP_LINE_ANCHOR);
     });
 
-    // --- Terrain derivatives: slope (per-region) ----------------------
-    const DERIVATIVES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/terrain/derivatives';
+    _registeredGroups.add('terrain');
+}
 
-    const slopeTiers = [
-        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
-    ];
+// --- Contours (per-region, per-zoom tiers) -------------------------------
 
-    slopeTiers.forEach(tier => {
-        map.addSource(tier.id, {
-            type: 'raster-dem',
-            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
-            encoding: 'custom',
-            redFactor: 65536,
-            greenFactor: 256,
-            blueFactor: 1,
-            baseShift: 0,
-            tileSize: 512,
-            minzoom: 11,
-            maxzoom: 12
-        });
-        map.addLayer({
-            id: `${tier.id}-layer`,
-            type: 'color-relief',
-            source: tier.id,
-            minzoom: tier.minzoom,
-            maxzoom: tier.maxzoom,
-            layout: { visibility: 'none' },
-            paint: {
-                'color-relief-opacity': 0.6,
-                'color-relief-color': [
-                    'interpolate',
-                    ['linear'],
-                    ['elevation'],
-                    0,  'rgba(0, 200, 0, 0)',
-                    5,  'rgba(50, 200, 0, 0.3)',
-                    15, 'rgba(200, 200, 0, 0.5)',
-                    30, 'rgba(255, 120, 0, 0.7)',
-                    60, 'rgba(200, 0, 0, 0.9)'
-                ]
-            }
-        }, BASEMAP_LINE_ANCHOR);
-    });
+function registerContours() {
+    if (_registeredGroups.has('contour')) return;
+    const { map } = state;
 
-    // --- Terrain derivatives: aspect (per-region) ---------------------
-    const aspectTiers = [
-        { id: 'aspect-conus',  file: 'aspect_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
-    ];
-
-    aspectTiers.forEach(tier => {
-        map.addSource(tier.id, {
-            type: 'raster',
-            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
-            tileSize: 512,
-            minzoom: 11,
-            maxzoom: 12
-        });
-        map.addLayer({
-            id: `${tier.id}-layer`,
-            type: 'raster',
-            source: tier.id,
-            minzoom: tier.minzoom,
-            maxzoom: tier.maxzoom,
-            layout: { visibility: 'none' },
-            paint: {
-                'raster-opacity': 1.0,
-                'raster-resampling': 'nearest'
-            }
-        }, BASEMAP_LINE_ANCHOR);
-    });
-
-    // --- Tree canopy cover -----------------------------------------------
-    const CANOPY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/canopy';
-
-    [
-        { id: 'canopy-conus',  file: 'conus_canopy_v1.pmtiles'  },
-        { id: 'canopy-seak',   file: 'seak_canopy_v1.pmtiles'   },
-        { id: 'canopy-hawaii', file: 'hawaii_canopy_v1.pmtiles'  }
-    ].forEach(region => {
-        map.addSource(region.id, {
-            type: 'raster',
-            url: `pmtiles://${CANOPY_BASE}/${region.file}`,
-            tileSize: 256,
-            maxzoom: 12
-        });
-        map.addLayer({
-            id: `${region.id}-layer`,
-            type: 'raster',
-            source: region.id,
-            minzoom: 4,
-            maxzoom: 22,
-            paint: {
-                'raster-opacity': 0.20,
-                'raster-resampling': 'linear'
-            },
-            layout: { visibility: 'none' }
-        }, BASEMAP_LINE_ANCHOR);
-    });
-
-    // --- Tree species (single-source, rendered from data tile) ----------
-    // Only the data PMTiles is used — the speciesfilter:// protocol reads
-    // FORTYPCD/EVT codes from each pixel and colors them via the legend
-    // loaded at startup. This eliminates the display/data tile drift that
-    // came from building the two artifacts with different pipelines.
-    [
-        { id: 'tree-species',    region: 'conus', opacity: 0.40 },
-        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
-        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28 },
-    ].forEach(cfg => {
-        map.addSource(cfg.id, {
-            type: 'raster',
-            tiles: [`speciesfilter://${cfg.region}/{z}/{x}/{y}`],
-            tileSize: 256,
-            minzoom: 4,
-            maxzoom: 14,
-        });
-        map.addLayer({
-            id: `${cfg.id}-layer`,
-            type: 'raster',
-            source: cfg.id,
-            minzoom: 4,
-            maxzoom: 22,
-            paint: {
-                'raster-opacity': cfg.opacity,
-                'raster-resampling': 'nearest',
-            },
-            layout: { visibility: 'none' }
-        }, BASEMAP_LINE_ANCHOR);
-    });
-
-    // --- Burn severity (MTBS annual mosaics, per-region per-year) --------
-    const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/burn-severity';
-
-    Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
-        years.forEach(year => {
-            const srcId = `burn-severity-${region}-${year}`;
-            const layerId = `${srcId}-layer`;
-            map.addSource(srcId, {
-                type: 'raster',
-                url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_${region}_${year}.pmtiles`,
-                tileSize: 256,
-                minzoom: 3,
-                maxzoom: 12,
-            });
-            map.addLayer({
-                id: layerId,
-                type: 'raster',
-                source: srcId,
-                minzoom: 3,
-                maxzoom: 22,
-                paint: {
-                    'raster-opacity': 0.4,
-                    'raster-resampling': 'nearest',
-                },
-                layout: { visibility: 'none' }
-            }, BASEMAP_LINE_ANCHOR);
-        });
-    });
-
-    // --- Burn severity fire perimeters (national vector) ----------------
-    map.addSource('burn-severity-perimeters', {
-        type: 'vector',
-        url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_perimeters.pmtiles`,
-    });
-    // Outer halo — soft, blurred, low opacity
-map.addLayer({
-    id: 'burn-severity-perimeters-halo',
-    type: 'line',
-    source: 'burn-severity-perimeters',
-    'source-layer': 'perimeters',
-    minzoom: 3,
-    maxzoom: 22,
-    paint: {
-        'line-color': '#ff6b35',  // warmer orange for glow
-        'line-width': ['interpolate', ['linear'], ['zoom'],
-            3, 3,
-            6, 5,
-            10, 8,
-            14, 12,
-        ],
-        'line-opacity': 0.4,
-        'line-blur': 4,
-    },
-    layout: { visibility: 'none' }
-}, BASEMAP_LINE_ANCHOR);
-
-// Crisp inner stroke — the actual perimeter
-map.addLayer({
-    id: 'burn-severity-perimeters-line',
-    type: 'line',
-    source: 'burn-severity-perimeters',
-    'source-layer': 'perimeters',
-    minzoom: 3,
-    maxzoom: 22,
-    paint: {
-        'line-color': '#c8422e',
-        'line-width': ['interpolate', ['linear'], ['zoom'],
-            3, 1.0,
-            6, 1.6,
-            10, 2.4,
-            14, 3.2,
-        ],
-        'line-opacity': 0.95,
-    },
-    layout: { visibility: 'none' }
-}, BASEMAP_LINE_ANCHOR);
-
-    // --- Soil moisture (ERA5 daily, raster + isolines) ----------------
-const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
-
-map.addSource('soil-moisture-raster', {
-    type: 'raster',
-    url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/era5_raster_latest.pmtiles`,
-    tileSize: 256,
-    minzoom: 3,
-    maxzoom: 8,
-});
-map.addLayer({
-    id: 'soil-moisture-raster-layer',
-    type: 'raster',
-    source: 'soil-moisture-raster',
-    minzoom: 3,
-    maxzoom: 22,
-    paint: {
-        'raster-opacity': 0.35,
-        'raster-resampling': 'linear',
-    },
-    layout: { visibility: 'none' }
-}, BASEMAP_LINE_ANCHOR);
-
-map.addSource('soil-moisture-isolines', {
-    type: 'vector',
-    url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/era5_isolines_latest.pmtiles`,
-});
-map.addLayer({
-    id: 'soil-moisture-isolines-layer',
-    type: 'line',
-    source: 'soil-moisture-isolines',
-    'source-layer': 'isolines',
-    minzoom: 3,
-    maxzoom: 22,
-    paint: {
-        'line-color': [
-            'interpolate', ['linear'],
-            ['get', 'soil_moisture'],
-            0.0,  '#ffffe5',
-            0.15, '#78c679',
-            0.30, '#1d91c0',
-            0.50, '#0c2c84',
-        ],
-        'line-width': ['interpolate', ['linear'], ['zoom'],
-            3, 0.5,
-            6, 0.8,
-            8, 1.2,
-        ],
-        'line-opacity': 0.8,
-    },
-    layout: { visibility: 'none' }
-}, BASEMAP_LINE_ANCHOR);
-
-    // --- Contours (per-region, per-zoom tiers) ------------------------
-    const CONTOUR_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
     const CONTOUR_REGION_INTERVALS = {
         hawaii: { 8: '750ft', 9: '500ft', 10: '250ft', 11: '150ft', 12: '100ft', 13: '50ft' },
         alaska: { 8: '1000ft', 9: '500ft', 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' },
@@ -501,9 +306,14 @@ map.addLayer({
         });
     });
 
-    // =============================================================================
-    // TRAILS (OSM path family — dedicated PMTiles)
-    // =============================================================================
+    _registeredGroups.add('contour');
+}
+
+// --- Trails (OSM path family — dedicated PMTiles) ------------------------
+
+function registerTrails() {
+    if (_registeredGroups.has('trails')) return;
+    const { map } = state;
 
     map.addSource('trails', {
         type: 'vector',
@@ -618,22 +428,353 @@ map.addLayer({
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    map.addSource('nhd', {
-        type: 'vector',
-        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
+    _registeredGroups.add('trails');
+}
+
+// --- Observations (user pins) --------------------------------------------
+
+function registerObservations() {
+    if (_registeredGroups.has('observations')) return;
+    const { map } = state;
+    const empty = { type: 'FeatureCollection', features: [] };
+
+    map.addSource('observations', { type: 'geojson', data: empty });
+    map.addLayer({
+        id: 'observations-layer',
+        type: 'circle',
+        source: 'observations',
+        paint: {
+            'circle-radius': 7,
+            'circle-color': '#2c5530',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2
+        }
     });
 
-    map.addSource('nhd-hover',    { type: 'geojson', data: empty });
-    map.addSource('nhd-selected', { type: 'geojson', data: empty });
+    _registeredGroups.add('observations');
+}
 
-    const widthByStrahler = [
-        'interpolate', ['linear'], ['zoom'],
-        4,  ['*', 0.15, ['to-number', ['get', 'max_strahler']]],
-        8,  ['*', 0.28, ['to-number', ['get', 'max_strahler']]],
-        12, ['*', 0.52, ['to-number', ['get', 'max_strahler']]],
-        16, ['*', 0.90, ['to-number', ['get', 'max_strahler']]],
-        19, ['*', 1.40, ['to-number', ['get', 'max_strahler']]]
+// =============================================================================
+// DEFERRED layers — registered lazily on first toggle
+// =============================================================================
+
+// --- Terrain derivatives: slope (per-region) -----------------------------
+
+function registerSlope() {
+    if (_registeredGroups.has('slope')) return;
+    const { map } = state;
+
+    const slopeTiers = [
+        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
     ];
+
+    slopeTiers.forEach(tier => {
+        map.addSource(tier.id, {
+            type: 'raster-dem',
+            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
+            encoding: 'custom',
+            redFactor: 65536,
+            greenFactor: 256,
+            blueFactor: 1,
+            baseShift: 0,
+            tileSize: 512,
+            minzoom: 11,
+            maxzoom: 12
+        });
+        map.addLayer({
+            id: `${tier.id}-layer`,
+            type: 'color-relief',
+            source: tier.id,
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: { visibility: 'none' },
+            paint: {
+                'color-relief-opacity': 0.6,
+                'color-relief-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['elevation'],
+                    0,  'rgba(0, 200, 0, 0)',
+                    5,  'rgba(50, 200, 0, 0.3)',
+                    15, 'rgba(200, 200, 0, 0.5)',
+                    30, 'rgba(255, 120, 0, 0.7)',
+                    60, 'rgba(200, 0, 0, 0.9)'
+                ]
+            }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+    _registeredGroups.add('slope');
+}
+
+// --- Terrain derivatives: aspect (per-region) ----------------------------
+
+function registerAspect() {
+    if (_registeredGroups.has('aspect')) return;
+    const { map } = state;
+
+    const aspectTiers = [
+        { id: 'aspect-conus',  file: 'aspect_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
+        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
+    ];
+
+    aspectTiers.forEach(tier => {
+        map.addSource(tier.id, {
+            type: 'raster',
+            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
+            tileSize: 512,
+            minzoom: 11,
+            maxzoom: 12
+        });
+        map.addLayer({
+            id: `${tier.id}-layer`,
+            type: 'raster',
+            source: tier.id,
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: { visibility: 'none' },
+            paint: {
+                'raster-opacity': 1.0,
+                'raster-resampling': 'nearest'
+            }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+    _registeredGroups.add('aspect');
+}
+
+// --- Tree canopy cover ---------------------------------------------------
+
+function registerCanopy() {
+    if (_registeredGroups.has('canopy')) return;
+    const { map } = state;
+
+    [
+        { id: 'canopy-conus',  file: 'conus_canopy_v1.pmtiles'  },
+        { id: 'canopy-seak',   file: 'seak_canopy_v1.pmtiles'   },
+        { id: 'canopy-hawaii', file: 'hawaii_canopy_v1.pmtiles'  }
+    ].forEach(region => {
+        map.addSource(region.id, {
+            type: 'raster',
+            url: `pmtiles://${CANOPY_BASE}/${region.file}`,
+            tileSize: 256,
+            maxzoom: 12
+        });
+        map.addLayer({
+            id: `${region.id}-layer`,
+            type: 'raster',
+            source: region.id,
+            minzoom: 4,
+            maxzoom: 22,
+            paint: {
+                'raster-opacity': 0.20,
+                'raster-resampling': 'linear'
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+    _registeredGroups.add('canopy');
+}
+
+// --- Tree species (single-source, rendered from data tile) ---------------
+// Only the data PMTiles is used — the speciesfilter:// protocol reads
+// FORTYPCD/EVT codes from each pixel and colors them via the legend loaded
+// at startup.
+
+function registerTreeSpecies() {
+    if (_registeredGroups.has('tree-species')) return;
+    const { map } = state;
+
+    [
+        { id: 'tree-species',    region: 'conus', opacity: 0.40 },
+        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
+        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28 },
+    ].forEach(cfg => {
+        map.addSource(cfg.id, {
+            type: 'raster',
+            tiles: [`speciesfilter://${cfg.region}/{z}/{x}/{y}`],
+            tileSize: 256,
+            minzoom: 4,
+            maxzoom: 14,
+        });
+        map.addLayer({
+            id: `${cfg.id}-layer`,
+            type: 'raster',
+            source: cfg.id,
+            minzoom: 4,
+            maxzoom: 22,
+            paint: {
+                'raster-opacity': cfg.opacity,
+                'raster-resampling': 'nearest',
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+    _registeredGroups.add('tree-species');
+}
+
+// --- Burn severity (MTBS annual mosaics + national perimeter vector) ------
+// Covers both the 'burn-severity' and 'burn-severity-perimeter' groups.
+
+function registerBurnSeverity() {
+    if (_registeredGroups.has('burn-severity')) return;
+    const { map } = state;
+
+    Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
+        years.forEach(year => {
+            const srcId = `burn-severity-${region}-${year}`;
+            const layerId = `${srcId}-layer`;
+            map.addSource(srcId, {
+                type: 'raster',
+                url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_${region}_${year}.pmtiles`,
+                tileSize: 256,
+                minzoom: 3,
+                maxzoom: 12,
+            });
+            map.addLayer({
+                id: layerId,
+                type: 'raster',
+                source: srcId,
+                minzoom: 3,
+                maxzoom: 22,
+                paint: {
+                    'raster-opacity': 0.4,
+                    'raster-resampling': 'nearest',
+                },
+                layout: { visibility: 'none' }
+            }, BASEMAP_LINE_ANCHOR);
+        });
+    });
+
+    // Fire perimeters (national vector)
+    map.addSource('burn-severity-perimeters', {
+        type: 'vector',
+        url: `pmtiles://${BURN_SEVERITY_BASE}/mtbs_perimeters.pmtiles`,
+    });
+
+    // Outer halo — soft, blurred, low opacity
+    map.addLayer({
+        id: 'burn-severity-perimeters-halo',
+        type: 'line',
+        source: 'burn-severity-perimeters',
+        'source-layer': 'perimeters',
+        minzoom: 3,
+        maxzoom: 22,
+        paint: {
+            'line-color': '#ff6b35',
+            'line-width': ['interpolate', ['linear'], ['zoom'],
+                3, 3,
+                6, 5,
+                10, 8,
+                14, 12,
+            ],
+            'line-opacity': 0.4,
+            'line-blur': 4,
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
+    // Crisp inner stroke — the actual perimeter
+    map.addLayer({
+        id: 'burn-severity-perimeters-line',
+        type: 'line',
+        source: 'burn-severity-perimeters',
+        'source-layer': 'perimeters',
+        minzoom: 3,
+        maxzoom: 22,
+        paint: {
+            'line-color': '#c8422e',
+            'line-width': ['interpolate', ['linear'], ['zoom'],
+                3, 1.0,
+                6, 1.6,
+                10, 2.4,
+                14, 3.2,
+            ],
+            'line-opacity': 0.95,
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
+    _registeredGroups.add('burn-severity');
+    _registeredGroups.add('burn-severity-perimeter');
+
+    // The year picker + perimeter toggles may have been initialized before
+    // these layers existed; re-apply saved state now that they're present.
+    applyBurnSeverityInitialState();
+}
+
+// --- Soil moisture (ERA5 daily, raster + isolines) -----------------------
+// Covers both the 'soil-moisture-raster' and 'soil-moisture-isolines' groups.
+
+function registerSoilMoisture() {
+    if (_registeredGroups.has('soil-moisture-raster')) return;
+    const { map } = state;
+
+    map.addSource('soil-moisture-raster', {
+        type: 'raster',
+        url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/era5_raster_latest.pmtiles`,
+        tileSize: 256,
+        minzoom: 3,
+        maxzoom: 8,
+    });
+    map.addLayer({
+        id: 'soil-moisture-raster-layer',
+        type: 'raster',
+        source: 'soil-moisture-raster',
+        minzoom: 3,
+        maxzoom: 22,
+        paint: {
+            'raster-opacity': 0.35,
+            'raster-resampling': 'linear',
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
+    map.addSource('soil-moisture-isolines', {
+        type: 'vector',
+        url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/era5_isolines_latest.pmtiles`,
+    });
+    map.addLayer({
+        id: 'soil-moisture-isolines-layer',
+        type: 'line',
+        source: 'soil-moisture-isolines',
+        'source-layer': 'isolines',
+        minzoom: 3,
+        maxzoom: 22,
+        paint: {
+            'line-color': [
+                'interpolate', ['linear'],
+                ['get', 'soil_moisture'],
+                0.0,  '#ffffe5',
+                0.15, '#78c679',
+                0.30, '#1d91c0',
+                0.50, '#0c2c84',
+            ],
+            'line-width': ['interpolate', ['linear'], ['zoom'],
+                3, 0.5,
+                6, 0.8,
+                8, 1.2,
+            ],
+            'line-opacity': 0.8,
+        },
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
+    _registeredGroups.add('soil-moisture-raster');
+    _registeredGroups.add('soil-moisture-isolines');
+}
+
+// --- Hydrography (NHD: CONUS+HI, Alaska, + Protomaps labels) --------------
+
+function registerHydrography() {
+    if (_registeredGroups.has('hydrography')) return;
+    const { map } = state;
+    const empty = { type: 'FeatureCollection', features: [] };
 
     const STREAM_LABEL_LAYOUT_BASE = {
         'text-field': ['get', 'gnis_name'],
@@ -654,6 +795,15 @@ map.addLayer({
         'text-halo-width': 1.5,
         'text-halo-blur': 0.5
     };
+
+    // Protomaps hydro (used for CONUS labels + hover/select source features)
+    map.addSource('nhd', {
+        type: 'vector',
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
+    });
+
+    map.addSource('nhd-hover',    { type: 'geojson', data: empty });
+    map.addSource('nhd-selected', { type: 'geojson', data: empty });
 
     // ====================================================================
     // ALASKA HYDROGRAPHY
@@ -857,6 +1007,7 @@ map.addLayer({
         ]
     }, BASEMAP_LINE_ANCHOR);
 
+    // Selected + hover highlight layers (driven by geojson sources)
     map.addLayer({
         id: 'nhd-selected-label-line',
         type: 'symbol',
@@ -1055,21 +1206,9 @@ map.addLayer({
         }
     }, BASEMAP_LINE_ANCHOR);
 
-    // Observations
-    map.addSource('observations', { type: 'geojson', data: empty });
-    map.addLayer({
-        id: 'observations-layer',
-        type: 'circle',
-        source: 'observations',
-        paint: {
-            'circle-radius': 7,
-            'circle-color': '#2c5530',
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 2
-        }
-    });
-
+    _registeredGroups.add('hydrography');
 }
+
 // --- Hydrography interactions: hover + click select + popup --------------
 
 const HYDRO_INTERACTIVE_LAYERS = [
@@ -1185,8 +1324,6 @@ function featureKind(feature) {
     if (gt === 'LineString' || gt === 'MultiLineString') return 'stream';
     return 'waterbody';
 }
-
-
 
 const WATERBODY_FTYPE_LABELS = {
     390: 'Lake/Pond', 436: 'Reservoir', 361: 'Playa',
@@ -1582,16 +1719,6 @@ function wireHydroInteractions() {
 // =============================================================================
 // Tree species hover lookup (CONUS / AK / HI)
 // =============================================================================
-// Each region has its own PMTiles + legend JSON. The hover handler picks the
-// right region based on the lng/lat (CONUS bbox, AK bbox, HI bbox) and reads
-// the underlying tile pixel for exact species lookup.
-//
-// CONUS uses dual-layer architecture: a display tile (RGBA at alpha=255) and
-// a parallel data tile (FORTYPCD encoded as R high byte + G low byte) for
-// bulletproof species lookup.
-//
-// AK and HI still use the old alpha-channel-as-species-index trick until
-// their pipelines are rerun with the new architecture.
 
 const TREE_SPECIES_REGIONS = [
     {
@@ -1986,6 +2113,11 @@ function renderPanelInto(template, container, contextSuffix) {
 }
 
 export function setLayerGroupVisibility(group, visible) {
+    // Lazily build the group's sources+layers the first time it's switched on.
+    if (visible) {
+        ensureGroupRegistered(group);
+    }
+
     // Burn severity: only ONE year visible at a time
     if (group === 'burn-severity') {
         if (visible) {
@@ -2092,7 +2224,7 @@ export function initQueryMode() {
 export function initGeolocate() {
     state.geolocate.on('geolocate', (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         const html = `
             <div class="mb-1"><strong>Lat:</strong> ${latitude.toFixed(5)}</div>
             <div class="mb-1"><strong>Lng:</strong> ${longitude.toFixed(5)}</div>
@@ -2158,6 +2290,9 @@ export function setBurnSeverityYear(year) {
     const map = state.map;
     if (!map) return;
 
+    // Ensure the burn severity layers exist before trying to toggle them.
+    ensureGroupRegistered('burn-severity');
+
     state.burnSeverityYear = year;
     saveBurnSeverityYear(year);
 
@@ -2191,6 +2326,10 @@ export function hideBurnSeverityRasters() {
 export function setBurnSeverityPerimeterVisible(visible) {
     const map = state.map;
     if (!map) return;
+
+    // Ensure the perimeter layer exists before toggling.
+    if (visible) ensureGroupRegistered('burn-severity-perimeter');
+
     state.burnSeverityPerimeterVisible = visible;
     saveBurnSeverityPerimeterVisible(visible);
     if (map.getLayer('burn-severity-perimeters-line')) {
@@ -2221,6 +2360,20 @@ function applyPerimeterFilter() {
 export function setBurnSeverityPerimeterMatchYear(match) {
     state.burnSeverityPerimeterMatchYear = match;
     saveBurnSeverityPerimeterMatchYear(match);
+    applyPerimeterFilter();
+}
+
+// Applies saved burn-severity UI state to freshly-registered layers. Called
+// from registerBurnSeverity() so that if the user had a perimeter toggle etc.
+// saved, it's reflected once the layers actually exist.
+function applyBurnSeverityInitialState() {
+    const map = state.map;
+    if (!map) return;
+
+    // If the perimeter was toggled on in the UI, show it now.
+    if (state.burnSeverityPerimeterVisible && map.getLayer('burn-severity-perimeters-line')) {
+        map.setLayoutProperty('burn-severity-perimeters-line', 'visibility', 'visible');
+    }
     applyPerimeterFilter();
 }
 
@@ -2270,9 +2423,6 @@ export function initBurnSeverityControls() {
             setBurnSeverityPerimeterVisible(on);
         });
     });
-    if (perimVisible) {
-        setBurnSeverityPerimeterVisible(true);
-    }
 
     // Match-year toggle for perimeter
     state.burnSeverityPerimeterMatchYear = loadBurnSeverityPerimeterMatchYear();
@@ -2286,11 +2436,16 @@ export function initBurnSeverityControls() {
         });
     });
 
-    // Apply the initial filter based on loaded state
-    applyPerimeterFilter();
+    // NOTE: we intentionally do NOT eagerly show the perimeter here even if
+    // perimVisible is true — the burn severity layers are deferred and will be
+    // built + have their saved state applied the first time the group is
+    // registered (see applyBurnSeverityInitialState). If you want a saved
+    // "perimeter on" state to restore the layers at load, uncomment:
+    //
+    // if (perimVisible) setBurnSeverityPerimeterVisible(true);
 }
 
 export function initSoilMoistureControls() {
-    // Nothing needed for now — toggles handled by initLayerPanels.
-    // Future: date picker for historical archive.
+    // Nothing needed for now — toggles handled by initLayerPanels, layers
+    // registered lazily on first toggle. Future: date picker for the archive.
 }
