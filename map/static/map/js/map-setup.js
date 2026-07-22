@@ -390,12 +390,12 @@ map.addLayer({
     layout: { visibility: 'none' }
 }, BASEMAP_LINE_ANCHOR);
 
-    // --- Soil moisture (SMAP daily, raster + isolines) ----------------
+    // --- Soil moisture (ERA5 daily, raster + isolines) ----------------
 const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
 
 map.addSource('soil-moisture-raster', {
     type: 'raster',
-    url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/smap_raster_latest.pmtiles`,
+    url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/era5_raster_latest.pmtiles`,
     tileSize: 256,
     minzoom: 3,
     maxzoom: 8,
@@ -415,7 +415,7 @@ map.addLayer({
 
 map.addSource('soil-moisture-isolines', {
     type: 'vector',
-    url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/smap_isolines_latest.pmtiles`,
+    url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/era5_isolines_latest.pmtiles`,
 });
 map.addLayer({
     id: 'soil-moisture-isolines-layer',
