@@ -30,8 +30,6 @@ import {
     saveBurnSeverityYear,
     loadBurnSeverityPerimeterVisible,
     saveBurnSeverityPerimeterVisible,
-    loadBurnSeverityPerimeterMatchYear,
-    saveBurnSeverityPerimeterMatchYear,
 } from './state.js';
 import { escapeHtml } from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
@@ -2344,7 +2342,7 @@ function applyPerimeterFilter() {
     const map = state.map;
     if (!map || !map.getLayer('burn-severity-perimeters-line')) return;
 
-    if (state.burnSeverityPerimeterMatchYear && state.burnSeverityYear != null) {
+    if (state.burnSeverityYear != null) {
         const yearPrefix = String(state.burnSeverityYear);
         map.setFilter('burn-severity-perimeters-line', [
             '==',
@@ -2352,16 +2350,11 @@ function applyPerimeterFilter() {
             yearPrefix,
         ]);
     } else {
-        // Show all perimeters — no filter
         map.setFilter('burn-severity-perimeters-line', null);
     }
 }
 
-export function setBurnSeverityPerimeterMatchYear(match) {
-    state.burnSeverityPerimeterMatchYear = match;
-    saveBurnSeverityPerimeterMatchYear(match);
-    applyPerimeterFilter();
-}
+
 
 // Applies saved burn-severity UI state to freshly-registered layers. Called
 // from registerBurnSeverity() so that if the user had a perimeter toggle etc.
@@ -2421,18 +2414,6 @@ export function initBurnSeverityControls() {
             const on = e.target.checked;
             perimToggles.forEach(other => { if (other !== e.target) other.checked = on; });
             setBurnSeverityPerimeterVisible(on);
-        });
-    });
-
-    // Match-year toggle for perimeter
-    state.burnSeverityPerimeterMatchYear = loadBurnSeverityPerimeterMatchYear();
-    const matchToggles = document.querySelectorAll('.burn-severity-perimeter-match-toggle');
-    matchToggles.forEach(cb => {
-        cb.checked = state.burnSeverityPerimeterMatchYear;
-        cb.addEventListener('change', (e) => {
-            const on = e.target.checked;
-            matchToggles.forEach(other => { if (other !== e.target) other.checked = on; });
-            setBurnSeverityPerimeterMatchYear(on);
         });
     });
 
