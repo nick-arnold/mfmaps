@@ -168,3 +168,14 @@ jobs:
           aws s3 cp era5_isolines_latest.pmtiles s3://mfmaps-tiles/soil-moisture/isolines/era5_isolines_latest.pmtiles $EP --acl public-read
 
           echo "Done"
+
+      - name: Purge CDN cache
+        env:
+          DO_API_TOKEN: ${{ secrets.DO_API_TOKEN }}
+        run: |
+          curl -s -X DELETE \
+            "https://api.digitalocean.com/v2/cdn/endpoints/5a2c1d80-7525-4181-aa71-8a5c7fbfdf33/cache" \
+            -H "Authorization: Bearer $DO_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"files": ["soil-moisture/raster/*", "soil-moisture/isolines/*"]}'
+          echo "CDN cache purged"
