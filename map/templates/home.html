@@ -215,7 +215,7 @@
 
 <template id="layerPanelTemplate">
 
-  <details class="layer-section" data-section-key="terrain" open>
+  <details class="layer-section" data-section-key="terrain">
     <summary class="text-uppercase text-muted small fw-bold mb-2">Terrain</summary>
       <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
@@ -249,7 +249,7 @@
     </div>
   </details>
 
-  <details class="layer-section" data-section-key="vegetation" open>
+  <details class="layer-section" data-section-key="vegetation">
     <summary class="text-uppercase text-muted small fw-bold mb-2">Vegetation</summary>
 
     <div class="form-check form-switch mb-2">
@@ -285,17 +285,14 @@
     </div>
   </details>
 
-  <details class="layer-section" data-section-key="hydrography">
-    <summary class="text-uppercase text-muted small fw-bold mb-2">Hydrography</summary>
-
-    <div class="form-check form-switch mb-3">
-        <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-hydrography-CTX" data-layer-group="hydrography" checked>
-        <label class="form-check-label" for="layer-hydrography-CTX">
-            Streams &amp; waterbodies
-        </label>
-    </div>
-  </details>
+  <!-- Hydrography: standalone toggle, no collapsible header, off by default -->
+  <div class="form-check form-switch mb-3 px-3">
+      <input class="form-check-input layer-toggle" type="checkbox"
+             id="layer-hydrography-CTX" data-layer-group="hydrography">
+      <label class="form-check-label" for="layer-hydrography-CTX">
+          Streams &amp; waterbodies
+      </label>
+  </div>
 
   <details class="layer-section" data-section-key="my-data" open>
     <summary class="text-uppercase text-muted small fw-bold mb-2">My Data</summary>
@@ -382,6 +379,8 @@
           <input class="form-check-input" type="checkbox" disabled>
           <label class="form-check-label">Soil temperature</label>
       </div>
+  </details>
+
   </details>
 
   <hr class="my-4">
