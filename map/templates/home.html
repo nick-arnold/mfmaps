@@ -285,6 +285,31 @@
     </div>
   </details>
 
+  <details class="layer-section" data-section-key="soil">
+    <summary class="text-uppercase text-muted small fw-bold mb-2">Soil</summary>
+
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-soil-moisture-raster-CTX" data-layer-group="soil-moisture-raster">
+        <label class="form-check-label" for="layer-soil-moisture-raster-CTX">
+            Soil moisture
+        </label>
+    </div>
+
+    <div class="form-check form-switch mb-2 ps-3">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-soil-moisture-isolines-CTX" data-layer-group="soil-moisture-isolines">
+        <label class="form-check-label small" for="layer-soil-moisture-isolines-CTX">
+            Isolines
+        </label>
+    </div>
+
+    <div class="form-check form-switch mb-0 opacity-50">
+        <input class="form-check-input" type="checkbox" disabled>
+        <label class="form-check-label">Soil temperature</label>
+    </div>
+  </details>
+
   <!-- Hydrography: standalone toggle, no collapsible header, off by default -->
   <div class="form-check form-switch mb-3">
       <input class="form-check-input layer-toggle" type="checkbox"
@@ -355,31 +380,6 @@
           </label>
       </div>
     </div>
-
-    <details class="layer-section mt-2" data-section-key="soil">
-      <summary class="text-uppercase text-muted small fw-bold mb-2">Soil</summary>
-  
-      <div class="form-check form-switch mb-2">
-          <input class="form-check-input layer-toggle" type="checkbox"
-                 id="layer-soil-moisture-raster-CTX" data-layer-group="soil-moisture-raster">
-          <label class="form-check-label" for="layer-soil-moisture-raster-CTX">
-              Soil moisture
-          </label>
-      </div>
-  
-      <div class="form-check form-switch mb-2 ps-3">
-          <input class="form-check-input layer-toggle" type="checkbox"
-                 id="layer-soil-moisture-isolines-CTX" data-layer-group="soil-moisture-isolines">
-          <label class="form-check-label small" for="layer-soil-moisture-isolines-CTX">
-              Isolines
-          </label>
-      </div>
-  
-      <div class="form-check form-switch mb-0 opacity-50">
-          <input class="form-check-input" type="checkbox" disabled>
-          <label class="form-check-label">Soil temperature</label>
-      </div>
-  </details>
 
   </details>
 
