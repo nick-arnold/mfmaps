@@ -78,6 +78,7 @@ const DEFERRED_REGISTRARS = {
     'soil-moisture-raster':    registerSoilMoisture,
     'soil-moisture-isolines':  registerSoilMoisture,
     'hydrography':             registerHydrography,
+    'wetlands':                registerHydrography,  
 };
 
 // =============================================================================
@@ -1102,6 +1103,27 @@ function registerHydrography() {
         ]
     }, BASEMAP_LINE_ANCHOR);
 
+    const WETLAND_FILL = '#8fae6b';   // marsh green, distinct from the blue open-water fill
+
+    map.addLayer({
+        id: 'nhd-conus-wetlands-fill',
+        type: 'fill',
+        source: 'nhd_conus',
+        'source-layer': 'waterbodies',
+        paint: { 'fill-color': WETLAND_FILL, 'fill-opacity': 0.55 },
+        filter: ['==', ['get', 'ftype'], 466],
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+    map.addLayer({
+        id: 'nhd-conus-wetlands-stroke',
+        type: 'line',
+        source: 'nhd_conus',
+        'source-layer': 'waterbodies',
+        paint: { 'line-color': WETLAND_FILL, 'line-width': 0.8, 'line-opacity': 0.9 },
+        filter: ['==', ['get', 'ftype'], 466],
+        layout: { visibility: 'none' }
+    }, BASEMAP_LINE_ANCHOR);
+
     // Selected + hover highlight layers (driven by geojson sources)
     map.addLayer({
         id: 'nhd-selected-label-line',
@@ -1316,6 +1338,7 @@ const HYDRO_INTERACTIVE_LAYERS = [
     'nhd-streams',
     'nhd-conus-streams',
     'nhd-conus-waterbodies-fill',
+    'nhd-conus-wetlands-fill',   // ← add
     'nhd-ak-streams',
     'nhd-ak-waterbodies-fill',
 ];
