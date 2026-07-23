@@ -2356,6 +2356,8 @@ export function wireFabs(onAddObservation) {
         initSoilProbe();
     });
 
+    
+
     initFabRadial();
 
     const compassBtn = document.getElementById('fabCompass');
@@ -2387,6 +2389,7 @@ export function initQueryMode() {
         if (!state.queryMode) {
             document.getElementById('queryResult').classList.add('d-none');
         }
+        syncFabToggleState();
     });
 
     state.map.on('click', (e) => {
@@ -2649,6 +2652,25 @@ export function initSoilMoistureControls() {
     // registered lazily on first toggle. Future: date picker for the archive.
 }
 
+const FAB_MODE_ICONS = {
+    fabQuery: 'bi-cursor',
+    fabSoilProbe: 'bi-thermometer-half',
+};
+
+function syncFabToggleState() {
+    const root = document.getElementById('fabRadial');
+    const icon = root?.querySelector('.fab-icon-closed');
+    if (!root || !icon) return;
+
+    let activeId = null;
+    if (state.soilProbeMode) activeId = 'fabSoilProbe';
+    else if (state.queryMode) activeId = 'fabQuery';
+
+    const iconClass = activeId ? FAB_MODE_ICONS[activeId] : 'bi-tools';
+    icon.className = `bi ${iconClass} fab-icon-closed`;
+    root.classList.toggle('is-armed', Boolean(activeId));
+}
+
 function initFabRadial() {
     const root = document.getElementById('fabRadial');
     const toggle = document.getElementById('fabToggle');
@@ -2673,7 +2695,9 @@ function initFabRadial() {
     // Collapse after picking a tool, but not for buttons that enter a
     // persistent pick-mode — those want the stack out of the way immediately
     // either way, so we close for all of them.
-    arc.addEventListener('click', () => setOpen(false));
+    arc.addEventListener('click', () => {
+        setTimeout(() => setOpen(false), 380);
+    });
 
     document.addEventListener('click', (e) => {
         if (!root.contains(e.target)) setOpen(false);
@@ -2754,6 +2778,7 @@ export function initSoilProbe() {
         btn.setAttribute('aria-pressed', state.soilProbeMode ? 'true' : 'false');
         document.body.classList.toggle('soil-probe-mode', state.soilProbeMode);
         if (!state.soilProbeMode) hideSoilTooltip();
+        syncFabToggleState();
     });
 
     state.map.on('click', async (e) => {

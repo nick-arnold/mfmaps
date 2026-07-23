@@ -692,6 +692,12 @@ body.info-panel-open .fab-stack {
     display: none;
 }
 
+.fab-radial.is-armed #fabToggle {
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
+}
+.fab-radial.is-armed.is-open #fabToggle {
+    box-shadow: none;
+}
 /* ============================================================
    Right-side selection panel (desktop) — feature-click info, and
    (via the .right-info-panel modifier above) Saved/Reports too
