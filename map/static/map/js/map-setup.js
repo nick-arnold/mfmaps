@@ -72,7 +72,6 @@ const _registeredGroups = new Set();
 const DEFERRED_REGISTRARS = {
     'slope':                   registerSlope,
     'aspect':                  registerAspect,
-    'canopy':                  registerCanopy,
     'tree-species':            registerTreeSpecies,
     'burn-severity':           registerBurnSeverity,
     'burn-severity-perimeter': registerBurnSeverity,
@@ -288,6 +287,7 @@ function addEagerSourcesAndLayers() {
     registerContours();
     registerTrails();
     registerObservations();
+    registerCanopy();          
 }
 
 // --- Terrain hillshade (CONUS / AK / HI) ---------------------------------
@@ -667,7 +667,6 @@ function registerCanopy() {
                 'raster-opacity': 0.20,
                 'raster-resampling': 'linear'
             },
-            layout: { visibility: 'none' }
         }, BASEMAP_LINE_ANCHOR);
     });
 
@@ -1678,6 +1677,7 @@ let infoPanelCloseHandler = null;
 
 export function closeInfoPanel() {
     document.getElementById('sidePanelInfo')?.classList.add('d-none');
+    document.body.classList.remove('info-panel-open');   // ← add this line
     const offcanvasEl = document.getElementById('hydroInfoSheet');
     if (offcanvasEl) {
         const instance = bootstrap.Offcanvas.getInstance(offcanvasEl);
@@ -1702,6 +1702,7 @@ export function showInfoPanel({ title, bodyHtml, onClose }) {
         titleEl.textContent = title;
         bodyEl.innerHTML = bodyHtml;
         panel.classList.remove('d-none');
+        document.body.classList.add('info-panel-open');   // ← add this line
         return bodyEl;
     } else {
         const sheetEl = document.getElementById('hydroInfoSheet');
@@ -2356,6 +2357,8 @@ export function zoomToH3Res(zoom) {
 
 export function setMode(mode, onSavedActivate, onReportsActivate) {
     if (mode === 'layers') return;
+
+    closeInfoPanel();    // ← add this line
 
     document.querySelectorAll('.app-tab, .dock-tab').forEach(t => {
         if (t.dataset.mode === 'layers') return;

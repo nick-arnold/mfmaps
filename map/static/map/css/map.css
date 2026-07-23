@@ -383,8 +383,10 @@ body {
    .mobile-account .dropdown-menu { min-width: 220px; }
    
    /* ============================================================
-      Saved panel needs the same positioning as the (removed) listPanel
-      The .list-panel CSS still applies because we reused the class.
+      Saved/Reports panels keep .list-panel for mobile full-screen
+      behavior, plus .right-info-panel (defined below) which overrides
+      the desktop positioning to dock on the right at 380px, same as
+      the feature-click info panel.
       ============================================================ */
 
       /* ============================================================
@@ -602,8 +604,13 @@ body.list-mode .fab-stack {
     display: none;
 }
 
+body.info-panel-open .fab-stack {
+    display: none;
+}
+
 /* ============================================================
-   Side panel — info pane (desktop split-view for clicked features)
+   Right-side selection panel (desktop) — feature-click info, and
+   (via the .right-info-panel modifier above) Saved/Reports too
    ============================================================ */
 
    .side-panel-body {
@@ -619,22 +626,28 @@ body.list-mode .fab-stack {
     min-height: 0;
 }
 
-.side-panel-info {
+.right-info-panel {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 66%;
-    display: flex;
-    flex-direction: column;
     background: #ffffff;
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-    z-index: 2;
+    z-index: 6;
 }
 
-.side-panel-info-header {
+@media (min-width: 768px) {
+    .right-info-panel {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: auto;
+        width: 380px;
+        max-width: 90vw;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: -10px 0 28px rgba(0, 0, 0, 0.15);
+    }
+}
+
+.right-info-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -645,7 +658,7 @@ body.list-mode .fab-stack {
     flex-shrink: 0;
 }
 
-.side-panel-info-header h6 {
+.right-info-panel-header h6 {
     font-size: 0.88rem;
     font-weight: 700;
     color: #1a1a1a;
@@ -654,7 +667,7 @@ body.list-mode .fab-stack {
     white-space: nowrap;
 }
 
-.side-panel-info-body {
+.right-info-panel-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;

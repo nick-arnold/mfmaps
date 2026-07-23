@@ -52,18 +52,21 @@
           <div class="side-panel-body">
               <!-- Filled by JS from template -->
           </div>
-          <div id="sidePanelInfo" class="side-panel-info d-none">
-              <div class="side-panel-info-header">
-                  <h6 class="mb-0" id="sidePanelInfoTitle">—</h6>
-                  <button type="button" class="btn-close btn-close-sm" id="sidePanelInfoClose" aria-label="Close"></button>
-              </div>
-              <div class="side-panel-info-body" id="sidePanelInfoBody">
-                  <!-- filled by JS -->
-              </div>
-          </div>
       </aside>
 
     <div id="map"></div>
+
+    <!-- Right-side selection panel (desktop) — feature/observation detail,
+         and (see Saved/Reports panels below) the same slot they open in -->
+    <div id="sidePanelInfo" class="right-info-panel d-none">
+        <div class="right-info-panel-header">
+            <h6 class="mb-0" id="sidePanelInfoTitle">—</h6>
+            <button type="button" class="btn-close btn-close-sm" id="sidePanelInfoClose" aria-label="Close"></button>
+        </div>
+        <div class="right-info-panel-body" id="sidePanelInfoBody">
+            <!-- filled by JS -->
+        </div>
+    </div>
 
     <!-- Crosshair pick mode overlay -->
     <div id="crosshairOverlay" class="crosshair-overlay d-none" aria-hidden="true">
@@ -127,7 +130,7 @@
     </div>
 
     <!-- Saved mode panel -->
-    <section id="savedPanel" class="list-panel d-none">
+    <section id="savedPanel" class="list-panel right-info-panel d-none">
         <div class="list-panel-header">
             <h6 class="mb-0">Saved Observations</h6>
             <button type="button" class="btn-close btn-close-sm d-md-none"
@@ -139,7 +142,7 @@
     </section>
 
     <!-- Reports mode panel -->
-    <section id="reportsPanel" class="list-panel d-none">
+    <section id="reportsPanel" class="list-panel right-info-panel d-none">
         <div class="list-panel-header">
             <h6 class="mb-0">Water Reports</h6>
             <button type="button" class="btn-close btn-close-sm d-md-none"
@@ -254,7 +257,7 @@
 
     <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
-               id="layer-canopy-CTX" data-layer-group="canopy">
+               id="layer-canopy-CTX" data-layer-group="canopy" checked>
         <label class="form-check-label" for="layer-canopy-CTX">
             Tree canopy cover
         </label>
