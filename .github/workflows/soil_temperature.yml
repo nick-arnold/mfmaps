@@ -1,0 +1,339 @@
+name: ERA5-Land soil temperature
+
+# Sibling of smap_download.yml (which is ERA5-Land soil MOISTURE despite the legacy name).
+# Same CDS dataset, same 0-7cm depth, same ~9km grid, same latency behavior.
+# Only real differences: variable name, Kelvin -> Fahrenheit conversion, colormap,
+# and S3 paths. No isolines for this product -- raster only.
+#
+# Offset 30 min from the moisture run so the two don't contend for CDS queue slots.
+
+on:
+  schedule:
+    - cron: '30 10 * * *'
+  workflow_dispatch:
+
+env:
+  PRODUCT: soil-temperature
+  AWS_DEFAULT_REGION: sfo3
+  CDN_ENDPOINT_ID: 5a2c1d80-7525-4181-aa71-8a5c7fbfdf33
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin python3-gdal unzip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install cdsapi netCDF4 rasterio numpy awscli
+          pip install git+https://github.com/mapbox/mbutil.git
+
+      - name: Install pmtiles CLI (Go binary from protomaps/go-pmtiles)
+        run: |
+          # NOTE: this is the Go CLI. `pip install pmtiles` is a DIFFERENT package
+          # with no CLI. Do not "simplify" this into a pip install.
+          PMTILES_VERSION=1.22.1
+          curl -sSL -o pmtiles.tar.gz \
+            "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz"
+          tar -xzf pmtiles.tar.gz pmtiles
+          sudo mv pmtiles /usr/local/bin/
+          pmtiles version
+
+      - name: Write CDS credentials
+        run: |
+          cat > ~/.cdsapirc <<EOF
+          url: ${{ secrets.CDS_URL }}
+          key: ${{ secrets.CDS_API_KEY }}
+          EOF
+          chmod 600 ~/.cdsapirc
+
+      # ------------------------------------------------------------------
+      # STEP 3: Download with retry-backward date logic.
+      #
+      # ERA5-Land publish latency DRIFTS. A fixed lag WILL fail intermittently
+      # (we hit exactly this in production: requested today-5 at 12:00, CDS
+      # replied "The latest date available for this dataset is: 2026-07-18 11:00"
+      # -- short by one hour on the boundary day).
+      #
+      # This walks MIN_LAG_DAYS -> MAX_LAG_DAYS and takes the first date that
+      # succeeds. It distinguishes "not published yet" (retry) from auth /
+      # licence / network failures (fail loudly, immediately).
+      #
+      # IF YOU TOUCH THIS STEP, KEEP THE RETRY LOOP.
+      # ------------------------------------------------------------------
+      - name: Download ERA5-Land soil temperature
+        run: |
+          cat > download.py <<'PY'
+          import datetime as dt
+          import os
+          import sys
+          import zipfile
+
+          import cdsapi
+
+          MIN_LAG_DAYS = 5
+          MAX_LAG_DAYS = 10
+          DATASET = "reanalysis-era5-land"
+          VARIABLE = "soil_temperature_level_1"   # 0-7 cm, sibling of volumetric_soil_water_layer_1
+          TARGET_HOUR = "12:00"
+
+          # N, W, S, E -- covers CONUS + AK (incl. Aleutians) + HI.
+          # Match this to whatever the moisture workflow uses; if that one is
+          # narrower, narrow this to match so the two layers align.
+          AREA = [72, -180, 18, -66]
+
+          UNAVAILABLE_MARKERS = (
+              "latest date available",
+              "not yet available",
+              "no data is available within your requested subset",
+              "data is not available",
+          )
+          FATAL_MARKERS = (
+              "required licences not accepted",
+              "not authorized",
+              "unauthorized",
+              "forbidden",
+              "invalid api key",
+              "authentication",
+          )
+
+          client = cdsapi.Client(quiet=False, wait_until_complete=True)
+          today = dt.date.today()
+          last_unavailable = None
+
+          for lag in range(MIN_LAG_DAYS, MAX_LAG_DAYS + 1):
+              target = today - dt.timedelta(days=lag)
+              print(f"--- attempting lag={lag} date={target.isoformat()}", flush=True)
+              try:
+                  client.retrieve(
+                      DATASET,
+                      {
+                          "variable": [VARIABLE],
+                          "year": f"{target.year:04d}",
+                          "month": f"{target.month:02d}",
+                          "day": f"{target.day:02d}",
+                          "time": [TARGET_HOUR],
+                          "data_format": "netcdf",       # NOT "format" -- deprecated, emits warnings
+                          "download_format": "zip",
+                          "area": AREA,
+                      },
+                      "era5_st.zip",
+                  )
+              except Exception as exc:
+                  msg = str(exc).lower()
+                  if any(m in msg for m in FATAL_MARKERS):
+                      print(f"FATAL (auth/licence, not a availability issue): {exc}", file=sys.stderr)
+                      sys.exit(1)
+                  if any(m in msg for m in UNAVAILABLE_MARKERS):
+                      print(f"not published yet at lag={lag}, walking back: {exc}", flush=True)
+                      last_unavailable = exc
+                      continue
+                  # Unknown failure class -- do not silently burn retries.
+                  print(f"FATAL (unrecognized error): {exc}", file=sys.stderr)
+                  sys.exit(1)
+
+              print(f"SUCCESS at lag={lag}, date={target.isoformat()}", flush=True)
+              with zipfile.ZipFile("era5_st.zip") as zf:
+                  names = [n for n in zf.namelist() if n.endswith(".nc")]
+                  if not names:
+                      print(f"FATAL: no .nc inside archive: {zf.namelist()}", file=sys.stderr)
+                      sys.exit(1)
+                  zf.extract(names[0], ".")
+                  os.replace(names[0], "era5_st.nc")
+
+              with open(os.environ["GITHUB_ENV"], "a") as fh:
+                  fh.write(f"DATA_DATE={target.strftime('%Y%m%d')}\n")
+                  fh.write(f"DATA_DATE_ISO={target.isoformat()}\n")
+                  fh.write(f"DATA_LAG_DAYS={lag}\n")
+              sys.exit(0)
+
+          print(
+              f"FATAL: no ERA5-Land data available between lag {MIN_LAG_DAYS} and "
+              f"{MAX_LAG_DAYS} days. Last error: {last_unavailable}",
+              file=sys.stderr,
+          )
+          sys.exit(1)
+          PY
+          python download.py
+
+      # ------------------------------------------------------------------
+      # STEP 4: NetCDF -> GeoTIFF, Kelvin -> FAHRENHEIT.
+      #
+      # DECISION: Fahrenheit is stored in the GeoTIFF itself (UI-native).
+      # Everything downstream -- colormap breakpoints, contour interval, and
+      # any future numeric consumer (morel model) -- reads Fahrenheit.
+      # If a model later wants Celsius, convert on read: C = (F - 32) * 5/9.
+      #
+      # Fill handling here is local to this step. Do NOT blanket find/replace
+      # -9999 <-> nan across this file; the gdalwarp steps below deliberately
+      # use nan and that is a separate concern.
+      # ------------------------------------------------------------------
+      - name: NetCDF -> GeoTIFF (Kelvin to Fahrenheit)
+        run: |
+          cat > to_tif.py <<'PY'
+          import numpy as np
+          import rasterio
+          from netCDF4 import Dataset
+          from rasterio.transform import from_origin
+
+          ds = Dataset("era5_st.nc")
+          varname = "stl1" if "stl1" in ds.variables else None
+          if varname is None:
+              cands = [v for v in ds.variables if v.startswith("stl")]
+              if not cands:
+                  raise SystemExit(f"no soil temperature var found in {list(ds.variables)}")
+              varname = cands[0]
+
+          arr = np.array(ds.variables[varname][:], dtype="float64")
+          arr = np.squeeze(arr)            # drop time / valid_time / expver dims
+          if arr.ndim == 3:
+              arr = arr[0]
+          if arr.ndim != 2:
+              raise SystemExit(f"unexpected array shape after squeeze: {arr.shape}")
+
+          lat_name = "latitude" if "latitude" in ds.variables else "lat"
+          lon_name = "longitude" if "longitude" in ds.variables else "lon"
+          lats = np.array(ds.variables[lat_name][:], dtype="float64")
+          lons = np.array(ds.variables[lon_name][:], dtype="float64")
+
+          # GeoTIFF rows must run north -> south.
+          if lats[0] < lats[-1]:
+              lats = lats[::-1]
+              arr = arr[::-1, :]
+
+          # Mask nonphysical Kelvin BEFORE converting, so bad values can't become
+          # plausible-looking Fahrenheit.
+          arr = np.where(np.isfinite(arr) & (arr > 150.0) & (arr < 350.0), arr, np.nan)
+
+          # Kelvin -> Fahrenheit
+          arr = (arr - 273.15) * 9.0 / 5.0 + 32.0
+
+          res_lat = abs(float(lats[1] - lats[0]))
+          res_lon = abs(float(lons[1] - lons[0]))
+          transform = from_origin(
+              float(lons.min()) - res_lon / 2.0,
+              float(lats.max()) + res_lat / 2.0,
+              res_lon,
+              res_lat,
+          )
+
+          profile = {
+              "driver": "GTiff",
+              "height": arr.shape[0],
+              "width": arr.shape[1],
+              "count": 1,
+              "dtype": "float32",
+              "crs": "EPSG:4326",
+              "transform": transform,
+              "nodata": float("nan"),
+              "compress": "deflate",
+          }
+          with rasterio.open("era5_st_raw.tif", "w", **profile) as dst:
+              dst.write(arr.astype("float32"), 1)
+              dst.set_band_description(1, "soil_temperature_0_7cm_degF")
+
+          valid = arr[np.isfinite(arr)]
+          print(f"wrote era5_st_raw.tif shape={arr.shape} "
+                f"min={valid.min():.1f}F max={valid.max():.1f}F "
+                f"valid={valid.size}/{arr.size}")
+          PY
+          python to_tif.py
+          gdalinfo -stats era5_st_raw.tif | head -40
+
+      - name: Reproject to EPSG:3857
+        run: |
+          # nan nodata is load-bearing: with -9999, gdaldem color-relief colors
+          # the fill value and the entire map floods to one color.
+          gdalwarp -t_srs EPSG:3857 -r bilinear -tr 9000 9000 \
+            -srcnodata nan -dstnodata nan \
+            -co COMPRESS=DEFLATE \
+            era5_st_raw.tif era5_st_3857.tif
+          gdalinfo -stats era5_st_3857.tif | head -30
+
+      - name: Colorize
+        run: |
+          # Diverging cool -> warm ramp in DEGREES FAHRENHEIT.
+          # Breakpoints chosen around the ranges that matter for flush timing:
+          # the 45-60F band gets the most color resolution.
+          cat > st_colors.txt <<'EOF'
+          nv  0 0 0 0
+          0    49  54 149
+          20   69 117 180
+          32  116 173 209
+          40  171 217 233
+          46  224 243 248
+          50  255 255 191
+          55  254 224 144
+          60  253 174  97
+          70  244 109  67
+          85  215  48  39
+          105 165   0  38
+          EOF
+          gdaldem color-relief era5_st_3857.tif st_colors.txt era5_st_color.tif \
+            -alpha -co COMPRESS=DEFLATE
+
+      - name: Build raster PMTiles
+        run: |
+          gdal2tiles.py -z 3-8 -r bilinear --xyz -w none \
+            era5_st_color.tif tiles/
+          mb-util --image_format=png --scheme=xyz tiles/ era5_st.mbtiles
+          pmtiles convert era5_st.mbtiles era5_st_raster.pmtiles
+          ls -lh era5_st_raster.pmtiles
+
+      - name: Sanity check output size
+        run: |
+          RASTER_BYTES=$(stat -c%s era5_st_raster.pmtiles)
+          echo "raster=${RASTER_BYTES}"
+          if [ "$RASTER_BYTES" -lt 200000 ]; then
+            echo "FATAL: raster PMTiles suspiciously small -- check colormap/nodata" >&2
+            exit 1
+          fi
+
+      - name: Upload to Spaces
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+        run: |
+          EP="--endpoint-url https://sfo3.digitaloceanspaces.com"
+          ACL="--acl public-read"
+
+          aws s3 cp era5_st_raster.pmtiles \
+            "s3://mfmaps-tiles/${PRODUCT}/raster/era5_st_raster_${DATA_DATE}.pmtiles" $EP $ACL
+          aws s3 cp era5_st_raster.pmtiles \
+            "s3://mfmaps-tiles/${PRODUCT}/raster/era5_st_raster_latest.pmtiles" $EP $ACL
+
+          aws s3 cp era5_st_raw.tif \
+            "s3://mfmaps-source/${PRODUCT}/era5_st_${DATA_DATE}.tif" $EP
+
+      - name: Purge CDN cache
+        run: |
+          curl -s -X DELETE \
+            "https://api.digitalocean.com/v2/cdn/endpoints/${CDN_ENDPOINT_ID}/cache" \
+            -H "Authorization: Bearer ${{ secrets.DO_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"files\": [\"${PRODUCT}/raster/*\"]}"
+          echo "purged ${PRODUCT}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### ERA5-Land soil temperature"
+            echo ""
+            echo "- Data date: \`${DATA_DATE_ISO}\` (lag ${DATA_LAG_DAYS} days)"
+            echo "- Units stored: **Fahrenheit**"
+            echo "- Raster: \`${PRODUCT}/raster/era5_st_raster_latest.pmtiles\`"
+          } >> "$GITHUB_STEP_SUMMARY"
