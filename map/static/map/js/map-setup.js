@@ -268,18 +268,6 @@ export function initMap() {
             wireTreeSpeciesHover();
             wireUrlSync();
             await preloadTreeSpeciesLegends();
-            state.map.on('sourcedata', (e) => {
-                if (e.sourceId && (e.sourceId.startsWith('slope-') || e.sourceId.startsWith('aspect-'))) {
-                    console.log('[diag] sourcedata', {
-                        sourceId: e.sourceId,
-                        dataType: e.dataType,
-                        isSourceLoaded: e.isSourceLoaded,
-                        tile: e.tile ? `${e.tile.tileID?.canonical?.z}/${e.tile.tileID?.canonical?.x}/${e.tile.tileID?.canonical?.y}` : null,
-                        time: performance.now().toFixed(0)
-                    });
-                    state.map.triggerRepaint();
-                }
-            });
 
             // Force a repaint once sources settle to unblock hillshade rendering
             state.map.once('idle', () => {
@@ -2255,11 +2243,9 @@ function renderPanelInto(template, container, contextSuffix) {
 }
 
 export function setLayerGroupVisibility(group, visible) {
-
+    // Lazily build the group's sources+layers the first time it's switched on.
     if (visible) {
-        const z = state.map.getZoom();
-        state.map.jumpTo({ zoom: z + 0.0001 });
-        setTimeout(() => state.map.jumpTo({ zoom: z }), 50);
+        ensureGroupRegistered(group);
     }
 
     // Burn severity: only ONE year visible at a time
@@ -2275,16 +2261,9 @@ export function setLayerGroupVisibility(group, visible) {
 
     (LAYER_IDS[group] || []).forEach(id => {
         if (state.map.getLayer(id)) {
-            console.log('[diag] setLayoutProperty', id, visible ? 'visible' : 'none', performance.now().toFixed(0));
             state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         }
     });
-
-    // ADD THIS LINE, right here, after the forEach block above:
-    if (visible) {
-        console.log('[diag] calling triggerRepaint', performance.now().toFixed(0));
-        state.map.triggerRepaint();
-    }
 }
 
 export function isLayerGroupVisible(group) {
