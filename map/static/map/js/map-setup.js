@@ -2699,7 +2699,7 @@ async function fetchSoilConditions(lat, lng) {
     const params = new URLSearchParams({
         latitude: lat.toFixed(4),
         longitude: lng.toFixed(4),
-        current: 'soil_temperature_0cm,soil_moisture_0_1cm',
+        current: 'soil_temperature_0cm,soil_temperature_6cm,soil_moisture_0_1cm,soil_moisture_1_3cm',
         temperature_unit: 'fahrenheit',
         timezone: 'auto',
     });
@@ -2710,22 +2710,27 @@ async function fetchSoilConditions(lat, lng) {
 
 function renderSoilTooltip(data) {
     const cur = data && data.current;
-    const temp = cur ? cur.soil_temperature_0cm : null;
-    const moist = cur ? cur.soil_moisture_0_1cm : null;
+    if (!cur) return '<em>No soil data at this location.</em>';
 
-    if (temp == null && moist == null) {
+    const t6 = cur.soil_temperature_6cm;
+    const t0 = cur.soil_temperature_0cm;
+    const m = cur.soil_moisture_1_3cm ?? cur.soil_moisture_0_1cm;
+
+    if (t6 == null && t0 == null && m == null) {
         return '<em>No soil data at this location.</em>';
     }
 
     const rows = [];
-    if (temp != null) {
-        rows.push(`<div>Soil temp <strong>${temp.toFixed(1)}&deg;F</strong>
-                   <span style="opacity:.65">surface</span></div>`);
+    if (t6 != null) {
+        rows.push(`<div>Soil temp <strong>${t6.toFixed(1)}&deg;F</strong>
+                   <span style="opacity:.65">6 cm</span></div>`);
     }
-    if (moist != null) {
-        // m3/m3 -> percent by volume reads better than a bare decimal.
-        rows.push(`<div>Soil moisture <strong>${(moist * 100).toFixed(1)}%</strong>
-                   <span style="opacity:.65">0&ndash;1 cm</span></div>`);
+    if (t0 != null) {
+        rows.push(`<div style="opacity:.7">Surface ${t0.toFixed(1)}&deg;F</div>`);
+    }
+    if (m != null) {
+        rows.push(`<div>Soil moisture <strong>${(m * 100).toFixed(1)}%</strong>
+                   <span style="opacity:.65">1&ndash;3 cm</span></div>`);
     }
     rows.push('<div style="opacity:.55; margin-top:3px">Open-Meteo, current</div>');
     return rows.join('');
