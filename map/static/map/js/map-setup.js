@@ -2246,6 +2246,10 @@ export function setLayerGroupVisibility(group, visible) {
     // Lazily build the group's sources+layers the first time it's switched on.
     if (visible) {
         ensureGroupRegistered(group);
+        // DEM-derived layers (hillshade/slope/aspect) can finish loading tile
+        // data without the renderer scheduling a paint for it — same issue
+        // worked around for eager hillshade at page load. Nudge it here too.
+        state.map.once('idle', () => state.map.triggerRepaint());
     }
 
     // Burn severity: only ONE year visible at a time
