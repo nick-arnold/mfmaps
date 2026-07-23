@@ -7,6 +7,7 @@ export const state = {
     geolocate: null,
     currentUser: null,
     queryMode: false,
+    soilProbeMode: false,
     crosshairMode: false,
     openPopup: null,
 

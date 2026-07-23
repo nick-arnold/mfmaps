@@ -10,6 +10,7 @@ import {
     initLayerPanels,
     wireFabs,
     initQueryMode,
+    initSoilProbe,
     initGeolocate,
     initModeTabs,
     initCrosshair,
@@ -77,6 +78,7 @@ async function main() {
     initLayerPanels();
     initSpeciesPicker();
     initBurnSeverityControls();
+    initSoilProbe();
     initQueryMode();
     initGeolocate();
     initCrosshair();

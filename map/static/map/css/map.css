@@ -373,6 +373,8 @@ body {
     cursor: crosshair !important;
 }
 
+body.soil-probe-mode { cursor: crosshair; }
+
 .query-result {
     position: absolute;
     top: 12px;

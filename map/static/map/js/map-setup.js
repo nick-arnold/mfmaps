@@ -2006,6 +2006,45 @@ function hideTreeTooltip() {
     if (_treeTooltipEl) _treeTooltipEl.style.display = 'none';
 }
 
+let _soilTooltipEl = null;
+
+function ensureSoilTooltip() {
+    if (_soilTooltipEl) return _soilTooltipEl;
+    const el = document.createElement('div');
+    el.className = 'soil-probe-tooltip';
+    el.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        background: rgba(20, 20, 20, 0.85);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        line-height: 1.35;
+        z-index: 9999;
+        display: none;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 260px;
+        width: max-content;
+    `;
+    document.body.appendChild(el);
+    _soilTooltipEl = el;
+    return el;
+}
+
+function showSoilTooltip(x, y, html) {
+    const el = ensureSoilTooltip();
+    el.innerHTML = html;
+    el.style.left = (x + 12) + 'px';
+    el.style.top = (y + 12) + 'px';
+    el.style.display = 'block';
+}
+
+function hideSoilTooltip() {
+    if (_soilTooltipEl) _soilTooltipEl.style.display = 'none';
+}
+
 function lngLatToTilePixel(lng, lat, zoom) {
     const n = Math.pow(2, zoom);
     const xFloat = (lng + 180) / 360 * n;
@@ -2314,7 +2353,7 @@ export function wireFabs(onAddObservation) {
 
     document.getElementById('fabSoilProbe')?.addEventListener('click', () => {
         // TODO: replace with enterSoilProbeMode() — Open-Meteo point query
-        showToast('Soil probe coming soon');
+        initSoilProbe();
     });
 
     initFabRadial();
@@ -2335,6 +2374,14 @@ export function initQueryMode() {
     const btn = document.getElementById('fabQuery');
     btn.addEventListener('click', () => {
         state.queryMode = !state.queryMode;
+
+        if (state.queryMode && state.soilProbeMode) {
+            state.soilProbeMode = false;
+            document.getElementById('fabSoilProbe').setAttribute('aria-pressed', 'false');
+            document.body.classList.remove('soil-probe-mode');
+            hideSoilTooltip();
+        }
+
         btn.setAttribute('aria-pressed', state.queryMode ? 'true' : 'false');
         document.body.classList.toggle('query-mode', state.queryMode);
         if (!state.queryMode) {
@@ -2640,4 +2687,94 @@ function initFabRadial() {
     });
 
     setOpen(false);
+}
+
+const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
+
+// Bumped on every click so a slow response from an earlier click can't
+// overwrite the tooltip for a newer one.
+let _soilProbeSeq = 0;
+
+async function fetchSoilConditions(lat, lng) {
+    const params = new URLSearchParams({
+        latitude: lat.toFixed(4),
+        longitude: lng.toFixed(4),
+        current: 'soil_temperature_0cm,soil_moisture_0_1cm',
+        temperature_unit: 'fahrenheit',
+        timezone: 'auto',
+    });
+    const res = await fetch(`${OPEN_METEO_URL}?${params}`);
+    if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
+    return res.json();
+}
+
+function renderSoilTooltip(data) {
+    const cur = data && data.current;
+    const temp = cur ? cur.soil_temperature_0cm : null;
+    const moist = cur ? cur.soil_moisture_0_1cm : null;
+
+    if (temp == null && moist == null) {
+        return '<em>No soil data at this location.</em>';
+    }
+
+    const rows = [];
+    if (temp != null) {
+        rows.push(`<div>Soil temp <strong>${temp.toFixed(1)}&deg;F</strong>
+                   <span style="opacity:.65">surface</span></div>`);
+    }
+    if (moist != null) {
+        // m3/m3 -> percent by volume reads better than a bare decimal.
+        rows.push(`<div>Soil moisture <strong>${(moist * 100).toFixed(1)}%</strong>
+                   <span style="opacity:.65">0&ndash;1 cm</span></div>`);
+    }
+    rows.push('<div style="opacity:.55; margin-top:3px">Open-Meteo, current</div>');
+    return rows.join('');
+}
+
+export function initSoilProbe() {
+    const btn = document.getElementById('fabSoilProbe');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        state.soilProbeMode = !state.soilProbeMode;
+
+        // Only one pick-mode armed at a time, or a single tap fires both.
+        if (state.soilProbeMode && state.queryMode) {
+            state.queryMode = false;
+            document.getElementById('fabQuery').setAttribute('aria-pressed', 'false');
+            document.body.classList.remove('query-mode');
+            document.getElementById('queryResult').classList.add('d-none');
+        }
+
+        btn.setAttribute('aria-pressed', state.soilProbeMode ? 'true' : 'false');
+        document.body.classList.toggle('soil-probe-mode', state.soilProbeMode);
+        if (!state.soilProbeMode) hideSoilTooltip();
+    });
+
+    state.map.on('click', async (e) => {
+        if (!state.soilProbeMode) return;
+
+        const { clientX, clientY } = e.originalEvent;
+        const seq = ++_soilProbeSeq;
+
+        showSoilTooltip(clientX, clientY, '<em>Reading&hellip;</em>');
+
+        try {
+            const data = await fetchSoilConditions(e.lngLat.lat, e.lngLat.lng);
+            if (seq !== _soilProbeSeq) return;
+            showSoilTooltip(clientX, clientY, renderSoilTooltip(data));
+        } catch (err) {
+            if (seq !== _soilProbeSeq) return;
+            console.warn('Soil probe failed:', err);
+            showSoilTooltip(clientX, clientY, '<em>Could not reach Open-Meteo.</em>');
+        }
+    });
+
+    // The tooltip is screen-positioned, so it detaches from the ground the
+    // moment the map moves.
+    state.map.on('movestart', hideSoilTooltip);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') hideSoilTooltip();
+    });
 }
