@@ -575,7 +575,6 @@ function registerSlope() {
             blueFactor: 1,
             baseShift: 0,
             tileSize: 512,
-            minzoom: 11,
             maxzoom: 12
         });
         map.addLayer({
