@@ -268,7 +268,18 @@ export function initMap() {
             wireTreeSpeciesHover();
             wireUrlSync();
             await preloadTreeSpeciesLegends();
-            state.map.on('sourcedata', () => state.map.triggerRepaint());
+            state.map.on('sourcedata', (e) => {
+                if (e.sourceId && (e.sourceId.startsWith('slope-') || e.sourceId.startsWith('aspect-'))) {
+                    console.log('[diag] sourcedata', {
+                        sourceId: e.sourceId,
+                        dataType: e.dataType,
+                        isSourceLoaded: e.isSourceLoaded,
+                        tile: e.tile ? `${e.tile.tileID?.canonical?.z}/${e.tile.tileID?.canonical?.x}/${e.tile.tileID?.canonical?.y}` : null,
+                        time: performance.now().toFixed(0)
+                    });
+                    state.map.triggerRepaint();
+                }
+            });
 
             // Force a repaint once sources settle to unblock hillshade rendering
             state.map.once('idle', () => {
@@ -2262,6 +2273,7 @@ export function setLayerGroupVisibility(group, visible) {
 
     (LAYER_IDS[group] || []).forEach(id => {
         if (state.map.getLayer(id)) {
+            console.log('[diag] setLayoutProperty', id, visible ? 'visible' : 'none', performance.now().toFixed(0));
             state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         }
     });
