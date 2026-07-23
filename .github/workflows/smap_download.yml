@@ -35,30 +35,63 @@ jobs:
           import os
           from datetime import datetime, timedelta
 
-          target = datetime.utcnow() - timedelta(days=5)
-          year  = target.strftime('%Y')
-          month = target.strftime('%m')
-          day   = target.strftime('%d')
-          date_str = target.strftime('%Y-%m-%d')
-
-          print(f'Requesting ERA5-Land for {date_str}')
-          with open('ERA5_DATE', 'w') as f:
-              f.write(date_str)
+          # ERA5-Land publishes with roughly a 5-day lag, but the exact cutoff
+          # drifts. (Observed failure: asked for 2026-07-18 12:00 when the latest
+          # available was 2026-07-18 11:00 — short by one hour, whole run failed.)
+          # Rather than hard-coding one lag, walk backward from MIN_LAG_DAYS until
+          # a request succeeds. Always yields the freshest data CDS actually has.
+          MIN_LAG_DAYS = 5
+          MAX_LAG_DAYS = 10
 
           c = cdsapi.Client()
-          c.retrieve(
-              'reanalysis-era5-land',
-              {
-                  'variable': 'volumetric_soil_water_layer_1',
-                  'year': year,
-                  'month': month,
-                  'day': day,
-                  'time': '12:00',
-                  'area': [72, -180, -60, 180],
-                  'format': 'netcdf',
-              },
-              'era5_raw.zip'
-          )
+
+          def is_availability_error(e):
+              """True if the error just means 'that date isn't published yet'."""
+              msg = str(e).lower()
+              return ('nodata' in type(e).__name__.lower()
+                      or 'not available' in msg
+                      or 'revise the period' in msg)
+
+          chosen = None
+          last_err = None
+
+          for lag in range(MIN_LAG_DAYS, MAX_LAG_DAYS + 1):
+              target = datetime.utcnow() - timedelta(days=lag)
+              date_str = target.strftime('%Y-%m-%d')
+              print(f'--- Trying ERA5-Land for {date_str} (lag {lag}d) ---')
+              try:
+                  c.retrieve(
+                      'reanalysis-era5-land',
+                      {
+                          'variable': 'volumetric_soil_water_layer_1',
+                          'year':  target.strftime('%Y'),
+                          'month': target.strftime('%m'),
+                          'day':   target.strftime('%d'),
+                          'time': '12:00',
+                          'area': [72, -180, -60, 180],
+                          'data_format': 'netcdf',
+                      },
+                      'era5_raw.zip'
+                  )
+                  chosen = date_str
+                  print(f'SUCCESS: got data for {date_str}')
+                  break
+              except Exception as e:
+                  last_err = e
+                  print(f'  no data for {date_str}: {str(e)[:200]}')
+                  # Only keep retrying for availability errors. Auth, licence,
+                  # or network problems should fail loudly and immediately.
+                  if not is_availability_error(e):
+                      print('Non-availability error — aborting retry loop.')
+                      raise
+                  continue
+
+          if chosen is None:
+              print(f'Exhausted lags {MIN_LAG_DAYS}..{MAX_LAG_DAYS} with no data available.')
+              raise last_err
+
+          with open('ERA5_DATE', 'w') as f:
+              f.write(chosen)
 
           with zipfile.ZipFile('era5_raw.zip', 'r') as z:
               z.extractall('era5_extracted/')
