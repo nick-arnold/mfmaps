@@ -2277,6 +2277,12 @@ export function setLayerGroupVisibility(group, visible) {
             state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         }
     });
+
+    // ADD THIS LINE, right here, after the forEach block above:
+    if (visible) {
+        console.log('[diag] calling triggerRepaint', performance.now().toFixed(0));
+        state.map.triggerRepaint();
+    }
 }
 
 export function isLayerGroupVisible(group) {
