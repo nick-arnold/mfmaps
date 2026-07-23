@@ -684,7 +684,7 @@ function registerTreeSpecies() {
     const { map } = state;
 
     [
-        { id: 'tree-species',    region: 'conus', opacity: 0.40 },
+        { id: 'tree-species',    region: 'conus', opacity: 0.28 },
         { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
         { id: 'tree-species-hi', region: 'hi',   opacity: 0.28 },
     ].forEach(cfg => {
@@ -738,7 +738,7 @@ function registerBurnSeverity() {
                 minzoom: 3,
                 maxzoom: 22,
                 paint: {
-                    'raster-opacity': 0.4,
+                    'raster-opacity': 0.25,
                     'raster-resampling': 'nearest',
                 },
                 layout: { visibility: 'none' }
