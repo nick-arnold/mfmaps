@@ -568,14 +568,14 @@ function registerSlope() {
     slopeTiers.forEach(tier => {
         map.addSource(tier.id, {
             type: 'raster-dem',
-            url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
+            tiles: [`pmtiles://${DERIVATIVES_BASE}/${tier.file}/{z}/{x}/{y}`],
             encoding: 'custom',
             redFactor: 65536,
             greenFactor: 256,
             blueFactor: 1,
             baseShift: 0,
             tileSize: 512,
-            maxzoom: 12
+            maxzoom: 11
         });
         map.addLayer({
             id: `${tier.id}-layer`,
