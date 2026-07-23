@@ -202,7 +202,8 @@ export const LAYER_IDS = {
     'burn-severity-perimeter': ['burn-severity-perimeters-line'],
 
     'soil-moisture-raster': ['soil-moisture-raster-layer'],
-    'soil-moisture-isolines': ['soil-moisture-isolines-layer'],
+    'soil-temperature-raster': ['soil-temperature-raster-layer'],
+    
 };
 
 export const H3_RES = 8;

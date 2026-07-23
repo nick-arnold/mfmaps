@@ -61,6 +61,7 @@ const CANOPY_BASE        = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
 const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/burn-severity';
 const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
 const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
+const SOIL_TEMP_TILES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-temperature';
 
 // Region bounding boxes ([west, south, east, north]) applied as source
 // `bounds` so MapLibre never requests tiles from a regional archive that
@@ -88,9 +89,9 @@ const DEFERRED_REGISTRARS = {
     'burn-severity':           registerBurnSeverity,
     'burn-severity-perimeter': registerBurnSeverity,
     'soil-moisture-raster':    registerSoilMoisture,
-    'soil-moisture-isolines':  registerSoilMoisture,
     'hydrography':             registerHydrography,
     'wetlands':                registerHydrography,  
+    'soil-temperature-raster': registerSoilTemperature,
 };
 
 // =============================================================================
@@ -133,17 +134,17 @@ function isHydroLabelLayer(id) {
 // Family predicates in bottom-to-top order. A layer is placed in the first
 // family whose predicate it matches.
 const LAYER_ORDER_FAMILIES = [
-    id => id.endsWith('-hillshade'),                              // 1 terrain
-    id => id.startsWith('slope-') || id.startsWith('aspect-'),   // 2 derivatives
-    id => id.startsWith('contour-'),                             // 3 contours
-    id => id.startsWith('tree-species') || id.startsWith('canopy-'), // 4 veg
-    id => id === 'soil-moisture-raster-layer',                   // 5 soil moisture fill
-    id => /^burn-severity-.*-layer$/.test(id),                   // 6 burn rasters
-    id => id.startsWith('trails-'),                              // 7 trails
-    id => isHydroWaterLayer(id),                                 // 8 water
-    id => id === 'soil-moisture-isolines-layer',                 // 9 soil isolines
-    id => id.startsWith('burn-severity-perimeters-'),           // 10 fire perimeters
-    id => isHydroLabelLayer(id),                                 // 11 water labels
+    id => id.endsWith('-hillshade'),                                   // 1  terrain
+    id => id.startsWith('slope-') || id.startsWith('aspect-'),         // 2  derivatives
+    id => id.startsWith('contour-'),                                   // 3  contours
+    id => id.startsWith('tree-species') || id.startsWith('canopy-'),   // 4  vegetation
+    id => id === 'soil-moisture-raster-layer',                         // 5  soil moisture fill
+    id => id === 'soil-temperature-raster-layer',                      // 6  soil temp fill   <-- NEW
+    id => /^burn-severity-.*-layer$/.test(id),                         // 7  burn rasters
+    id => id.startsWith('trails-'),                                    // 8  trails
+    id => isHydroWaterLayer(id),                                       // 9  water
+    id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
+    id => isHydroLabelLayer(id),                                       // 11 water labels
 ];
 
 // Re-assert the desired stacking of all currently-registered overlay layers.
@@ -855,38 +856,40 @@ function registerSoilMoisture() {
         layout: { visibility: 'none' }
     }, BASEMAP_LINE_ANCHOR);
 
-    map.addSource('soil-moisture-isolines', {
-        type: 'vector',
-        url: `pmtiles://${SOIL_MOISTURE_BASE}/isolines/era5_isolines_latest.pmtiles`,
-    });
-    map.addLayer({
-        id: 'soil-moisture-isolines-layer',
-        type: 'line',
-        source: 'soil-moisture-isolines',
-        'source-layer': 'isolines',
-        minzoom: 3,
-        maxzoom: 22,
-        paint: {
-            'line-color': [
-                'interpolate', ['linear'],
-                ['get', 'soil_moisture'],
-                0.0,  '#ffffe5',
-                0.15, '#78c679',
-                0.30, '#1d91c0',
-                0.50, '#0c2c84',
-            ],
-            'line-width': ['interpolate', ['linear'], ['zoom'],
-                3, 0.5,
-                6, 0.8,
-                8, 1.2,
-            ],
-            'line-opacity': 0.8,
-        },
-        layout: { visibility: 'none' }
-    }, BASEMAP_LINE_ANCHOR);
-
     _registeredGroups.add('soil-moisture-raster');
-    _registeredGroups.add('soil-moisture-isolines');
+}
+
+
+
+function registerSoilTemperature() {
+    if (_registeredGroups.has('soil-temperature')) return;
+
+    if (!map.getSource('soil-temperature-raster')) {
+        map.addSource('soil-temperature-raster', {
+            type: 'raster',
+            url: `pmtiles://${SOIL_TEMP_TILES_BASE}/raster/era5_st_raster_latest.pmtiles`,
+            tileSize: 256,
+            minzoom: 3,
+            maxzoom: 8,
+            attribution: 'Soil temperature: ECMWF ERA5-Land',
+        });
+    }
+
+    if (!map.getLayer('soil-temperature-raster-layer')) {
+        map.addLayer({
+            id: 'soil-temperature-raster-layer',
+            type: 'raster',
+            source: 'soil-temperature-raster',
+            layout: { visibility: 'none' },
+            paint: {
+                'raster-opacity': 0.35,
+                'raster-resampling': 'linear',
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    _registeredGroups.add('soil-temperature');
+    enforceLayerOrder();
 }
 
 // --- Hydrography (NHD: CONUS+HI, Alaska, + Protomaps labels) --------------
