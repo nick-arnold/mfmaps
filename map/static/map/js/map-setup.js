@@ -2257,7 +2257,13 @@ function renderPanelInto(template, container, contextSuffix) {
 export function setLayerGroupVisibility(group, visible) {
 
     if (visible) {
-        ensureGroupRegistered(group);
+        // triggerRepaint() alone doesn't make MapLibre re-evaluate a newly
+        // visible source's needed tiles — only a real transform change does.
+        // Nudge zoom by a negligible amount and back to force that
+        // re-evaluation without any visible jump.
+        const z = state.map.getZoom();
+        state.map.jumpTo({ zoom: z + 0.0001 });
+        state.map.jumpTo({ zoom: z });
     }
 
     // Burn severity: only ONE year visible at a time
