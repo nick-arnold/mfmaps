@@ -1691,8 +1691,13 @@ export function closeInfoPanel() {
 }
 
 export function showInfoPanel({ title, bodyHtml, onClose }) {
-    infoPanelCloseHandler = onClose || null;
     const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+
+    if (isDesktop && typeof window.setMode === 'function') {
+        window.setMode('map');   // close Saved/Reports first, firing THEIR previous close handler
+    }
+
+    infoPanelCloseHandler = onClose || null;
 
     if (isDesktop) {
         const panel = document.getElementById('sidePanelInfo');
@@ -1702,7 +1707,7 @@ export function showInfoPanel({ title, bodyHtml, onClose }) {
         titleEl.textContent = title;
         bodyEl.innerHTML = bodyHtml;
         panel.classList.remove('d-none');
-        document.body.classList.add('info-panel-open');   // ← add this line
+        document.body.classList.add('info-panel-open');
         return bodyEl;
     } else {
         const sheetEl = document.getElementById('hydroInfoSheet');
