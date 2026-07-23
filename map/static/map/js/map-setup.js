@@ -81,64 +81,96 @@ const DEFERRED_REGISTRARS = {
     'hydrography':             registerHydrography,
 };
 
-// Returns the id of the layer that landscape overlays (tree species, canopy)
-// should render *beneath*, so they sit above terrain but below water/trails/
-// contours/labels. Walks candidates in bottom-to-top order and returns the
-// first that currently exists; falls back to the basemap line anchor.
-function landscapeBeforeId() {
-    const candidates = [
-        // hydrography (water) — lowest of the "above landscape" layers
-        'nhd-ak-streams',
-        'nhd-conus-streams',
-        // trails
-        'trails-path-natural',
-        'trails-bridleway',
-        // contours
-        'contour-intermediate-conus-z10',
-    ];
-    for (const id of candidates) {
-        if (state.map.getLayer(id)) return id;
-    }
-    return BASEMAP_LINE_ANCHOR;
+// =============================================================================
+// CENTRAL LAYER ORDERING
+// =============================================================================
+// Because deferred layers register in whatever order the user toggles them, we
+// can't rely on insertion-time `beforeId` alone to get a stable stack. Instead
+// we define the desired stacking of our overlay families ONCE (bottom → top)
+// and re-assert it after every registration via enforceLayerOrder().
+//
+// Desired order, bottom to top:
+//   1. terrain hillshade
+//   2. slope / aspect (terrain derivatives)
+//   3. contours (landscape feature, just above derivatives)
+//   4. tree species / canopy (landscape vegetation)
+//   5. soil moisture raster (broad translucent overlay)
+//   6. burn severity rasters (data overlay)
+//   7. trails
+//   8. hydrography water (streams, waterbody fills/strokes)
+//   9. soil moisture isolines
+//  10. burn severity fire perimeters
+//  11. hydrography labels (stream/waterbody text — must sit above overlays)
+//
+// Everything above lives BENEATH the basemap's place labels (BASEMAP_LINE_ANCHOR).
+// Interaction highlights (nhd-hover-*, nhd-selected*) and observation pins are
+// intentionally left ABOVE everything and are not managed here.
+
+function isHydroWaterLayer(id) {
+    // Real water geometry (not labels, not hover/selected highlights)
+    return /^nhd-(ak|conus)-/.test(id) && !id.includes('label');
 }
 
-// All landscape overlay layers (tree species + canopy), bottom-to-top within
-// the landscape band. Listed in the order they should stack among themselves.
-const LANDSCAPE_LAYER_IDS = [
-    'tree-species-layer',
-    'tree-species-ak-layer',
-    'tree-species-hi-layer',
-    'canopy-conus-layer',
-    'canopy-seak-layer',
-    'canopy-hawaii-layer',
+function isHydroLabelLayer(id) {
+    return id.startsWith('nhd-') &&
+           id.includes('label') &&
+           !id.includes('selected') &&
+           !id.includes('hover');
+}
+
+// Family predicates in bottom-to-top order. A layer is placed in the first
+// family whose predicate it matches.
+const LAYER_ORDER_FAMILIES = [
+    id => id.endsWith('-hillshade'),                              // 1 terrain
+    id => id.startsWith('slope-') || id.startsWith('aspect-'),   // 2 derivatives
+    id => id.startsWith('contour-'),                             // 3 contours
+    id => id.startsWith('tree-species') || id.startsWith('canopy-'), // 4 veg
+    id => id === 'soil-moisture-raster-layer',                   // 5 soil moisture fill
+    id => /^burn-severity-.*-layer$/.test(id),                   // 6 burn rasters
+    id => id.startsWith('trails-'),                              // 7 trails
+    id => isHydroWaterLayer(id),                                 // 8 water
+    id => id === 'soil-moisture-isolines-layer',                 // 9 soil isolines
+    id => id.startsWith('burn-severity-perimeters-'),           // 10 fire perimeters
+    id => isHydroLabelLayer(id),                                 // 11 water labels
 ];
 
-// Re-assert landscape layer ordering. Because layers register lazily in
-// whatever order the user toggles them, a landscape layer (tree species,
-// canopy) placed via landscapeBeforeId() can still end up ABOVE hydrography if
-// hydrography registered afterward (its layers insert beneath BASEMAP_LINE_ANCHOR,
-// which is above the already-placed landscape layers). This function moves every
-// existing landscape layer back beneath the current landscape anchor so they
-// always sit above terrain but below water / trails / contours / labels.
-//
-// Call it after any registration that can affect the relative order — i.e. after
-// tree species, canopy, OR hydrography register. moveLayer is a no-op-cost
-// reorder; safe to call repeatedly and safe when layers are absent.
-function restackLandscapeLayers() {
+// Re-assert the desired stacking of all currently-registered overlay layers.
+// Idempotent and cheap; safe to call after any registration.
+function enforceLayerOrder() {
     const map = state.map;
     if (!map) return;
-    const beforeId = landscapeBeforeId();
-    // If the anchor resolved to a real layer, move each landscape layer beneath
-    // it. Moving in listed order preserves the intended stacking among them.
-    for (const id of LANDSCAPE_LAYER_IDS) {
-        if (!map.getLayer(id)) continue;
-        // Don't try to move a layer relative to itself.
-        if (id === beforeId) continue;
+
+    const styleLayers = map.getStyle()?.layers;
+    if (!styleLayers) return;
+    const existingIds = styleLayers.map(l => l.id);
+
+    // Collect the ids we manage, grouped by family, preserving each layer's
+    // current relative order within its family.
+    const buckets = LAYER_ORDER_FAMILIES.map(() => []);
+    for (const id of existingIds) {
+        for (let f = 0; f < LAYER_ORDER_FAMILIES.length; f++) {
+            if (LAYER_ORDER_FAMILIES[f](id)) {
+                buckets[f].push(id);
+                break;
+            }
+        }
+    }
+
+    // Flatten bottom → top, then apply top → bottom so each layer is tucked
+    // just beneath the one above it. Topmost managed layer sits directly beneath
+    // the basemap place-label anchor.
+    const bottomToTop = buckets.flat();
+    const anchorExists = !!map.getLayer(BASEMAP_LINE_ANCHOR);
+    let anchor = anchorExists ? BASEMAP_LINE_ANCHOR : undefined;
+
+    for (let i = bottomToTop.length - 1; i >= 0; i--) {
+        const id = bottomToTop[i];
+        if (id === anchor) continue;
         try {
-            map.moveLayer(id, beforeId);
+            map.moveLayer(id, anchor);   // place id just below `anchor`
+            anchor = id;
         } catch (err) {
-            // beforeId may not exist yet in rare races; ignore — a later call
-            // will fix ordering.
+            // anchor may transiently not exist; skip — a later call re-fixes it.
         }
     }
 }
@@ -149,6 +181,7 @@ function ensureGroupRegistered(group) {
     if (!registrar) return;               // eager or unknown group — nothing to do
     if (_registeredGroups.has(group)) return;
     registrar();
+    enforceLayerOrder();                  // normalize stacking after every build
 }
 
 // --- URL hash <-> map state ----------------------------------------------
@@ -230,6 +263,7 @@ export function initMap() {
     return new Promise((resolve) => {
         state.map.on('load', async () => {
             addEagerSourcesAndLayers();
+            enforceLayerOrder();
             wireHydroInteractions();
             wireTreeSpeciesHover();
             wireUrlSync();
@@ -634,11 +668,11 @@ function registerCanopy() {
                 'raster-resampling': 'linear'
             },
             layout: { visibility: 'none' }
-        }, landscapeBeforeId());
+        }, BASEMAP_LINE_ANCHOR);
     });
 
     _registeredGroups.add('canopy');
-    restackLandscapeLayers();
+    enforceLayerOrder();
 }
 
 // --- Tree species (single-source, rendered from data tile) ---------------
@@ -673,11 +707,11 @@ function registerTreeSpecies() {
                 'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
-        }, landscapeBeforeId());
+        }, BASEMAP_LINE_ANCHOR);
     });
 
     _registeredGroups.add('tree-species');
-    restackLandscapeLayers();
+    enforceLayerOrder();
 }
 
 // --- Burn severity (MTBS annual mosaics + national perimeter vector) ------
@@ -1273,7 +1307,7 @@ function registerHydrography() {
     // Hydrography just inserted its layers beneath BASEMAP_LINE_ANCHOR, which is
     // above any landscape layers registered earlier. Push landscape layers back
     // down below the water so tree species / canopy don't cover lakes & streams.
-    restackLandscapeLayers();
+    enforceLayerOrder();
 }
 
 // --- Hydrography interactions: hover + click select + popup --------------
