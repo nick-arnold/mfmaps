@@ -81,6 +81,68 @@ const DEFERRED_REGISTRARS = {
     'hydrography':             registerHydrography,
 };
 
+// Returns the id of the layer that landscape overlays (tree species, canopy)
+// should render *beneath*, so they sit above terrain but below water/trails/
+// contours/labels. Walks candidates in bottom-to-top order and returns the
+// first that currently exists; falls back to the basemap line anchor.
+function landscapeBeforeId() {
+    const candidates = [
+        // hydrography (water) — lowest of the "above landscape" layers
+        'nhd-ak-streams',
+        'nhd-conus-streams',
+        // trails
+        'trails-path-natural',
+        'trails-bridleway',
+        // contours
+        'contour-intermediate-conus-z10',
+    ];
+    for (const id of candidates) {
+        if (state.map.getLayer(id)) return id;
+    }
+    return BASEMAP_LINE_ANCHOR;
+}
+
+// All landscape overlay layers (tree species + canopy), bottom-to-top within
+// the landscape band. Listed in the order they should stack among themselves.
+const LANDSCAPE_LAYER_IDS = [
+    'tree-species-layer',
+    'tree-species-ak-layer',
+    'tree-species-hi-layer',
+    'canopy-conus-layer',
+    'canopy-seak-layer',
+    'canopy-hawaii-layer',
+];
+
+// Re-assert landscape layer ordering. Because layers register lazily in
+// whatever order the user toggles them, a landscape layer (tree species,
+// canopy) placed via landscapeBeforeId() can still end up ABOVE hydrography if
+// hydrography registered afterward (its layers insert beneath BASEMAP_LINE_ANCHOR,
+// which is above the already-placed landscape layers). This function moves every
+// existing landscape layer back beneath the current landscape anchor so they
+// always sit above terrain but below water / trails / contours / labels.
+//
+// Call it after any registration that can affect the relative order — i.e. after
+// tree species, canopy, OR hydrography register. moveLayer is a no-op-cost
+// reorder; safe to call repeatedly and safe when layers are absent.
+function restackLandscapeLayers() {
+    const map = state.map;
+    if (!map) return;
+    const beforeId = landscapeBeforeId();
+    // If the anchor resolved to a real layer, move each landscape layer beneath
+    // it. Moving in listed order preserves the intended stacking among them.
+    for (const id of LANDSCAPE_LAYER_IDS) {
+        if (!map.getLayer(id)) continue;
+        // Don't try to move a layer relative to itself.
+        if (id === beforeId) continue;
+        try {
+            map.moveLayer(id, beforeId);
+        } catch (err) {
+            // beforeId may not exist yet in rare races; ignore — a later call
+            // will fix ordering.
+        }
+    }
+}
+
 // Ensure a deferred group's sources+layers exist. Safe to call repeatedly.
 function ensureGroupRegistered(group) {
     const registrar = DEFERRED_REGISTRARS[group];
@@ -572,10 +634,11 @@ function registerCanopy() {
                 'raster-resampling': 'linear'
             },
             layout: { visibility: 'none' }
-        }, BASEMAP_LINE_ANCHOR);
+        }, landscapeBeforeId());
     });
 
     _registeredGroups.add('canopy');
+    restackLandscapeLayers();
 }
 
 // --- Tree species (single-source, rendered from data tile) ---------------
@@ -610,10 +673,11 @@ function registerTreeSpecies() {
                 'raster-resampling': 'nearest',
             },
             layout: { visibility: 'none' }
-        }, BASEMAP_LINE_ANCHOR);
+        }, landscapeBeforeId());
     });
 
     _registeredGroups.add('tree-species');
+    restackLandscapeLayers();
 }
 
 // --- Burn severity (MTBS annual mosaics + national perimeter vector) ------
@@ -1205,6 +1269,11 @@ function registerHydrography() {
     }, BASEMAP_LINE_ANCHOR);
 
     _registeredGroups.add('hydrography');
+
+    // Hydrography just inserted its layers beneath BASEMAP_LINE_ANCHOR, which is
+    // above any landscape layers registered earlier. Push landscape layers back
+    // down below the water so tree species / canopy don't cover lakes & streams.
+    restackLandscapeLayers();
 }
 
 // --- Hydrography interactions: hover + click select + popup --------------
@@ -2304,7 +2373,7 @@ export function setBurnSeverityYear(year) {
         });
     });
 
-    // Perimeter filter follows the year only if the user hasn't opted out
+    // Perimeters always follow the selected year.
     applyPerimeterFilter();
 }
 
@@ -2336,7 +2405,7 @@ export function setBurnSeverityPerimeterVisible(visible) {
     }
 }
 
-// Filter perimeter layer to match year (if match-year is on) or show all.
+// Filter the perimeter layer to the currently selected burn-severity year.
 // ig_date is stored as an ISO-ish string starting with "YYYY-...".
 function applyPerimeterFilter() {
     const map = state.map;
@@ -2396,8 +2465,8 @@ export function initBurnSeverityControls() {
             } else {
                 state.burnSeverityYear = year;
                 saveBurnSeverityYear(year);
-                // Even if rasters are off, if the perimeter is on and
-                // match-year is on, we still want the perimeter to update.
+                // Even if rasters are off, if the perimeter is on we still want
+                // it to re-filter to the newly selected year.
                 applyPerimeterFilter();
             }
         });
