@@ -560,9 +560,9 @@ function registerSlope() {
     const { map } = state;
 
     const slopeTiers = [
-        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
+        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22, bounds: [-125.5, 24.0, -66.0, 50.0] },
+        { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-180.0, 51.0, -129.0, 72.0] },
+        { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-161.0, 18.5, -154.5, 23.0] }
     ];
 
     slopeTiers.forEach(tier => {
@@ -575,7 +575,8 @@ function registerSlope() {
             blueFactor: 1,
             baseShift: 0,
             tileSize: 512,
-            maxzoom: 11
+            maxzoom: 11,
+            bounds: tier.bounds
         });
         map.addLayer({
             id: `${tier.id}-layer`,
@@ -610,9 +611,9 @@ function registerAspect() {
     const { map } = state;
 
     const aspectTiers = [
-        { id: 'aspect-conus',  file: 'aspect_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 },
-        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22 }
+        { id: 'aspect-conus',  file: 'aspect_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22, bounds: [-125.5, 24.0, -66.0, 50.0] },
+        { id: 'aspect-alaska', file: 'aspect_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-180.0, 51.0, -129.0, 72.0] },
+        { id: 'aspect-hawaii', file: 'aspect_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-161.0, 18.5, -154.5, 23.0] }
     ];
 
     aspectTiers.forEach(tier => {
@@ -621,7 +622,8 @@ function registerAspect() {
             url: `pmtiles://${DERIVATIVES_BASE}/${tier.file}`,
             tileSize: 512,
             minzoom: 11,
-            maxzoom: 12
+            maxzoom: 12,
+            bounds: tier.bounds
         });
         map.addLayer({
             id: `${tier.id}-layer`,
@@ -631,7 +633,7 @@ function registerAspect() {
             maxzoom: tier.maxzoom,
             layout: { visibility: 'none' },
             paint: {
-                'raster-opacity': 1.0,
+                'raster-opacity': 0.55,
                 'raster-resampling': 'nearest'
             }
         }, BASEMAP_LINE_ANCHOR);
