@@ -104,20 +104,46 @@
     </div>
 
     <!-- Right-edge floating action stack -->
-    <div class="fab-stack">
-        <button id="fabGeolocate" class="fab" type="button" title="Locate me">
-            <i class="bi bi-geo-alt"></i>
-        </button>
-        <button id="fabCompass" class="fab" type="button" title="Reset to north">
-            <i class="bi bi-compass"></i>
-        </button>
-        <button id="fabQuery" class="fab" type="button" title="Query features" aria-pressed="false">
-            <i class="bi bi-cursor"></i>
-        </button>
-        <button id="fabPrimary" class="fab fab-primary" type="button" title="Add observation">
-            <i class="bi bi-plus-lg"></i>
-        </button>
-    </div>
+    <div class="fab-radial" id="fabRadial">
+      <div class="fab-arc" id="fabArc" aria-hidden="true">
+          <button id="fabGeolocate" class="fab fab-arc-item" type="button"
+                  style="--fab-x:-128px; --fab-y:0px;   --fab-i:0"
+                  title="Locate me" tabindex="-1">
+              <i class="bi bi-geo-alt"></i>
+              <span class="fab-label">Locate me</span>
+          </button>
+          <button id="fabCompass" class="fab fab-arc-item" type="button"
+                  style="--fab-x:-118px; --fab-y:-49px; --fab-i:1"
+                  title="Reset to north" tabindex="-1">
+              <i class="bi bi-compass"></i>
+              <span class="fab-label">Reset north</span>
+          </button>
+          <button id="fabQuery" class="fab fab-arc-item" type="button"
+                  style="--fab-x:-91px;  --fab-y:-91px; --fab-i:2"
+                  title="Query features" aria-pressed="false" tabindex="-1">
+              <i class="bi bi-cursor"></i>
+              <span class="fab-label">Query</span>
+          </button>
+          <button id="fabSoilProbe" class="fab fab-arc-item" type="button"
+                  style="--fab-x:-49px;  --fab-y:-118px; --fab-i:3"
+                  title="Soil conditions" aria-pressed="false" tabindex="-1">
+              <i class="bi bi-thermometer-half"></i>
+              <span class="fab-label">Soil</span>
+          </button>
+          <button id="fabPrimary" class="fab fab-arc-item fab-accent" type="button"
+                  style="--fab-x:0px;    --fab-y:-128px; --fab-i:4"
+                  title="Add observation" tabindex="-1">
+              <i class="bi bi-plus-lg"></i>
+              <span class="fab-label">Add observation</span>
+          </button>
+      </div>
+  
+      <button id="fabToggle" class="fab fab-primary" type="button"
+              aria-expanded="false" aria-controls="fabArc" title="Tools">
+          <i class="bi bi-tools fab-icon-closed"></i>
+          <i class="bi bi-x-lg fab-icon-open"></i>
+      </button>
+  </div>
 
     <!-- Query result popover -->
     <div id="queryResult" class="query-result shadow-sm d-none">

@@ -172,7 +172,89 @@ body {
     transform-origin: center;
 }
 
+.fab-radial {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 5;
+    width: 56px;
+    height: 56px;
+}
 
+/* Arc container is a zero-size anchor; items position off its center. */
+.fab-arc {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.fab-arc-item {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+    pointer-events: none;
+    transition:
+        transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1),
+        opacity 160ms ease;
+    transition-delay: calc(var(--fab-i) * 22ms);
+}
+
+.fab-radial.is-open .fab-arc { pointer-events: auto; }
+
+.fab-radial.is-open .fab-arc-item {
+    opacity: 1;
+    transform: translate(var(--fab-x), var(--fab-y)) scale(1);
+    pointer-events: auto;
+}
+
+/* Reverse the stagger on close so the outermost item leaves first. */
+.fab-radial:not(.is-open) .fab-arc-item {
+    transition-delay: calc((4 - var(--fab-i)) * 18ms);
+}
+
+/* Toggle icon swap */
+.fab-icon-open { display: none; }
+.fab-radial.is-open .fab-icon-closed { display: none; }
+.fab-radial.is-open .fab-icon-open { display: inline-block; }
+#fabToggle { transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+.fab-radial.is-open #fabToggle { transform: rotate(90deg); }
+
+/* Labels: desktop hover only. Too cramped on mobile — title attr covers it. */
+.fab-label {
+    position: absolute;
+    right: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 5px 9px;
+    border-radius: 5px;
+    background: rgba(24, 24, 27, 0.9);
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+@media (hover: hover) and (min-width: 768px) {
+    .fab-arc-item:hover .fab-label,
+    .fab-arc-item:focus-visible .fab-label { opacity: 1; }
+}
+
+/* Active pick-mode state (query, soil probe) */
+.fab[aria-pressed="true"] {
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fab-arc-item,
+    #fabToggle {
+        transition-duration: 1ms;
+        transition-delay: 0ms;
+    }
+}
 /* ============================================================
    Mobile bottom dock
    ============================================================ */

@@ -31,7 +31,7 @@ import {
     loadBurnSeverityPerimeterVisible,
     saveBurnSeverityPerimeterVisible,
 } from './state.js';
-import { escapeHtml } from './api.js';
+import { escapeHtml, showToast } from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
 
 const US_BOUNDS = [
@@ -2312,6 +2312,13 @@ export function wireFabs(onAddObservation) {
     });
     document.getElementById('fabPrimary').addEventListener('click', onAddObservation);
 
+    document.getElementById('fabSoilProbe')?.addEventListener('click', () => {
+        // TODO: replace with enterSoilProbeMode() — Open-Meteo point query
+        showToast('Soil probe coming soon');
+    });
+
+    initFabRadial();
+
     const compassBtn = document.getElementById('fabCompass');
     const compassIcon = compassBtn.querySelector('i');
     compassBtn.addEventListener('click', () => {
@@ -2593,4 +2600,44 @@ export function initBurnSeverityControls() {
 export function initSoilMoistureControls() {
     // Nothing needed for now — toggles handled by initLayerPanels, layers
     // registered lazily on first toggle. Future: date picker for the archive.
+}
+
+function initFabRadial() {
+    const root = document.getElementById('fabRadial');
+    const toggle = document.getElementById('fabToggle');
+    const arc = document.getElementById('fabArc');
+    if (!root || !toggle || !arc) return;
+
+    const items = () => Array.from(arc.querySelectorAll('.fab-arc-item'));
+
+    function setOpen(open) {
+        root.classList.toggle('is-open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+        arc.setAttribute('aria-hidden', String(!open));
+        items().forEach(el => { el.tabIndex = open ? 0 : -1; });
+        if (open) items()[0]?.focus();
+    }
+
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(!root.classList.contains('is-open'));
+    });
+
+    // Collapse after picking a tool, but not for buttons that enter a
+    // persistent pick-mode — those want the stack out of the way immediately
+    // either way, so we close for all of them.
+    arc.addEventListener('click', () => setOpen(false));
+
+    document.addEventListener('click', (e) => {
+        if (!root.contains(e.target)) setOpen(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && root.classList.contains('is-open')) {
+            setOpen(false);
+            toggle.focus();
+        }
+    });
+
+    setOpen(false);
 }
