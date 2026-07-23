@@ -298,7 +298,7 @@
             Soil moisture
         </label>
     </div>
-
+<!--
     <div class="form-check form-switch mb-2 ps-3">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-soil-moisture-isolines-CTX" data-layer-group="soil-moisture-isolines">
@@ -306,22 +306,23 @@
             Isolines
         </label>
     </div>
-
+-->
     <div class="form-check form-switch mb-0 opacity-50">
         <input class="form-check-input" type="checkbox" disabled>
         <label class="form-check-label">Soil temperature</label>
     </div>
   </details>
 
-  <!-- Hydrography: standalone toggle, no collapsible header, off by default -->
-  <div class="form-check form-switch mb-3">
-      <input class="form-check-input layer-toggle" type="checkbox"
-             id="layer-hydrography-CTX" data-layer-group="hydrography">
-      <label class="form-check-label" for="layer-hydrography-CTX">
-          Streams &amp; waterbodies
-      </label>
-  </div>
-
+  <details class="layer-section" data-section-key="hydrography">
+    <summary class="text-uppercase text-muted small fw-bold mb-2">Hydrography</summary>
+      <div class="form-check form-switch mb-3">
+          <input class="form-check-input layer-toggle" type="checkbox"
+                id="layer-hydrography-CTX" data-layer-group="hydrography">
+          <label class="form-check-label" for="layer-hydrography-CTX">
+              Streams &amp; waterbodies
+          </label>
+      </div>
+  </details>
   <details class="layer-section" data-section-key="my-data">
     <summary class="text-uppercase text-muted small fw-bold mb-2">My Data</summary>
 
