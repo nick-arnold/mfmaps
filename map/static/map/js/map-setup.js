@@ -268,6 +268,7 @@ export function initMap() {
             wireTreeSpeciesHover();
             wireUrlSync();
             await preloadTreeSpeciesLegends();
+            state.map.on('sourcedata', () => state.map.triggerRepaint());
 
             // Force a repaint once sources settle to unblock hillshade rendering
             state.map.once('idle', () => {
@@ -2243,19 +2244,9 @@ function renderPanelInto(template, container, contextSuffix) {
 }
 
 export function setLayerGroupVisibility(group, visible) {
-    if (visible) {
-        const isNewGroup = !_registeredGroups.has(group);
-        ensureGroupRegistered(group);
 
-        if (isNewGroup) {
-            // DEM-derived layers can finish loading tile data without the
-            // renderer scheduling a paint for it. A single early repaint can
-            // fire before new tiles are even requested, so instead keep
-            // nudging the renderer as data actually arrives.
-            const onSourceData = () => state.map.triggerRepaint();
-            state.map.on('sourcedata', onSourceData);
-            state.map.once('idle', () => state.map.off('sourcedata', onSourceData));
-        }
+    if (visible) {
+        ensureGroupRegistered(group);
     }
 
     // Burn severity: only ONE year visible at a time
