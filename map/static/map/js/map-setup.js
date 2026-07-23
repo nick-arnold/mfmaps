@@ -2406,7 +2406,7 @@ export function initBurnSeverityControls() {
     state.burnSeverityYear = savedYear;
 
     // Perimeter visibility toggle
-    const perimVisible = loadBurnSeverityPerimeterVisible();
+    const perimVisible = false;
     const perimToggles = document.querySelectorAll('.burn-severity-perimeter-toggle');
     perimToggles.forEach(cb => {
         cb.checked = perimVisible;
