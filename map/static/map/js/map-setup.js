@@ -62,6 +62,18 @@ const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
 const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
 const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
 
+// Region bounding boxes ([west, south, east, north]) applied as source
+// `bounds` so MapLibre never requests tiles from a regional archive that
+// can't cover the current viewport (e.g. probing the Hawaii archive while
+// panning Alaska). Matches the bboxes used by TREE_SPECIES_REGIONS.
+const REGION_BOUNDS = {
+    conus:    [-125.5, 24.0, -66.0, 50.0],
+    alaska:   [-180.0, 51.0, -129.0, 72.0],
+    hawaii:   [-161.0, 18.5, -154.5, 23.0],
+    seak:     [-141.5, 54.4, -129.9, 60.5],   // SE Alaska panhandle (canopy)
+    conus_hi: [-161.0, 18.5, -66.0, 50.0],    // CONUS + Hawaii combined (NHD)
+};
+
 // Tracks which deferred groups have already had their sources+layers built.
 const _registeredGroups = new Set();
 
@@ -226,7 +238,7 @@ function wireUrlSync() {
 
 export function initMap() {
 
-    console.log('map-setup.js loaded — version 14 (deferred layers)');
+    console.log('map-setup.js loaded — version 15 (region bounds)');
 
     if (!state._pmtilesRegistered) {
         const protocol = new pmtiles.Protocol();
@@ -298,18 +310,18 @@ function registerTerrain() {
     const { map } = state;
 
     const terrainTiers = [
-        { id: 'terrain-z3-4',   file: 'conus_z3-4_v1.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'terrain-z5-7',   file: 'conus_z5-7_v1.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'terrain-z8-10',  file: 'conus_z8-10_v1.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'terrain-z11-12', file: 'conus_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
-        { id: 'alaska-z3-4',    file: 'alaska_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'alaska-z5-7',    file: 'alaska_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'alaska-z8-10',   file: 'alaska_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'alaska-z11-12',  file: 'alaska_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
-        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4  },
-        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7  },
-        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10 },
-        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12 },
+        { id: 'terrain-z3-4',   file: 'conus_z3-4_v1.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'conus'  },
+        { id: 'terrain-z5-7',   file: 'conus_z5-7_v1.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'conus'  },
+        { id: 'terrain-z8-10',  file: 'conus_z8-10_v1.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'conus'  },
+        { id: 'terrain-z11-12', file: 'conus_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'conus'  },
+        { id: 'alaska-z3-4',    file: 'alaska_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'alaska' },
+        { id: 'alaska-z5-7',    file: 'alaska_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'alaska' },
+        { id: 'alaska-z8-10',   file: 'alaska_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'alaska' },
+        { id: 'alaska-z11-12',  file: 'alaska_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'alaska' },
+        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'hawaii' },
+        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'hawaii' },
+        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'hawaii' },
+        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'hawaii' },
     ];
 
     terrainTiers.forEach(tier => {
@@ -318,7 +330,8 @@ function registerTerrain() {
             url: `pmtiles://${TERRAIN_BASE}/${tier.file}`,
             encoding: 'mapbox',
             tileSize: 512,
-            maxzoom: tier.sourceMaxzoom
+            maxzoom: tier.sourceMaxzoom,
+            bounds: REGION_BOUNDS[tier.region]
         });
         map.addLayer({
             id: `${tier.id}-hillshade`,
@@ -366,7 +379,8 @@ function registerContours() {
 
             map.addSource(srcId, {
                 type: 'vector',
-                url: `pmtiles://${CONTOUR_BASE}/${file}`
+                url: `pmtiles://${CONTOUR_BASE}/${file}`,
+                bounds: REGION_BOUNDS[region]
             });
 
             map.addLayer({
@@ -649,15 +663,16 @@ function registerCanopy() {
     const { map } = state;
 
     [
-        { id: 'canopy-conus',  file: 'conus_canopy_v1.pmtiles'  },
-        { id: 'canopy-seak',   file: 'seak_canopy_v1.pmtiles'   },
-        { id: 'canopy-hawaii', file: 'hawaii_canopy_v1.pmtiles'  }
+        { id: 'canopy-conus',  file: 'conus_canopy_v1.pmtiles',  region: 'conus'  },
+        { id: 'canopy-seak',   file: 'seak_canopy_v1.pmtiles',   region: 'seak'   },
+        { id: 'canopy-hawaii', file: 'hawaii_canopy_v1.pmtiles', region: 'hawaii' }
     ].forEach(region => {
         map.addSource(region.id, {
             type: 'raster',
             url: `pmtiles://${CANOPY_BASE}/${region.file}`,
             tileSize: 256,
-            maxzoom: 12
+            maxzoom: 12,
+            bounds: REGION_BOUNDS[region.region]
         });
         map.addLayer({
             id: `${region.id}-layer`,
@@ -686,9 +701,9 @@ function registerTreeSpecies() {
     const { map } = state;
 
     [
-        { id: 'tree-species',    region: 'conus', opacity: 0.28 },
-        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28 },
-        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28 },
+        { id: 'tree-species',    region: 'conus', opacity: 0.28, bounds: REGION_BOUNDS.conus  },
+        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28, bounds: REGION_BOUNDS.alaska },
+        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28, bounds: REGION_BOUNDS.hawaii },
     ].forEach(cfg => {
         map.addSource(cfg.id, {
             type: 'raster',
@@ -696,6 +711,7 @@ function registerTreeSpecies() {
             tileSize: 256,
             minzoom: 4,
             maxzoom: 14,
+            bounds: cfg.bounds,
         });
         map.addLayer({
             id: `${cfg.id}-layer`,
@@ -722,6 +738,12 @@ function registerBurnSeverity() {
     if (_registeredGroups.has('burn-severity')) return;
     const { map } = state;
 
+    const burnRegionBounds = {
+        conus: REGION_BOUNDS.conus,
+        ak:    REGION_BOUNDS.alaska,
+        hi:    REGION_BOUNDS.hawaii,
+    };
+
     Object.entries(BURN_SEVERITY_REGIONS).forEach(([region, years]) => {
         years.forEach(year => {
             const srcId = `burn-severity-${region}-${year}`;
@@ -732,6 +754,7 @@ function registerBurnSeverity() {
                 tileSize: 256,
                 minzoom: 3,
                 maxzoom: 12,
+                bounds: burnRegionBounds[region],
             });
             map.addLayer({
                 id: layerId,
@@ -896,7 +919,8 @@ function registerHydrography() {
     // Protomaps hydro (used for CONUS labels + hover/select source features)
     map.addSource('nhd', {
         type: 'vector',
-        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles'
+        url: 'pmtiles://https://protomaps-example.s3.us-west-2.amazonaws.com/us_hydro.pmtiles',
+        bounds: REGION_BOUNDS.conus
     });
 
     map.addSource('nhd-hover',    { type: 'geojson', data: empty });
@@ -909,7 +933,8 @@ function registerHydrography() {
     map.addSource('nhd_ak', {
         type: 'vector',
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_ak_v5.pmtiles',
-        maxzoom: 13
+        maxzoom: 13,
+        bounds: REGION_BOUNDS.alaska
     });
 
     const widthByDrainage = [
@@ -1037,7 +1062,8 @@ function registerHydrography() {
     map.addSource('nhd_conus', {
         type: 'vector',
         url: 'pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/nhd/nhd_conus_v2.pmtiles',
-        maxzoom: 13
+        maxzoom: 13,
+        bounds: REGION_BOUNDS.conus_hi
     });
 
     const widthByArbolate = [
