@@ -375,6 +375,12 @@ body {
 
 body.soil-probe-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%23fff' stroke-width='3' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><g stroke='%23111' stroke-width='1.5' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><circle cx='24' cy='22' r='7' fill='%23fff' stroke='%23111' stroke-width='1.2'/><path d='M24 17.8v5.4' stroke='%23111' stroke-width='2' stroke-linecap='round'/><circle cx='24' cy='24.6' r='2.6' fill='%23c0392b'/></svg>") 11 11, crosshair; }
 
+body.soil-probe-mode .maplibregl-canvas-container,
+body.soil-probe-mode .maplibregl-canvas-container.maplibregl-interactive,
+body.soil-probe-mode canvas.maplibregl-canvas {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%23fff' stroke-width='3' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><g stroke='%23111' stroke-width='1.5' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><circle cx='24' cy='22' r='7' fill='%23fff' stroke='%23111' stroke-width='1.2'/><path d='M24 17.8v5.4' stroke='%23111' stroke-width='2' stroke-linecap='round'/><circle cx='24' cy='24.6' r='2.6' fill='%23c0392b'/></svg>") 11 11, crosshair !important;
+}
+
 .query-result {
     position: absolute;
     top: 12px;
