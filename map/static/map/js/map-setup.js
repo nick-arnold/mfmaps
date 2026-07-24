@@ -31,7 +31,7 @@ import {
     loadBurnSeverityPerimeterVisible,
     saveBurnSeverityPerimeterVisible,
 } from './state.js';
-import { escapeHtml, showToast } from './api.js';
+import { escapeHtml} from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
 
 const US_BOUNDS = [
@@ -2350,13 +2350,6 @@ export function wireFabs(onAddObservation) {
         state.geolocate.trigger();
     });
     document.getElementById('fabPrimary').addEventListener('click', onAddObservation);
-
-    document.getElementById('fabSoilProbe')?.addEventListener('click', () => {
-        // TODO: replace with enterSoilProbeMode() — Open-Meteo point query
-        initSoilProbe();
-    });
-
-    
 
     initFabRadial();
 
