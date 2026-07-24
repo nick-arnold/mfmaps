@@ -2679,7 +2679,10 @@ function initFabRadial() {
 
     const items = () => Array.from(arc.querySelectorAll('.fab-arc-item'));
 
+    let closeTimer = null;
+
     function setOpen(open) {
+        clearTimeout(closeTimer);
         root.classList.toggle('is-open', open);
         toggle.setAttribute('aria-expanded', String(open));
         arc.setAttribute('aria-hidden', String(!open));
@@ -2696,7 +2699,8 @@ function initFabRadial() {
     // persistent pick-mode — those want the stack out of the way immediately
     // either way, so we close for all of them.
     arc.addEventListener('click', () => {
-        setTimeout(() => setOpen(false), 380);
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => setOpen(false), 380);
     });
 
     document.addEventListener('click', (e) => {
