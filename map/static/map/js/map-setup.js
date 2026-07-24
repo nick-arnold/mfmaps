@@ -2316,7 +2316,9 @@ export function setLayerGroupVisibility(group, visible) {
     if (visible) {
         ensureGroupRegistered(group);
     }
-
+    if (group === 'tree-species') {
+        document.body.classList.toggle('tree-species-mode', visible);
+    }
     // Burn severity: only ONE year visible at a time
     if (group === 'burn-severity') {
         if (visible) {
