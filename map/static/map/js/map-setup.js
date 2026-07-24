@@ -2760,9 +2760,7 @@ function renderSoilTooltip(data) {
 export function initSoilProbe() {
     const btn = document.getElementById('fabSoilProbe');
     if (!btn) return;
-    btn.addEventListener('click', () => {
-        console.log('probe click, was:', state.soilProbeMode);
-    });
+
     btn.addEventListener('click', () => {
         
         state.soilProbeMode = !state.soilProbeMode;
