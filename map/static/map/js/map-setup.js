@@ -703,7 +703,7 @@ function registerTreeSpecies() {
 
     [
         { id: 'tree-species',    region: 'conus', opacity: 0.28, bounds: REGION_BOUNDS.conus  },
-        { id: 'tree-species-ak', region: 'ak',   opacity: 0.28, bounds: REGION_BOUNDS.alaska },
+        { id: 'tree-species-ak', region: 'ak',   opacity: 0.20, bounds: REGION_BOUNDS.alaska },
         { id: 'tree-species-hi', region: 'hi',   opacity: 0.28, bounds: REGION_BOUNDS.hawaii },
     ].forEach(cfg => {
         map.addSource(cfg.id, {
