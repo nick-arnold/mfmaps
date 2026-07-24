@@ -2769,6 +2769,7 @@ export function initSoilProbe() {
     if (!btn) return;
     btn.addEventListener('click', () => {
         console.log('probe click, was:', state.soilProbeMode);
+    });
     btn.addEventListener('click', () => {
         
         state.soilProbeMode = !state.soilProbeMode;
