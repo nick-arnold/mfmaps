@@ -209,7 +209,7 @@ export const LAYER_IDS = {
     // and the outline are toggled together as one group.
     'public-land': ['public-land-fill', 'public-land-outline'],
 
-};
+
     
 };
 
