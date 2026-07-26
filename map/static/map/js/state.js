@@ -204,6 +204,12 @@ export const LAYER_IDS = {
 
     'soil-moisture-raster': ['soil-moisture-raster-layer'],
     'soil-temperature-raster': ['soil-temperature-raster-layer'],
+
+    // Public land (PAD-US flattened, filtered to go-able land). Both the fill
+    // and the outline are toggled together as one group.
+    'public-land': ['public-land-fill', 'public-land-outline'],
+
+};
     
 };
 

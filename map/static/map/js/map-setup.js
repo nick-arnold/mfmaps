@@ -50,6 +50,9 @@ const SELECTED_COLOR = '#ff7a1a';
 // Contour palette (shared across all region/zoom tiers)
 const CONTOUR_INTERMEDIATE_COLOR = '#9a7b4f';
 const CONTOUR_INDEX_COLOR        = '#7a5f3a';
+// Public land palette (brand orange). Solid crisp line to stay visually
+// distinct from the blurred orange-red burn-severity perimeters.
+const PUBLIC_LAND_COLOR = '#d96d2a';
 
 // Anchor layer from the basemap style that deferred layers insert beneath.
 const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
@@ -62,6 +65,7 @@ const BURN_SEVERITY_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
 const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-moisture';
 const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
 const SOIL_TEMP_TILES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-temperature';
+const PUBLIC_LAND_BASE   = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/public-land';
 
 // Region bounding boxes ([west, south, east, north]) applied as source
 // `bounds` so MapLibre never requests tiles from a regional archive that
@@ -92,6 +96,7 @@ const DEFERRED_REGISTRARS = {
     'hydrography':             registerHydrography,
     'wetlands':                registerHydrography,  
     'soil-temperature-raster': registerSoilTemperature,
+    'public-land':             registerPublicLand,
 };
 
 // =============================================================================
@@ -141,7 +146,8 @@ const LAYER_ORDER_FAMILIES = [
     id => id === 'soil-moisture-raster-layer',                         // 5  soil moisture fill
     id => id === 'soil-temperature-raster-layer',                      // 6  soil temp fill   <-- NEW
     id => /^burn-severity-.*-layer$/.test(id),                         // 7  burn rasters
-    id => id.startsWith('trails-'),                                    // 8  trails
+    id => id.startsWith('public-land-'),                               // 8  public land boundary
+    id => id.startsWith('trails-'),                                    // 9  trails
     id => isHydroWaterLayer(id),                                       // 9  water
     id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
     id => isHydroLabelLayer(id),                                       // 11 water labels
@@ -889,6 +895,72 @@ function registerSoilTemperature() {
     }
 
     _registeredGroups.add('soil-temperature');
+    enforceLayerOrder();
+}
+
+// --- Public land (PAD-US flattened, filtered to go-able land) -------------
+// One vector source, two layers: a whisper-thin orange fill so the interior
+// reads as "public" at a glance, and a crisp solid orange outline. Solid (not
+// blurred) to stay distinct from the blurred orange-red burn-severity
+// perimeters. Attributes carried in the tiles for a future click popup:
+// Mang_Type, Mang_Name, Unit_Nm, Des_Tp, Pub_Access, State_Nm.
+// Source-layer name is 'public_land' (set via tippecanoe --layer).
+
+function registerPublicLand() {
+    if (_registeredGroups.has('public-land')) return;
+    const { map } = state;
+
+    if (!map.getSource('public-land')) {
+        map.addSource('public-land', {
+            type: 'vector',
+            url: `pmtiles://${PUBLIC_LAND_BASE}/public_land.pmtiles`,
+            attribution: 'Public land: USGS PAD-US 4.1',
+        });
+    }
+
+    if (!map.getLayer('public-land-fill')) {
+        map.addLayer({
+            id: 'public-land-fill',
+            type: 'fill',
+            source: 'public-land',
+            'source-layer': 'public_land',
+            minzoom: 5,
+            maxzoom: 22,
+            layout: { visibility: 'none' },
+            paint: {
+                'fill-color': PUBLIC_LAND_COLOR,
+                'fill-opacity': 0.07,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    if (!map.getLayer('public-land-outline')) {
+        map.addLayer({
+            id: 'public-land-outline',
+            type: 'line',
+            source: 'public-land',
+            'source-layer': 'public_land',
+            minzoom: 5,
+            maxzoom: 22,
+            layout: {
+                visibility: 'none',
+                'line-join': 'round',
+                'line-cap': 'round',
+            },
+            paint: {
+                'line-color': PUBLIC_LAND_COLOR,
+                'line-width': ['interpolate', ['linear'], ['zoom'],
+                    5,  0.6,
+                    8,  1.0,
+                    11, 1.6,
+                    14, 2.2,
+                ],
+                'line-opacity': 0.9,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    _registeredGroups.add('public-land');
     enforceLayerOrder();
 }
 
