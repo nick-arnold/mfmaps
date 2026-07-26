@@ -207,8 +207,7 @@ export const LAYER_IDS = {
 
     // Public land (PAD-US flattened, filtered to go-able land). Both the fill
     // and the outline are toggled together as one group.
-    'public-land': ['public-land-fill', 'public-land-outline'],
-
+    'public-land': ['public-land-fill', 'public-land-glow', 'public-land-outline'],
 
     
 };

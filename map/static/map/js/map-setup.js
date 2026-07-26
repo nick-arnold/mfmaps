@@ -929,7 +929,48 @@ function registerPublicLand() {
             layout: { visibility: 'none' },
             paint: {
                 'fill-color': PUBLIC_LAND_COLOR,
-                'fill-opacity': 0.07,
+                'fill-opacity': 0.05,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    // Inner glow: wide, blurred, offset inward so it hugs the boundary from
+    // the inside. Sits between the fill and the crisp outline.
+    if (!map.getLayer('public-land-glow')) {
+        map.addLayer({
+            id: 'public-land-glow',
+            type: 'line',
+            source: 'public-land',
+            'source-layer': 'public_land',
+            minzoom: 5,
+            maxzoom: 22,
+            layout: {
+                visibility: 'none',
+                'line-join': 'round',
+                'line-cap': 'round',
+            },
+            paint: {
+                'line-color': PUBLIC_LAND_COLOR,
+                'line-width': ['interpolate', ['linear'], ['zoom'],
+                    5,  3,
+                    8,  6,
+                    11, 10,
+                    14, 16,
+                ],
+                // Push the glow inward off the boundary line.
+                'line-offset': ['interpolate', ['linear'], ['zoom'],
+                    5,  1.5,
+                    8,  3,
+                    11, 5,
+                    14, 8,
+                ],
+                'line-blur': ['interpolate', ['linear'], ['zoom'],
+                    5,  3,
+                    8,  6,
+                    11, 10,
+                    14, 14,
+                ],
+                'line-opacity': 0.35,
             },
         }, BASEMAP_LINE_ANCHOR);
     }
