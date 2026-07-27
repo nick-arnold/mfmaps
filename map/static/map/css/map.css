@@ -167,9 +167,39 @@ body {
 
 .fab-primary:hover { background: #244526; border-color: #244526; }
 
-#fabCompass i {
-    transition: transform 0.1s ease-out;
+/* Standalone reset-to-north control (moved out of the FAB radial) */
+.north-reset {
+    position: absolute;
+    top: 64px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    z-index: 10;
+}
+.north-reset:hover { background: #f6f6f6; }
+.north-reset:active { transform: translateY(1px); }
+
+/* The dial rotates so the N always points at true north. */
+.north-reset-dial {
+    width: 26px;
+    height: 26px;
+    display: block;
     transform-origin: center;
+    transition: transform 0.12s ease-out;
+}
+
+/* Desktop: tuck into the top-right corner under the app bar. */
+@media (min-width: 768px) {
+    .north-reset { top: 12px; right: 12px; }
 }
 
 .fab-radial {
@@ -369,7 +399,12 @@ body {
    Query mode
    ============================================================ */
 
-.query-mode .maplibregl-canvas {
+   .query-mode .maplibregl-canvas {
+    cursor: crosshair !important;
+}
+
+/* Access (public-land) pick mode */
+.access-mode .maplibregl-canvas {
     cursor: crosshair !important;
 }
 body.tree-species-mode .maplibregl-canvas-container,

@@ -12,6 +12,7 @@ import {
     initQueryMode,
     initSoilProbe,
     initGeolocate,
+    initAccessMode,
     initModeTabs,
     initCrosshair,
     initBurnSeverityControls,
@@ -80,6 +81,7 @@ async function main() {
     initBurnSeverityControls();
     initSoilProbe();
     initQueryMode();
+    initAccessMode();
     initGeolocate();
     initCrosshair();
     wireMapClicks();

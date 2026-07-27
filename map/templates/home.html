@@ -103,6 +103,19 @@
         </ul>
     </div>
 
+
+    <!-- Standalone reset-to-north control (moved out of the FAB) -->
+    <button id="fabCompass" class="north-reset" type="button"
+            title="Reset map to north" aria-label="Reset map to north">
+      <svg class="north-reset-dial" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M20 6 L26 20 L14 20 Z" fill="#d94b3a"/>
+          <path d="M20 34 L26 20 L14 20 Z" fill="#9aa0a6"/>
+          <text x="20" y="18.5" text-anchor="middle"
+                font-family="system-ui,-apple-system,'Segoe UI',sans-serif"
+                font-size="8" font-weight="700" fill="#ffffff">N</text>
+      </svg>
+    </button>
+
     <!-- Right-edge floating action stack -->
     <div class="fab-radial" id="fabRadial">
       <div class="fab-arc" id="fabArc" aria-hidden="true">
@@ -112,11 +125,11 @@
               <i class="bi bi-geo-alt"></i>
               <span class="fab-label">Locate me</span>
           </button>
-          <button id="fabCompass" class="fab fab-arc-item" type="button"
+          <button id="fabAccess" class="fab fab-arc-item" type="button"
                   style="--fab-x:-118px; --fab-y:-49px; --fab-i:1"
-                  title="Reset to north" tabindex="-1">
-              <i class="bi bi-compass"></i>
-              <span class="fab-label">Reset north</span>
+                  title="Check land access" aria-pressed="false" tabindex="-1">
+              <i class="bi bi-signpost-2"></i>
+              <span class="fab-label">Access</span>
           </button>
           <button id="fabQuery" class="fab fab-arc-item" type="button"
                   style="--fab-x:-91px;  --fab-y:-91px; --fab-i:2"

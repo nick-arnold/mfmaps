@@ -2042,6 +2042,7 @@ function wireHydroInteractions() {
 
     map.on('mousemove', (e) => {
         if (state.queryMode) return;
+        if (state.accessMode) return;
         if (state.crosshairMode) return;
         const feat = queryNearbyHydroFeature(e.point);
         if (!feat) {
@@ -2063,6 +2064,7 @@ function wireHydroInteractions() {
 
     map.on('click', (e) => {
         if (state.queryMode) return;
+        if (state.accessMode) return;
         if (state.crosshairMode) return;
         if (map.getLayer('observations-layer')) {
             const obsHit = map.queryRenderedFeatures(e.point, { layers: ['observations-layer'] });
@@ -2558,13 +2560,17 @@ export function wireFabs(onAddObservation) {
     initFabRadial();
 
     const compassBtn = document.getElementById('fabCompass');
-    const compassIcon = compassBtn.querySelector('i');
-    compassBtn.addEventListener('click', () => {
+    const compassDial = compassBtn?.querySelector('.north-reset-dial');
+    compassBtn?.addEventListener('click', () => {
         state.map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
     });
-    state.map.on('rotate', () => {
-        compassIcon.style.transform = `rotate(${-state.map.getBearing()}deg)`;
-    });
+    const applyDialRotation = () => {
+        if (compassDial) {
+            compassDial.style.transform = `rotate(${-state.map.getBearing()}deg)`;
+        }
+    };
+    state.map.on('rotate', applyDialRotation);
+    applyDialRotation();   // set initial orientation
 }
 
 // --- Query mode -----------------------------------------------------------
@@ -2852,6 +2858,7 @@ export function initSoilMoistureControls() {
 const FAB_MODE_ICONS = {
     fabQuery: 'bi-cursor',
     fabSoilProbe: 'bi-thermometer-half',
+    fabAccess: 'bi-signpost-2',
 };
 
 function syncFabToggleState() {
@@ -2862,6 +2869,7 @@ function syncFabToggleState() {
     let activeId = null;
     if (state.soilProbeMode) activeId = 'fabSoilProbe';
     else if (state.queryMode) activeId = 'fabQuery';
+    else if (state.accessMode) activeId = 'fabAccess';
 
     const iconClass = activeId ? FAB_MODE_ICONS[activeId] : 'bi-tools';
     icon.className = `bi ${iconClass} fab-icon-closed`;
@@ -3008,5 +3016,172 @@ export function initSoilProbe() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') hideSoilTooltip();
+    });
+}
+
+// =============================================================================
+// Access (public-land) pick-mode — click anywhere to check whether the spot
+// sits on go-able public land (PAD-US detailed layer) or not.
+// =============================================================================
+
+// Invisible fill layer on the public-land source, used only to force tiles to
+// load and to hit-test clicks via queryRenderedFeatures. fill-opacity 0 keeps
+// it out of sight while still rendered (so it stays queryable). Independent of
+// the visible 'public-land' boundary group the layer panel toggles.
+function ensureAccessProbeLayer() {
+    const { map } = state;
+    if (!map.getSource('public-land')) {
+        map.addSource('public-land', {
+            type: 'vector',
+            url: `pmtiles://${PUBLIC_LAND_BASE}/public_land.pmtiles`,
+            attribution: 'Public land: USGS PAD-US 4.1',
+        });
+    }
+    if (!map.getLayer('public-land-probe')) {
+        map.addLayer({
+            id: 'public-land-probe',
+            type: 'fill',
+            source: 'public-land',
+            'source-layer': 'public_land',
+            minzoom: 5,
+            maxzoom: 22,
+            paint: { 'fill-opacity': 0 },
+        }, BASEMAP_LINE_ANCHOR);
+        enforceLayerOrder();
+    }
+}
+
+let _accessTooltipEl = null;
+
+function ensureAccessTooltip() {
+    if (_accessTooltipEl) return _accessTooltipEl;
+    const el = document.createElement('div');
+    el.className = 'access-probe-tooltip';
+    el.style.cssText = `
+        position: fixed;
+        pointer-events: none;
+        background: rgba(20, 20, 20, 0.85);
+        color: #fff;
+        padding: 7px 11px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        line-height: 1.4;
+        z-index: 9999;
+        display: none;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 260px;
+        width: max-content;
+    `;
+    document.body.appendChild(el);
+    _accessTooltipEl = el;
+    return el;
+}
+
+function showAccessTooltip(x, y, html) {
+    const el = ensureAccessTooltip();
+    el.innerHTML = html;
+    el.style.left = (x + 12) + 'px';
+    el.style.top = (y + 12) + 'px';
+    el.style.display = 'block';
+}
+
+function hideAccessTooltip() {
+    if (_accessTooltipEl) _accessTooltipEl.style.display = 'none';
+}
+
+// Pub_Access codes carried in the PAD-US tiles. XA (closed) was filtered out
+// of the dataset upstream, so we only expect OA / RA / UK here.
+const PUB_ACCESS_LABELS = {
+    OA: 'Open access',
+    RA: 'Restricted — permit, fee, or seasonal closure possible',
+    UK: 'Access unknown',
+};
+
+function renderAccessTooltip(feature) {
+    if (!feature) {
+        return `<div><strong>No public-land record here</strong></div>
+                <div style="opacity:.75; margin-top:2px">
+                    Not in the go-able public-land layer — treat as private or
+                    unmapped, and verify before foraging.
+                </div>`;
+    }
+    const p = feature.properties || {};
+    const unit = p.Unit_Nm || 'Public land';
+    const mgr = p.Mang_Name || p.Mang_Type || 'Unknown manager';
+    const des = p.Des_Tp || '';
+    const code = p.Pub_Access || 'UK';
+    const accessLabel = PUB_ACCESS_LABELS[code] || code;
+
+    const rows = [];
+    rows.push(`<div><strong>${escapeHtml(unit)}</strong></div>`);
+    rows.push(`<div>Manager: ${escapeHtml(mgr)}</div>`);
+    if (des) rows.push(`<div style="opacity:.75">${escapeHtml(des)}</div>`);
+    rows.push(`<div style="margin-top:3px">Access: <strong>${escapeHtml(accessLabel)}</strong></div>`);
+    rows.push(`<div style="opacity:.55; margin-top:3px">Confirm rules with the manager · PAD-US 4.1</div>`);
+    return rows.join('');
+}
+
+export function initAccessMode() {
+    const btn = document.getElementById('fabAccess');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        state.accessMode = !state.accessMode;
+
+        // Only one pick-mode armed at a time.
+        if (state.accessMode) {
+            if (state.queryMode) {
+                state.queryMode = false;
+                document.getElementById('fabQuery').setAttribute('aria-pressed', 'false');
+                document.body.classList.remove('query-mode');
+                document.getElementById('queryResult').classList.add('d-none');
+            }
+            if (state.soilProbeMode) {
+                state.soilProbeMode = false;
+                document.getElementById('fabSoilProbe').setAttribute('aria-pressed', 'false');
+                document.body.classList.remove('soil-probe-mode');
+                hideSoilTooltip();
+            }
+            // Start loading public-land tiles now so the first click can hit.
+            ensureAccessProbeLayer();
+        }
+
+        btn.setAttribute('aria-pressed', state.accessMode ? 'true' : 'false');
+        document.body.classList.toggle('access-mode', state.accessMode);
+        if (!state.accessMode) hideAccessTooltip();
+        syncFabToggleState();
+    });
+
+    state.map.on('click', (e) => {
+        if (!state.accessMode) return;
+
+        const { clientX, clientY } = e.originalEvent;
+
+        if (state.map.getZoom() < 5) {
+            showAccessTooltip(clientX, clientY, '<em>Zoom in to check land access.</em>');
+            return;
+        }
+
+        if (!state.map.getLayer('public-land-probe')) {
+            ensureAccessProbeLayer();
+            showAccessTooltip(clientX, clientY, '<em>Loading public-land data — click again.</em>');
+            return;
+        }
+
+        const feats = state.map.queryRenderedFeatures(e.point, { layers: ['public-land-probe'] });
+        const hit = (feats && feats.length) ? feats[0] : null;
+
+        if (!hit && !state.map.isSourceLoaded('public-land')) {
+            showAccessTooltip(clientX, clientY, '<em>Loading public-land data — click again.</em>');
+            return;
+        }
+
+        showAccessTooltip(clientX, clientY, renderAccessTooltip(hit));
+    });
+
+    state.map.on('movestart', hideAccessTooltip);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') hideAccessTooltip();
     });
 }

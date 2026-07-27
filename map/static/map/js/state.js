@@ -8,6 +8,7 @@ export const state = {
     currentUser: null,
     queryMode: false,
     soilProbeMode: false,
+    accessMode: false,
     crosshairMode: false,
     openPopup: null,
 
@@ -208,7 +209,7 @@ export const LAYER_IDS = {
     // Public land (PAD-US flattened, filtered to go-able land). Both the fill
     // and the outline are toggled together as one group.
     'public-land': ['public-land-fill', 'public-land-glow', 'public-land-outline'],
-    
+
     // Dissolved public land — single merged multipolygon, outer edges only.
     // Separate layer/toggle from the detailed per-unit boundaries above.
     'public-land-dissolved': ['public-land-dissolved-glow', 'public-land-dissolved-outline'],
