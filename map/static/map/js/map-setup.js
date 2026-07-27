@@ -52,8 +52,11 @@ const CONTOUR_INTERMEDIATE_COLOR = '#9a7b4f';
 const CONTOUR_INDEX_COLOR        = '#7a5f3a';
 // Public land palette (brand orange). Solid crisp line to stay visually
 // distinct from the blurred orange-red burn-severity perimeters.
-const PUBLIC_LAND_COLOR = '#d96d2a';
+// Dissolved display layer — the "here's public land" visual
+const PUBLIC_LAND_COLOR = '#d96d2a';          // keep orange
 
+// Managing-agency query/detail layer
+const PUBLIC_LAND_AGENCY_COLOR = '#2a9d8f';   // teal
 // Anchor layer from the basemap style that deferred layers insert beneath.
 const BASEMAP_LINE_ANCHOR = 'tunnel-service-track-casing';
 
@@ -930,7 +933,7 @@ function registerPublicLand() {
             maxzoom: 22,
             layout: { visibility: 'none' },
             paint: {
-                'fill-color': PUBLIC_LAND_COLOR,
+                'fill-color': PUBLIC_LAND_AGENCY_COLOR,
                 'fill-opacity': 0.05,
             },
         }, BASEMAP_LINE_ANCHOR);
@@ -952,7 +955,7 @@ function registerPublicLand() {
                 'line-cap': 'round',
             },
             paint: {
-                'line-color': PUBLIC_LAND_COLOR,
+                'line-color': PUBLIC_LAND_AGENCY_COLOR,
                 'line-width': ['interpolate', ['linear'], ['zoom'],
                     5,  3,
                     8,  6,
@@ -991,7 +994,7 @@ function registerPublicLand() {
                 'line-cap': 'round',
             },
             paint: {
-                'line-color': PUBLIC_LAND_COLOR,
+                'line-color': PUBLIC_LAND_AGENCY_COLOR,
                 'line-width': ['interpolate', ['linear'], ['zoom'],
                     5,  0.6,
                     8,  1.0,
