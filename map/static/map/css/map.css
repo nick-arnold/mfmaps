@@ -168,12 +168,13 @@ body {
 .fab-primary:hover { background: #244526; border-color: #244526; }
 
 /* Standalone reset-to-north control (moved out of the FAB radial) */
+/* Stacked directly above the FAB toggle, right edge. */
 .north-reset {
     position: absolute;
-    top: 64px;
     right: 12px;
-    width: 40px;
-    height: 40px;
+    bottom: 80px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: #ffffff;
     border: 1px solid rgba(0, 0, 0, 0.08);
@@ -188,18 +189,13 @@ body {
 .north-reset:hover { background: #f6f6f6; }
 .north-reset:active { transform: translateY(1px); }
 
-/* The dial rotates so the N always points at true north. */
+/* Bigger dial inside the circle. Rotates so the N always points true north. */
 .north-reset-dial {
-    width: 26px;
-    height: 26px;
+    width: 32px;
+    height: 32px;
     display: block;
     transform-origin: center;
     transition: transform 0.12s ease-out;
-}
-
-/* Desktop: tuck into the top-right corner under the app bar. */
-@media (min-width: 768px) {
-    .north-reset { top: 12px; right: 12px; }
 }
 
 .fab-radial {
