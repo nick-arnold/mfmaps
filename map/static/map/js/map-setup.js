@@ -3045,7 +3045,7 @@ function ensureAccessProbeLayer() {
             'source-layer': 'public_land',
             minzoom: 5,
             maxzoom: 22,
-            paint: { 'fill-opacity': 0 },
+            paint: { 'fill-opacity': 0.01 },
         }, BASEMAP_LINE_ANCHOR);
         enforceLayerOrder();
     }
@@ -3143,7 +3143,9 @@ export function initAccessMode() {
                 document.body.classList.remove('soil-probe-mode');
                 hideSoilTooltip();
             }
-            // Start loading public-land tiles now so the first click can hit.
+            // Register the near-invisible detailed layer (fill-opacity 0.01) so
+            // the click can hit-test the unsimplified boundaries without showing
+            // them. The visible layer is the simplified one, toggled separately.
             ensureAccessProbeLayer();
         }
 

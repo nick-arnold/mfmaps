@@ -171,7 +171,7 @@ body {
 /* Stacked directly above the FAB toggle, right edge. */
 .north-reset {
     position: absolute;
-    right: 12px;
+    right: 18px;
     bottom: 80px;
     width: 44px;
     height: 44px;
