@@ -97,6 +97,8 @@ const DEFERRED_REGISTRARS = {
     'wetlands':                registerHydrography,  
     'soil-temperature-raster': registerSoilTemperature,
     'public-land':             registerPublicLand,
+    'public-land-dissolved':   registerPublicLandDissolved,
+
 };
 
 // =============================================================================
@@ -1005,6 +1007,93 @@ function registerPublicLand() {
     enforceLayerOrder();
 }
 
+// --- Public land, dissolved (single merged multipolygon) ------------------
+// Same PAD-US source data, but all touching public polygons unioned into one
+// feature so only the outer public-vs-not-public edge draws. No attributes
+// survive the dissolve, so there's no popup path here — this layer is purely
+// the clean "where's the edge of go-able land" read. Source-layer name is
+// 'public_land_dissolved'.
+
+function registerPublicLandDissolved() {
+    if (_registeredGroups.has('public-land-dissolved')) return;
+    const { map } = state;
+
+    if (!map.getSource('public-land-dissolved')) {
+        map.addSource('public-land-dissolved', {
+            type: 'vector',
+            url: `pmtiles://${PUBLIC_LAND_BASE}/public_land_dissolved.pmtiles`,
+            attribution: 'Public land: USGS PAD-US 4.1',
+        });
+    }
+
+    // Inner glow, offset inward off the boundary.
+    if (!map.getLayer('public-land-dissolved-glow')) {
+        map.addLayer({
+            id: 'public-land-dissolved-glow',
+            type: 'line',
+            source: 'public-land-dissolved',
+            'source-layer': 'public_land_dissolved',
+            minzoom: 5,
+            maxzoom: 22,
+            layout: {
+                visibility: 'none',
+                'line-join': 'round',
+                'line-cap': 'round',
+            },
+            paint: {
+                'line-color': PUBLIC_LAND_COLOR,
+                'line-width': ['interpolate', ['linear'], ['zoom'],
+                    5,  3,
+                    8,  6,
+                    11, 10,
+                    14, 16,
+                ],
+                'line-offset': ['interpolate', ['linear'], ['zoom'],
+                    5,  1.5,
+                    8,  3,
+                    11, 5,
+                    14, 8,
+                ],
+                'line-blur': ['interpolate', ['linear'], ['zoom'],
+                    5,  3,
+                    8,  6,
+                    11, 10,
+                    14, 14,
+                ],
+                'line-opacity': 0.35,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    if (!map.getLayer('public-land-dissolved-outline')) {
+        map.addLayer({
+            id: 'public-land-dissolved-outline',
+            type: 'line',
+            source: 'public-land-dissolved',
+            'source-layer': 'public_land_dissolved',
+            minzoom: 5,
+            maxzoom: 22,
+            layout: {
+                visibility: 'none',
+                'line-join': 'round',
+                'line-cap': 'round',
+            },
+            paint: {
+                'line-color': PUBLIC_LAND_COLOR,
+                'line-width': ['interpolate', ['linear'], ['zoom'],
+                    5,  0.6,
+                    8,  1.0,
+                    11, 1.6,
+                    14, 2.2,
+                ],
+                'line-opacity': 0.9,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    _registeredGroups.add('public-land-dissolved');
+    enforceLayerOrder();
+}
 // --- Hydrography (NHD: CONUS+HI, Alaska, + Protomaps labels) --------------
 
 function registerHydrography() {
