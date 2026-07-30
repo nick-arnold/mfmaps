@@ -1050,11 +1050,27 @@ function registerSoils() {
             maxzoom: 22,
             layout: { visibility: 'none' },
             paint: {
-                // hash-color base: hsl(hue). null hue (rock/water/no-data) -> grey.
+                // hash-color base: hue (0-359) -> RGB at fixed sat/light,
+                // computed inline since MapLibre has no hsl() expression.
+                // null hue (rock/water/no-data) -> grey.
                 'fill-color': [
                     'case',
                     ['==', ['get', 'hue'], null], '#cccccc',
-                    ['hsl', ['get', 'hue'], 55, 60],
+                    [
+                        'let', 'h', ['/', ['to-number', ['get', 'hue']], 360],
+                        [
+                            'let',
+                            'r', ['abs', ['-', ['*', ['-', ['%', ['+', ['*', ['var', 'h'], 6], 0], 6], 3], 1], 1]],
+                            'g', ['abs', ['-', ['*', ['-', ['%', ['+', ['*', ['var', 'h'], 6], 4], 6], 3], 1], 1]],
+                            'b', ['abs', ['-', ['*', ['-', ['%', ['+', ['*', ['var', 'h'], 6], 2], 6], 3], 1], 1]],
+                            [
+                                'rgb',
+                                ['*', 255, ['+', 0.35, ['*', 0.45, ['max', 0, ['min', 1, ['var', 'r']]]]]],
+                                ['*', 255, ['+', 0.35, ['*', 0.45, ['max', 0, ['min', 1, ['var', 'g']]]]]],
+                                ['*', 255, ['+', 0.35, ['*', 0.45, ['max', 0, ['min', 1, ['var', 'b']]]]]]
+                            ]
+                        ]
+                    ]
                 ],
                 'fill-opacity': 0.5,
                 'fill-outline-color': 'rgba(0,0,0,0.15)',
