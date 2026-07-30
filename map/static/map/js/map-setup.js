@@ -69,6 +69,7 @@ const SOIL_MOISTURE_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
 const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/contours';
 const SOIL_TEMP_TILES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-temperature';
 const PUBLIC_LAND_BASE   = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/public-land';
+const SOILS_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soils';
 
 // Region bounding boxes ([west, south, east, north]) applied as source
 // `bounds` so MapLibre never requests tiles from a regional archive that
@@ -101,6 +102,7 @@ const DEFERRED_REGISTRARS = {
     'soil-temperature-raster': registerSoilTemperature,
     'public-land':             registerPublicLand,
     'public-land-dissolved':   registerPublicLandDissolved,
+    'soils':                   registerSoils,
 
 };
 
@@ -156,6 +158,7 @@ const LAYER_ORDER_FAMILIES = [
     id => isHydroWaterLayer(id),                                       // 9  water
     id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
     id => isHydroLabelLayer(id),                                       // 11 water labels
+    id => id === 'soils-fill',                                         // soils (broad fill)
 ];
 
 // Re-assert the desired stacking of all currently-registered overlay layers.
@@ -1009,6 +1012,76 @@ function registerPublicLand() {
     _registeredGroups.add('public-land');
     enforceLayerOrder();
 }
+
+// --- Soils (gSSURGO/SSURGO dominant component, national) ------------------
+// One vector source, one fill layer. Base render = random color per soil
+// series (hash baked as `hue` 0-359 at tile time -> hsl fill). The matsutake
+// preset is a pure paint/filter swap on the SAME tiles — dominant favorable
+// taxorder AND it actually dominates the polygon (dom_pct gate). Full component
+// mosaic rides along as the `components` JSON string for a future click popup.
+// Source-layer name is 'soils' (tippecanoe --layer).
+
+// Matsutake "best spots": favorable dominant soil AND >= this % of the polygon.
+const SOIL_MATSUTAKE_FILTER = [
+    'all',
+    ['in', ['get', 'taxorder'], ['literal', ['Spodosols', 'Andisols']]],
+    ['>=', ['to-number', ['coalesce', ['get', 'dom_pct'], 0]], 50],
+];
+
+function registerSoils() {
+    if (_registeredGroups.has('soils')) return;
+    const { map } = state;
+
+    if (!map.getSource('soils')) {
+        map.addSource('soils', {
+            type: 'vector',
+            url: `pmtiles://${SOILS_BASE}/soils_US.pmtiles`,
+            attribution: 'Soils: USDA-NRCS SSURGO',
+        });
+    }
+
+    if (!map.getLayer('soils-fill')) {
+        map.addLayer({
+            id: 'soils-fill',
+            type: 'fill',
+            source: 'soils',
+            'source-layer': 'soils',
+            minzoom: 6,
+            maxzoom: 22,
+            layout: { visibility: 'none' },
+            paint: {
+                // hash-color base: hsl(hue). null hue (rock/water/no-data) -> grey.
+                'fill-color': [
+                    'case',
+                    ['==', ['get', 'hue'], null], '#cccccc',
+                    ['hsl', ['get', 'hue'], 55, 60],
+                ],
+                'fill-opacity': 0.5,
+                'fill-outline-color': 'rgba(0,0,0,0.15)',
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    _registeredGroups.add('soils');
+    enforceLayerOrder();
+}
+
+// Soil display presets — pure style swaps, no re-tile. Call after the group is
+// registered (i.e. after it's been toggled on once).
+export function setSoilPreset(name) {
+    const map = state.map;
+    if (!map || !map.getLayer('soils-fill')) return;
+    if (name === 'matsutake') {
+        // keep all polygons drawing but dim non-matches so good ground reads
+        // in context rather than floating on a blank map
+        map.setPaintProperty('soils-fill', 'fill-opacity', [
+            'case', SOIL_MATSUTAKE_FILTER, 0.75, 0.05,
+        ]);
+    } else {
+        map.setPaintProperty('soils-fill', 'fill-opacity', 0.5);
+    }
+}
+
 
 // --- Public land, dissolved (single merged multipolygon) ------------------
 // Same PAD-US source data, but all touching public polygons unioned into one

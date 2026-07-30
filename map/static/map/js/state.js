@@ -213,7 +213,7 @@ export const LAYER_IDS = {
     // Dissolved public land — single merged multipolygon, outer edges only.
     // Separate layer/toggle from the detailed per-unit boundaries above.
     'public-land-dissolved': ['public-land-dissolved-glow', 'public-land-dissolved-outline'],
-    
+    'soils': ['soils-fill'],
 };
 
 export const H3_RES = 8;
