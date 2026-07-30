@@ -43,6 +43,33 @@ def to_int(v):
     try: return int(v)
     except (ValueError, TypeError): return None
 
+def group_of(taxsubgrp):
+    """Bucket a USDA subgroup name into a habitat-relevant soil group via string
+    patterns (subgroup names are formulaic, so no exception list needed)."""
+    if not taxsubgrp:
+        return "other"
+    s = taxsubgrp.lower()
+    if "aqu" in s or "hist" in s or s.endswith("ists"):
+        return "wet_organic"
+    if "and" in s and (s.endswith("ands") or "vitrand" in s or "andic" in s):
+        if "vitr" in s: return "ash_pumice"
+        if "cry" in s:  return "ash_cold"
+        if "ud" in s:   return "ash_wet"
+        if "xer" in s or "ust" in s: return "ash_dry"
+        return "ash_other"
+    if s.endswith("ods") or "spodic" in s: return "podzol"
+    if "lithic" in s: return "shallow_rocky"
+    if s.endswith("olls"): return "mollisol"
+    if s.endswith("erts"): return "vertisol"
+    if s.endswith("ids"):  return "arid"
+    if s.endswith("ox") or s.endswith("oxs"): return "oxisol"
+    if s.endswith("els") or "turbel" in s or "orthel" in s: return "gelisol"
+    if s.endswith("ults"): return "ultisol"
+    if s.endswith("alfs"): return "alfisol"
+    if s.endswith("ents"): return "entisol"
+    if s.endswith("epts"): return "inceptisol"
+    return "other"
+
 def build_attrs(tabular, f2t, schema):
     ci, comp = read(tabular, "comp", f2t, schema)
     comps = defaultdict(list)
@@ -80,6 +107,7 @@ def build_attrs(tabular, f2t, schema):
     for mukey, d in dom.items():
         s = d["series"]; musym, muname = mapu.get(mukey, (None, None))
         attrs[mukey] = dict(series=s, taxorder=d["taxorder"], taxsubgrp=d["taxsubgrp"],
+                            soilgroup=group_of(d["taxsubgrp"]),
                             drainage=d["drainage"], dom_pct=d["dom_pct"],
                             texture=cokey_tex.get(d["cokey"]),
                             hue=(int(hashlib.md5(s.encode()).hexdigest(), 16) % 360) if s else None,
