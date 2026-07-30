@@ -1085,7 +1085,7 @@ function registerSoils() {
                     ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"epts"], "#5a9e8f",
                     "#cfc9be"
                 ],
-                'fill-opacity': 0.6,
+                'fill-opacity': 0.35,
                 'fill-outline-color': 'rgba(0,0,0,0.15)',
             },
         }, BASEMAP_LINE_ANCHOR);
