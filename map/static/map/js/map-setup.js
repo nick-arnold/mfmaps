@@ -1065,9 +1065,9 @@ function registerSoils() {
                         // remapped hue in [0,1]: BAND_START/360 + (hue/360)*(BAND_WIDTH/360)
                         'let',
                         'h', ['+',
-                            ['/', 40, 360],                                   // BAND_START = 40
+                            ['/', 15, 360],                                   // BAND_START = 40
                             ['*', ['/', ['to-number', ['get', 'hue']], 360],
-                                  ['/', 110, 360]]                            // BAND_WIDTH = 110
+                                  ['/', 150, 360]]                            // BAND_WIDTH = 110
                         ],
                         [
                             'let',
