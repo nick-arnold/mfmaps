@@ -51,3 +51,4 @@ build/
 *.gpkg
 ssurgo_work/
 ssurgo_test/
+.DS_Store

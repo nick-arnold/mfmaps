@@ -42,6 +42,15 @@ body {
     margin-right: 24px;
     font-size: 1.05rem;
     color: var(--brand-green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.app-bar-logo {
+    height: 32px;
+    width: 32px;
+    object-fit: contain;
 }
 
 .app-bar-tabs {
