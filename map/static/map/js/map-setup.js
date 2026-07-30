@@ -3073,6 +3073,59 @@ function renderSoilTooltip(data) {
     return rows.join('');
 }
 
+// JS mirror of build_ssurgo group_of() — habitat group from a subgroup name.
+function groupOf(t) {
+    if (!t) return 'other';
+    const s = t.toLowerCase();
+    if (s.includes('aqu') || s.includes('hist') || s.endsWith('ists')) return 'wet_organic';
+    if (s.includes('and') && (s.endsWith('ands') || s.includes('vitrand') || s.includes('andic'))) {
+        if (s.includes('vitr')) return 'ash_pumice';
+        if (s.includes('cry'))  return 'ash_cold';
+        if (s.includes('ud'))   return 'ash_wet';
+        if (s.includes('xer') || s.includes('ust')) return 'ash_dry';
+        return 'ash_other';
+    }
+    if (s.endsWith('ods') || s.includes('spodic')) return 'podzol';
+    if (s.includes('lithic')) return 'shallow_rocky';
+    if (s.endsWith('olls')) return 'mollisol';
+    if (s.endsWith('erts')) return 'vertisol';
+    if (s.endsWith('ids'))  return 'arid';
+    if (s.endsWith('ults')) return 'ultisol';
+    if (s.endsWith('alfs')) return 'alfisol';
+    if (s.endsWith('ents')) return 'entisol';
+    if (s.endsWith('epts')) return 'inceptisol';
+    return 'other';
+}
+
+const SOIL_GROUP_LABELS = {
+    ash_pumice: 'Volcanic ash — pumice (prime)', ash_dry: 'Volcanic ash — dry',
+    ash_cold: 'Volcanic ash — cold/high', ash_wet: 'Volcanic ash — wet',
+    ash_other: 'Volcanic ash — other', podzol: 'Podzol / spodic (prime)',
+    shallow_rocky: 'Shallow to bedrock', wet_organic: 'Wet / organic',
+    mollisol: 'Prairie (mollisol)', ultisol: 'Weathered clay (ultisol)',
+    alfisol: 'Alfisol', inceptisol: 'Young (inceptisol)',
+    entisol: 'Young (entisol)', vertisol: 'Shrink-swell clay',
+    arid: 'Arid', other: 'Other',
+};
+
+function renderSoilTypeRows(p) {
+    if (!p || (!p.series && !p.taxsubgrp)) return '<div style="opacity:.6">No soil mapped here.</div>';
+    const g = groupOf(p.taxsubgrp);
+    const rows = [];
+    if (p.series)    rows.push(`<div><strong>${escapeHtml(p.series)}</strong>${p.dom_pct ? ` <span style="opacity:.6">${p.dom_pct}%</span>` : ''}</div>`);
+    rows.push(`<div style="opacity:.85">${escapeHtml(SOIL_GROUP_LABELS[g] || g)}</div>`);
+    if (p.taxsubgrp) rows.push(`<div style="opacity:.65;font-size:.72rem">${escapeHtml(p.taxsubgrp)}${p.drainage ? ` · ${escapeHtml(p.drainage)}` : ''}</div>`);
+    if (p.muname)    rows.push(`<div style="opacity:.55;font-size:.7rem">${escapeHtml(p.muname)}</div>`);
+    try {
+        const comps = JSON.parse(p.components || '[]');
+        if (comps.length > 1) {
+            const list = comps.map(c => `${escapeHtml(c.series || '?')} ${c.pct ?? '?'}%`).join(', ');
+            rows.push(`<div style="opacity:.5;font-size:.7rem;margin-top:2px">${list}</div>`);
+        }
+    } catch {}
+    return rows.join('');
+}
+
 export function initSoilProbe() {
     const btn = document.getElementById('fabSoilProbe');
     if (!btn) return;
@@ -3080,6 +3133,7 @@ export function initSoilProbe() {
     btn.addEventListener('click', () => {
         
         state.soilProbeMode = !state.soilProbeMode;
+        if (state.soilProbeMode) ensureGroupRegistered('soils');
 
         // Only one pick-mode armed at a time, or a single tap fires both.
         if (state.soilProbeMode && state.queryMode) {
@@ -3097,20 +3151,33 @@ export function initSoilProbe() {
 
     state.map.on('click', async (e) => {
         if (!state.soilProbeMode) return;
-
         const { clientX, clientY } = e.originalEvent;
         const seq = ++_soilProbeSeq;
 
-        showSoilTooltip(clientX, clientY, '<em>Reading&hellip;</em>');
+        // Soil type — instant, from the vector tile under the cursor.
+        let soilHtml = '<div style="opacity:.6">No soil mapped here.</div>';
+        if (state.map.getLayer('soils-fill')) {
+            const hits = state.map.queryRenderedFeatures(e.point, { layers: ['soils-fill'] });
+            if (hits.length) soilHtml = renderSoilTypeRows(hits[0].properties);
+        }
 
+        // Paint immediately: soil type + a pending slot for conditions.
+        showSoilTooltip(clientX, clientY,
+            soilHtml +
+            `<div style="border-top:1px solid rgba(255,255,255,0.2);margin-top:5px;padding-top:5px">
+                 <div class="soil-wx-slot" style="opacity:.6"><em>Reading conditions…</em></div>
+             </div>`);
+
+        // Weather fills its slot when it arrives.
         try {
             const data = await fetchSoilConditions(e.lngLat.lat, e.lngLat.lng);
             if (seq !== _soilProbeSeq) return;
-            showSoilTooltip(clientX, clientY, renderSoilTooltip(data));
-        } catch (err) {
+            const slot = _soilTooltipEl?.querySelector('.soil-wx-slot');
+            if (slot) slot.innerHTML = renderSoilTooltip(data);
+        } catch {
             if (seq !== _soilProbeSeq) return;
-            console.warn('Soil probe failed:', err);
-            showSoilTooltip(clientX, clientY, '<em>Could not reach Open-Meteo.</em>');
+            const slot = _soilTooltipEl?.querySelector('.soil-wx-slot');
+            if (slot) slot.innerHTML = '<em>Could not reach Open-Meteo.</em>';
         }
     });
 
