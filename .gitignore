@@ -45,3 +45,9 @@ staticfiles/
 dist/
 build/
 *.geojsonseq
+
+# Soil pipeline artifacts
+*.pmtiles
+*.gpkg
+ssurgo_work/
+ssurgo_test/
