@@ -1046,18 +1046,29 @@ function registerSoils() {
             type: 'fill',
             source: 'soils',
             'source-layer': 'soils',
-            minzoom: 6,
+            minzoom: 9,
             maxzoom: 22,
             layout: { visibility: 'none' },
             paint: {
                 // hash-color base: hue (0-359) -> RGB at fixed sat/light,
                 // computed inline since MapLibre has no hsl() expression.
                 // null hue (rock/water/no-data) -> grey.
+                // Fold the baked hue (0-359, uniform) into an earthy band so
+                // colors read as soil, not confetti. BAND_START/BAND_WIDTH are
+                // the whole dial: start = where the band begins on the wheel,
+                // width = how much of the wheel it spans. 40->110 = amber
+                // through olive to green. Pure style; the tiles are untouched.
                 'fill-color': [
                     'case',
                     ['==', ['get', 'hue'], null], '#cccccc',
                     [
-                        'let', 'h', ['/', ['to-number', ['get', 'hue']], 360],
+                        // remapped hue in [0,1]: BAND_START/360 + (hue/360)*(BAND_WIDTH/360)
+                        'let',
+                        'h', ['+',
+                            ['/', 40, 360],                                   // BAND_START = 40
+                            ['*', ['/', ['to-number', ['get', 'hue']], 360],
+                                  ['/', 110, 360]]                            // BAND_WIDTH = 110
+                        ],
                         [
                             'let',
                             'r', ['abs', ['-', ['*', ['-', ['%', ['+', ['*', ['var', 'h'], 6], 0], 6], 3], 1], 1]],
