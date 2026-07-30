@@ -1052,7 +1052,7 @@ function registerSoils() {
             layout: { visibility: 'none' },
             paint: {
                 'fill-color': ["case",
-                    ["==", ["coalesce", ["get","taxsubgrp"], ""], ""], "#cccccc",
+                ["==", ["coalesce", ["get","taxsubgrp"], ""], ""], "rgba(0,0,0,0)",
                     ["any",
                         [">=",["index-of",["literal","aqu"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
                         [">=",["index-of",["literal","hist"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
