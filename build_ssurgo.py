@@ -3,7 +3,7 @@
 attributes (series/taxorder/taxsubgrp/drainage/dom_pct/texture/hue/components).
 Tabular join is pure Python via the shipped mstab/mstabcol schema. SSURGO text
 files are pipe-delimited AND double-quote-qualified, so we parse with csv."""
-import sys, os, csv, json, hashlib, glob, subprocess, shutil
+import sys, os, csv, colorsys, json, hashlib, glob, subprocess, shutil
 from collections import defaultdict
 
 csv.field_size_limit(10**7)  # some SSURGO description fields are huge
@@ -42,6 +42,30 @@ def read(tabular, filebase, f2t, schema):
 def to_int(v):
     try: return int(v)
     except (ValueError, TypeError): return None
+
+
+ORDER_FAMILY = {
+    "Andisols": (28,26,0.45,0.70,0.45,0.66),  "Spodosols": (280,30,0.30,0.55,0.45,0.68),
+    "Mollisols": (95,34,0.35,0.60,0.40,0.62),  "Alfisols": (48,20,0.40,0.62,0.48,0.68),
+    "Ultisols": (12,22,0.42,0.66,0.42,0.62),   "Inceptisols": (170,30,0.28,0.50,0.45,0.66),
+    "Entisols": (210,30,0.22,0.42,0.55,0.72),  "Histosols": (22,16,0.30,0.48,0.28,0.44),
+    "Aridisols": (40,24,0.30,0.52,0.60,0.78),  "Vertisols": (205,22,0.18,0.34,0.38,0.55),
+    "Gelisols": (195,26,0.16,0.34,0.66,0.82),  "Oxisols": (348,22,0.40,0.62,0.40,0.60),
+}
+_DEFAULT_FAMILY = (40,0,0.0,0.12,0.72,0.82)
+
+def _sh(series, salt):
+    return int(hashlib.md5((salt+"|"+series).encode()).hexdigest(), 16)
+
+def series_color(taxorder, series):
+    if not series:
+        return "#cccccc"
+    hc,hs,slo,shi,llo,lhi = ORDER_FAMILY.get(taxorder, _DEFAULT_FAMILY)
+    hue = (hc + ((_sh(series,"h")%1000)/1000.0*2-1)*hs) % 360
+    sat = slo + (_sh(series,"s")%1000)/1000.0*(shi-slo)
+    lig = llo + (_sh(series,"l")%1000)/1000.0*(lhi-llo)
+    r,g,bb = colorsys.hls_to_rgb(hue/360.0, lig, sat)
+    return "#%02x%02x%02x" % (round(r*255), round(g*255), round(bb*255))
 
 def group_of(taxsubgrp):
     """Bucket a USDA subgroup name into a habitat-relevant soil group via string
@@ -108,6 +132,7 @@ def build_attrs(tabular, f2t, schema):
         s = d["series"]; musym, muname = mapu.get(mukey, (None, None))
         attrs[mukey] = dict(series=s, taxorder=d["taxorder"], taxsubgrp=d["taxsubgrp"],
                             soilgroup=group_of(d["taxsubgrp"]),
+                            color=series_color(d["taxorder"], d["series"]),
                             drainage=d["drainage"], dom_pct=d["dom_pct"],
                             texture=cokey_tex.get(d["cokey"]),
                             hue=(int(hashlib.md5(s.encode()).hexdigest(), 16) % 360) if s else None,

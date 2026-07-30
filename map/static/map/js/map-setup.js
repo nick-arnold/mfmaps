@@ -152,13 +152,14 @@ const LAYER_ORDER_FAMILIES = [
     id => id.startsWith('tree-species') || id.startsWith('canopy-'),   // 4  vegetation
     id => id === 'soil-moisture-raster-layer',                         // 5  soil moisture fill
     id => id === 'soil-temperature-raster-layer',                      // 6  soil temp fill   <-- NEW
+    id => id === 'soils-fill',                                         // soils (broad fill)
     id => /^burn-severity-.*-layer$/.test(id),                         // 7  burn rasters
     id => id.startsWith('public-land-'),                               // 8  public land boundary
     id => id.startsWith('trails-'),                                    // 9  trails
     id => isHydroWaterLayer(id),                                       // 9  water
     id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
     id => isHydroLabelLayer(id),                                       // 11 water labels
-    id => id === 'soils-fill',                                         // soils (broad fill)
+    
 ];
 
 // Re-assert the desired stacking of all currently-registered overlay layers.
@@ -1050,40 +1051,7 @@ function registerSoils() {
             maxzoom: 22,
             layout: { visibility: 'none' },
             paint: {
-                'fill-color': ["case",
-                    ["==", ["coalesce", ["get","taxsubgrp"], ""], ""], "#cccccc",
-                    ["any",
-                        [">=",["index-of",["literal","aqu"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
-                        [">=",["index-of",["literal","hist"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
-                        ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"ists"]
-                    ], "#5a8fa8",
-                    ["all",
-                        [">=",["index-of",["literal","and"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
-                        ["any",
-                            ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"ands"],
-                            [">=",["index-of",["literal","vitrand"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],
-                            [">=",["index-of",["literal","andic"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0]
-                        ]
-                    ], ["case",
-                        [">=",["index-of",["literal","vitr"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0], "#e07b39",
-                        [">=",["index-of",["literal","cry"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0], "#c98a5e",
-                        [">=",["index-of",["literal","ud"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0], "#9c8f5a",
-                        ["any",[">=",["index-of",["literal","xer"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0],[">=",["index-of",["literal","ust"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0]], "#e0a53d",
-                        "#bfa06a"],
-                    ["any",
-                        ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],3]],"ods"],
-                        [">=",["index-of",["literal","spodic"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0]
-                    ], "#8e5db0",
-                    [">=",["index-of",["literal","lithic"],["downcase",["coalesce",["get","taxsubgrp"],""]]],0], "#9aa0a6",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"olls"], "#7a9e3a",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"erts"], "#556b7a",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],3]],"ids"], "#d9c48a",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"ults"], "#b5533c",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"alfs"], "#c9a227",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"ents"], "#a7bccf",
-                    ["==",["slice",["downcase",["coalesce",["get","taxsubgrp"],""]],["-",["length",["downcase",["coalesce",["get","taxsubgrp"],""]]],4]],"epts"], "#5a9e8f",
-                    "#cfc9be"
-                ],
+                'fill-color': ['coalesce', ['get', 'color'], '#cccccc'],
                 'fill-opacity': 0.6,
                 'fill-outline-color': 'rgba(0,0,0,0.15)',
             },

@@ -16,8 +16,12 @@ import build_ssurgo as build
 
 SPACES = "s3://mfmaps-tiles/soils"
 WORK = os.path.expanduser("~/ssurgo_work")
-TILE = ["-l", "soils", "-Z6", "-z13", "--coalesce-densest-as-needed",
-        "--extend-zooms-if-still-dropping", "-S10", "--force"]
+TILE = ["-l", "soils", "-Z9", "-z13",
+        "--detect-shared-borders",
+        "--simplification=4",
+        "--coalesce-densest-as-needed", "--extend-zooms-if-still-dropping",
+        "--no-tiny-polygon-reduction",
+        "--force"]
 
 def all_areas(scope):
     where = "areasymbol != 'US'"
@@ -31,7 +35,9 @@ def chunks(xs, n):
     for i in range(0, len(xs), n):
         yield i // n, xs[i:i + n]
 
-def enrich(area_dir, area, seq_fh):
+NOTCOM_PATH = os.path.join(os.path.dirname(__file__), 'notcom.geojsonseq')
+
+def enrich(area_dir, area, seq_fh, notcom_fh=None):
     tab = os.path.join(area_dir, "tabular")
     attrs = build.build_attrs(tab, build.load_mstab(tab), build.load_schema(tab))
     shp = glob.glob(os.path.join(area_dir, "spatial", "soilmu_a_*.shp"))
@@ -46,7 +52,12 @@ def enrich(area_dir, area, seq_fh):
             feat = json.loads(line); n += 1
             a = attrs.get(str(feat.get("properties", {}).get("MUKEY", "")))
             if a: m += 1
-            feat["properties"] = a or {"series": None, "hue": None}
+            props = a or {"series": None}
+            if props.get("series") == "NOTCOM":
+                if notcom_fh is not None:
+                    notcom_fh.write(json.dumps({"type":"Feature","geometry":feat["geometry"],"properties":{}}) + "\n")
+                continue
+            feat["properties"] = props
             seq_fh.write(json.dumps(feat) + "\n")
     os.remove(geom)
     return n, m
@@ -57,6 +68,7 @@ def do_batch(bid, areas):
         print("batch %03d already built (%s) - skip" % (bid, out)); return
     os.makedirs(WORK, exist_ok=True)
     seq = "/tmp/batch_%03d.geojsonseq" % bid
+    ncf = open(NOTCOM_PATH, "a")   # accumulate NOTCOM across all batches
     with open(seq, "w") as fh:
         for area in areas:
             try:
@@ -67,11 +79,12 @@ def do_batch(bid, areas):
             if not os.path.isdir(adir):
                 print("  %s: no data (skipped)" % area); continue
             try:
-                n, mm = enrich(adir, area, fh)
+                n, mm = enrich(adir, area, fh, ncf)
                 print("  %s: %d polys (%d matched)" % (area, n, mm))
             except Exception as e:
                 print("  build FAIL %s: %s" % (area, e))
             shutil.rmtree(adir, ignore_errors=True)
+    ncf.close()
     subprocess.run(["tippecanoe", "-o", out, *TILE, seq], check=True)
     os.remove(seq)
     try:
