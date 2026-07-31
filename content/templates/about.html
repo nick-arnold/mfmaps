@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}About — MF Maps{% endblock %}
+{% block description %}What MF Maps is, how the data is built, and where it is going.{% endblock %}
+
+{% block content %}
+<section class="section-hero">
+    <p class="eyebrow">About</p>
+    <h1>What this is</h1>
+</section>
+
+<section class="prose-block">
+    <p>
+        MF Maps is a foraging platform built cartography-first. The map layers come
+        from the same public datasets professional GIS work runs on — LANDFIRE and
+        FIA TreeMap for species, MTBS for burn history, NHD for hydrography, PAD-US
+        for land ownership, ERA5 for soil moisture and temperature — reprojected,
+        tiled, and served as vector and raster tiles rather than screenshots.
+    </p>
+    <p>
+        The reference sections cover flora, fauna, fungi, and fish. Mycologists use
+        <em>funga</em> as the parallel term to flora and fauna, and it's the more
+        precise word; the nav says Fungi because that's what people search for.
+    </p>
+    <h2>A word on risk</h2>
+    <p>
+        Probability layers narrow a search. They do not identify anything. Misidentified
+        mushrooms kill people every year, and no map changes that. Verify in the field,
+        with a key, and when in doubt leave it.
+    </p>
+</section>
+{% endblock %}

@@ -1,0 +1,433 @@
+/* ============================================================
+   MF Maps — content site (mfmaps.com)
+
+   Design note: the navigation is treated as a map legend. Each
+   section carries a topographic ink colour (vegetation green,
+   contour brown, hydrographic blue, brand ember) which is passed
+   down from the template as --section-ink / --item-ink.
+   ============================================================ */
+
+:root {
+    --ink:        #14261a;
+    --forest:     #2c5530;
+    --ember:      #d96d2a;
+    --paper:      #faf8f2;
+    --parchment:  #f1ede1;
+    --rule:       #dcd6c6;
+    --muted:      #6d7268;
+
+    --display: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+
+    --measure: 68ch;
+    --gutter: clamp(1.25rem, 4vw, 2.5rem);
+    --shell: 1100px;
+
+    /* Overridden per-section on <body>; this is the neutral fallback. */
+    --section-ink: var(--forest);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+}
+
+a { color: var(--forest); }
+
+img { max-width: 100%; height: auto; }
+
+:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: 2px;
+}
+
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.6rem 1rem;
+    z-index: 100;
+}
+.skip-link:focus { left: 0; }
+
+/* ============================================================
+   Masthead — the neatline of a map sheet
+   ============================================================ */
+
+.masthead {
+    background: var(--paper);
+    border-bottom: 3px solid var(--forest);
+    box-shadow: 0 3px 0 0 var(--paper), 0 4px 0 0 var(--rule);
+}
+
+.masthead-inner {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: 0.9rem var(--gutter);
+    display: flex;
+    align-items: center;
+    gap: clamp(1rem, 3vw, 2.25rem);
+    flex-wrap: wrap;
+}
+
+.wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: var(--forest);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: -0.015em;
+    flex-shrink: 0;
+}
+
+.main-nav {
+    display: flex;
+    gap: clamp(0.5rem, 2vw, 1.5rem);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.main-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--display);
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    padding: 0.35rem 0;
+    border-bottom: 2px solid transparent;
+}
+
+.main-nav-link:hover { border-bottom-color: var(--rule); }
+
+.main-nav-link.is-current {
+    color: var(--item-ink, var(--forest));
+    border-bottom-color: var(--item-ink, var(--forest));
+    font-weight: 700;
+}
+
+/* Legend swatch — outlined by default, inked when you're in that section. */
+.legend-chip {
+    width: 9px;
+    height: 9px;
+    flex: none;
+    border: 1.5px solid var(--item-ink, var(--muted));
+    background: transparent;
+}
+
+.main-nav-link.is-current .legend-chip,
+.main-nav-link:hover .legend-chip {
+    background: var(--item-ink, var(--forest));
+}
+
+.map-cta {
+    margin-left: auto;
+    font-family: var(--display);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--paper);
+    background: var(--forest);
+    padding: 0.55rem 1rem;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.map-cta:hover { background: var(--ink); }
+
+/* ============================================================
+   Sub-nav — appears only inside a section
+   ============================================================ */
+
+.sub-nav {
+    background: var(--parchment);
+    border-bottom: 1px solid var(--rule);
+}
+
+.sub-nav-inner {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.sub-nav-home {
+    font-family: var(--display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--section-ink);
+    text-decoration: none;
+    padding: 0.85rem 0;
+    white-space: nowrap;
+    flex: none;
+}
+
+.sub-nav-list {
+    list-style: none;
+    display: flex;
+    gap: clamp(0.9rem, 2.5vw, 1.75rem);
+    margin: 0;
+    padding: 0;
+}
+
+.sub-nav-link {
+    display: block;
+    font-family: var(--display);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 0.85rem 0;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+}
+
+.sub-nav-link:hover { color: var(--ink); }
+
+.sub-nav-link.is-current {
+    color: var(--ink);
+    font-weight: 700;
+    border-bottom-color: var(--section-ink);
+}
+
+/* ============================================================
+   Layout shells
+   ============================================================ */
+
+main {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: clamp(2.5rem, 6vw, 4.5rem) var(--gutter) 4rem;
+}
+
+.eyebrow {
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--section-ink);
+    margin: 0 0 0.75rem;
+}
+
+h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2rem, 5.5vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    margin: 0 0 1rem;
+    max-width: 22ch;
+}
+
+h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.25rem, 2.5vw, 1.6rem);
+    letter-spacing: -0.01em;
+    margin: 2.5rem 0 0.75rem;
+}
+
+.lede {
+    font-size: 1.2rem;
+    color: #33402f;
+    max-width: 54ch;
+    margin: 0 0 1.75rem;
+}
+
+.hero { margin-bottom: 3.5rem; }
+.section-hero { margin-bottom: 2.5rem; }
+
+.prose-block { max-width: var(--measure); }
+.prose-block p { margin: 0 0 1.1rem; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+.btn {
+    display: inline-block;
+    font-family: var(--display);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.7rem 1.4rem;
+    border-radius: 2px;
+    margin-right: 0.75rem;
+}
+
+.btn-primary { background: var(--ember); color: #fff; }
+.btn-primary:hover { background: #c25f22; }
+
+.btn-quiet {
+    color: var(--forest);
+    border: 1px solid var(--rule);
+    background: transparent;
+}
+.btn-quiet:hover { border-color: var(--forest); }
+
+/* ============================================================
+   Legend grid — the section index
+   ============================================================ */
+
+.legend-title { margin-top: 0; }
+
+.legend-sub {
+    color: var(--muted);
+    max-width: 54ch;
+    margin: 0 0 1.75rem;
+}
+
+.legend-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.legend-card { background: var(--paper); --item-ink: var(--section-ink); }
+
+.legend-card > a {
+    display: block;
+    position: relative;
+    padding: 1.5rem 1.4rem 1.6rem;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+.legend-card > a:hover { background: var(--parchment); }
+
+.legend-swatch {
+    display: block;
+    width: 26px;
+    height: 8px;
+    background: var(--item-ink);
+    margin-bottom: 0.9rem;
+}
+
+.legend-card h3 {
+    font-family: var(--display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.4rem;
+}
+
+.legend-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--muted);
+    max-width: 32ch;
+}
+
+.legend-arrow {
+    position: absolute;
+    right: 1.4rem;
+    bottom: 1.3rem;
+    color: var(--item-ink);
+    font-family: var(--display);
+}
+
+.legend-grid-tight { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.legend-grid-tight .legend-card > a { padding-bottom: 2.6rem; }
+
+/* ============================================================
+   Placeholder state
+   ============================================================ */
+
+.placeholder {
+    border-left: 3px solid var(--section-ink);
+    padding: 0.2rem 0 0.2rem 1.25rem;
+    color: var(--muted);
+}
+
+.placeholder strong { color: var(--ink); }
+.placeholder-actions { margin-top: 1.4rem; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+
+.site-footer {
+    border-top: 1px solid var(--rule);
+    background: var(--parchment);
+    margin-top: 3rem;
+}
+
+.footer-inner {
+    max-width: var(--shell);
+    margin: 0 auto;
+    padding: 2.25rem var(--gutter) 2.75rem;
+}
+
+.footer-note {
+    max-width: 56ch;
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin: 0 0 1.1rem;
+}
+
+.footer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-family: var(--display);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+}
+
+.footer-meta a { color: var(--forest); text-decoration: none; }
+.footer-meta a:hover { text-decoration: underline; }
+
+/* ============================================================
+   Small screens
+   ============================================================ */
+
+@media (max-width: 760px) {
+    .masthead-inner { gap: 0.75rem; }
+    .map-cta { margin-left: 0; order: 3; }
+    .main-nav { order: 4; width: 100%; gap: 1.1rem; }
+    .wordmark { margin-right: auto; }
+    .sub-nav-inner { gap: 1.1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+}

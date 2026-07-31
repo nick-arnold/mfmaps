@@ -1,58 +1,43 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MF Maps — Foraging Intelligence</title>
-    <meta name="description" content="Cartographic-quality foraging maps. Mushrooms, berries, plants, coastal harvest.">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
-            line-height: 1.6;
-            color: #1a1a1a;
-        }
-        h1 {
-            font-size: 2.75rem;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-        }
-        .tagline {
-            font-size: 1.25rem;
-            color: #555;
-            margin-top: 0;
-            margin-bottom: 3rem;
-        }
-        .links a {
-            display: inline-block;
-            margin-right: 1.5rem;
-            color: #2c5530;
-            text-decoration: none;
-            border-bottom: 2px solid #2c5530;
-            padding-bottom: 2px;
-        }
-        .links a:hover {
-            opacity: 0.7;
-        }
-        footer {
-            margin-top: 4rem;
-            font-size: 0.875rem;
-            color: #888;
-        }
-    </style>
-</head>
-<body>
-    <h1>MF Maps</h1>
-    <p class="tagline">Cartographic-quality maps for serious foragers.</p>
-    <p>A foraging intelligence platform built around real cartography. Mushrooms first — morels, chanterelles, matsutake — expanding to berries, plants, and coastal harvest. Probability layers. Community spot reports with privacy. Real-time seasonal notifications.</p>
-    <p>Currently in development.</p>
-    <p class="links">
-        <a href="https://map.mfmaps.com/">Map app →</a>
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+    <p class="eyebrow">Foraging intelligence</p>
+    <h1>Cartographic-quality maps for serious foragers.</h1>
+    <p class="lede">
+        Probability layers built on real terrain, canopy, soil, and species data —
+        not pins dropped on a road atlas. Mushrooms first, expanding outward.
     </p>
-    <footer>
-        Built by <a href="https://middleforkmaps.com" style="color:#888;">Middle Fork Maps</a>.
-    </footer>
-</body>
-</html>
+    <p class="hero-actions">
+        <a class="btn btn-primary" href="https://map.mfmaps.com/">Open the map</a>
+        <a class="btn btn-quiet" href="{% url 'about' %}">What this is</a>
+    </p>
+</section>
+
+<section class="legend">
+    <h2 class="legend-title">The four kingdoms</h2>
+    <p class="legend-sub">Each section carries its own reference pages: anatomy, identification, handling, and range data.</p>
+
+    <ul class="legend-grid">
+        {% for slug, data in nav_sections %}
+        <li class="legend-card" style="--item-ink: {{ data.color }}">
+            <a href="{% url 'section_landing' slug %}">
+                <span class="legend-swatch" aria-hidden="true"></span>
+                <h3>{{ data.label }}</h3>
+                <p>{{ data.blurb }}</p>
+                <span class="legend-arrow" aria-hidden="true">→</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+
+<section class="prose-block">
+    <h2>Still being built</h2>
+    <p>
+        The map application is live and usable today — terrain, canopy, tree species,
+        burn severity, soil moisture and temperature, hydrography, public land. The
+        reference sections above are filling in section by section.
+    </p>
+</section>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{# Every page inside a section extends THIS, not base.html. The sub-nav is #}
+{# defined once, here, so it can never drift between section pages.        #}
+
+{% block subnav %}
+<nav class="sub-nav" aria-label="{{ section_data.label }} pages">
+    <div class="sub-nav-inner">
+        <a class="sub-nav-home{% if not page %} is-current{% endif %}"
+           href="{% url 'section_landing' section %}">{{ section_data.label }} overview</a>
+        <ul class="sub-nav-list">
+            {% for slug, label in section_data.pages %}
+                <li>
+                    <a href="{% url 'section_page' section slug %}"
+                       class="sub-nav-link{% if page == slug %} is-current{% endif %}"
+                       {% if page == slug %}aria-current="page"{% endif %}>{{ label }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</nav>
+{% endblock %}

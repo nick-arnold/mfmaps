@@ -1,0 +1,26 @@
+{% extends "section_base.html" %}
+
+{% block title %}{{ section_data.label }} — MF Maps{% endblock %}
+{% block description %}{{ section_data.blurb }}{% endblock %}
+
+{% block content %}
+<section class="section-hero">
+    <p class="eyebrow">Section</p>
+    <h1>{{ section_data.label }}</h1>
+    <p class="lede">{{ section_data.blurb }}</p>
+</section>
+
+<section class="legend">
+    <ul class="legend-grid legend-grid-tight">
+        {% for slug, label in section_data.pages %}
+        <li class="legend-card">
+            <a href="{% url 'section_page' section slug %}">
+                <span class="legend-swatch" aria-hidden="true"></span>
+                <h3>{{ label }}</h3>
+                <span class="legend-arrow" aria-hidden="true">→</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

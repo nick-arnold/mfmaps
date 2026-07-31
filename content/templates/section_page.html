@@ -1,0 +1,26 @@
+{% extends "section_base.html" %}
+
+{% block title %}{{ page_label }} — {{ section_data.label }} — MF Maps{% endblock %}
+{% block description %}{{ page_label }} for {{ section_data.label|lower }} on MF Maps.{% endblock %}
+
+{% block content %}
+<section class="section-hero">
+    <p class="eyebrow">{{ section_data.label }}</p>
+    <h1>{{ page_label }}</h1>
+</section>
+
+<section class="prose-block">
+    {% block page_body %}
+    <div class="placeholder">
+        <p><strong>This page hasn't been written yet.</strong></p>
+        <p>
+            The structure is in place and the URL is stable, so it can be linked
+            to and filled in without anything moving.
+        </p>
+        <p class="placeholder-actions">
+            <a class="btn btn-quiet" href="{% url 'section_landing' section %}">Back to {{ section_data.label }}</a>
+        </p>
+    </div>
+    {% endblock %}
+</section>
+{% endblock %}

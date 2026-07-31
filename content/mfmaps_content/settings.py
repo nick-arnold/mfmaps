@@ -62,6 +62,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'mfmaps_content.context_processors.nav',
             ],
         },
     },
@@ -86,6 +87,17 @@ DATABASES = {
         },
     }
 }
+
+# Local development only — the production DB lives on a private VPC address
+# that is unreachable from outside DigitalOcean. Set USE_SQLITE=True in your
+# local .env; never set it on the server.
+if os.environ.get('USE_SQLITE', 'False') == 'True':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -124,3 +136,4 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']

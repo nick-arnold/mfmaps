@@ -1,0 +1,67 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MF Maps — Foraging Intelligence{% endblock %}</title>
+    <meta name="description" content="{% block description %}Cartographic-quality foraging maps. Mushrooms, berries, plants, coastal harvest.{% endblock %}">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'brand/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'brand/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'brand/apple-touch-icon.png' %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/site.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body{% if section %} class="in-section" style="--section-ink: {{ section_data.color }}"{% endif %}>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="masthead">
+    <div class="masthead-inner">
+        <a class="wordmark" href="{% url 'home' %}">
+            <img src="{% static 'brand/mfmaps-badge-128.png' %}" alt="" width="34" height="34">
+            <span>MF Maps</span>
+        </a>
+
+        <nav class="main-nav" aria-label="Sections">
+            {% for slug, data in nav_sections %}
+                <a href="{% url 'section_landing' slug %}"
+                   class="main-nav-link{% if section == slug %} is-current{% endif %}"
+                   style="--item-ink: {{ data.color }}"
+                   {% if section == slug %}aria-current="page"{% endif %}>
+                    <span class="legend-chip" aria-hidden="true"></span>{{ data.label }}
+                </a>
+            {% endfor %}
+        </nav>
+
+        <a class="map-cta" href="https://map.mfmaps.com/">Open the map</a>
+    </div>
+</header>
+
+{% block subnav %}{% endblock %}
+
+<main id="main">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-note">
+            MF Maps is in active development. Nothing here is a substitute for
+            expert identification — if you are not certain, do not eat it.
+        </p>
+        <p class="footer-meta">
+            <a href="{% url 'about' %}">About</a>
+            <a href="https://map.mfmaps.com/">Map</a>
+            <span>Built by <a href="https://middleforkmaps.com">Middle Fork Maps</a></span>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
