@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load markdown_filters %}
+
+{% block title %}{{ post.title }} — MF Maps{% endblock %}
+{% block description %}{{ post.meta_description|default:post.excerpt|truncatewords:30 }}{% endblock %}
+
+{% block content %}
+
+    {% if not post.is_live %}
+    <p class="post-flag post-flag-banner">
+        Preview — this post is {{ post.get_status_display|lower }} and is not visible to the public.
+    </p>
+    {% endif %}
+
+    <article class="post">
+
+        <header class="post-header">
+            <p class="eyebrow">
+                <a href="{{ post.post_type.get_absolute_url }}">{{ post.post_type.name }}</a>
+            </p>
+            <h1 class="post-title">{{ post.title }}</h1>
+            <p class="post-meta">
+                {% if post.published_at %}
+                <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"F j, Y" }}</time>
+                <span class="post-meta-sep">·</span>
+                {% endif %}
+                {{ post.author.get_full_name|default:post.author.username }}
+            </p>
+        </header>
+
+        {% if post.hero_image %}
+        <figure class="post-hero">
+            <img src="{{ post.hero_image.url }}" alt="{{ post.hero_alt }}">
+        </figure>
+        {% endif %}
+
+        <div class="prose-block post-body">
+            {{ post.body|render_markdown }}
+        </div>
+
+    </article>
+
+    <p class="post-back">
+        <a href="{{ post.post_type.get_absolute_url }}">More in {{ post.post_type.name }}</a>
+    </p>
+
+{% endblock %}

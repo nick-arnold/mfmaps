@@ -1,7 +1,12 @@
 asgiref==3.11.1
+boto3==1.43.62
 Django==6.0.5
+django-storages==1.14.6
 gunicorn==26.0.0
+Markdown==3.10.3
+nh3==0.3.6
 packaging==26.2
+Pillow==12.3.0
 psycopg==3.3.4
 psycopg-binary==3.3.4
 python-dotenv==1.2.2

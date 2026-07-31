@@ -431,3 +431,225 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
 }
+/* ============================================================
+   Blog
+   ============================================================ */
+
+.post-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--rule);
+}
+
+.post-item {
+    padding: 1.9rem 0 1.7rem;
+    border-bottom: 1px solid var(--rule);
+    max-width: var(--measure);
+}
+
+.post-item-title {
+    font-family: var(--display);
+    font-size: 1.45rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 0 0 0.5rem;
+}
+
+.post-item-title a {
+    color: var(--ink);
+    text-decoration: none;
+    background-image: linear-gradient(var(--section-ink), var(--section-ink));
+    background-size: 0 2px;
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    transition: background-size 0.18s ease;
+}
+.post-item-title a:hover { background-size: 100% 2px; }
+
+.post-meta {
+    font-family: var(--display);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+}
+.post-meta-sep { margin: 0 0.5rem; opacity: 0.55; }
+
+.post-excerpt {
+    margin: 0;
+    color: #3d4a3a;
+}
+
+.post-empty {
+    color: var(--muted);
+    font-style: italic;
+    padding: 2rem 0;
+}
+
+/* Draft / in-review markers. Deliberately loud -- the failure mode this
+   prevents is publishing something you thought was still private. */
+.post-flag {
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ember);
+    margin: 0 0 0.6rem;
+}
+
+.post-flag-banner {
+    border: 1px solid var(--ember);
+    border-left-width: 4px;
+    padding: 0.85rem 1.1rem;
+    margin: 0 0 2.5rem;
+    max-width: var(--measure);
+}
+
+/* ---- Single post ---- */
+
+.post-header {
+    max-width: var(--measure);
+    margin-bottom: 2rem;
+}
+
+.post-title {
+    font-family: var(--display);
+    font-size: clamp(2rem, 4.5vw, 2.9rem);
+    font-weight: 700;
+    line-height: 1.12;
+    margin: 0 0 0.9rem;
+}
+
+.post-hero {
+    margin: 0 0 2.5rem;
+    max-width: var(--shell);
+}
+.post-hero img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.post-body {
+    font-size: 1.1rem;
+    line-height: 1.7;
+}
+
+.post-body h2 {
+    font-family: var(--display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 2.4rem 0 0.9rem;
+}
+
+.post-body h3 {
+    font-family: var(--display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2rem 0 0.7rem;
+}
+
+.post-body h4 {
+    font-family: var(--display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 1.9rem 0 0.6rem;
+}
+
+.post-body a {
+    color: var(--ink);
+    text-decoration-color: var(--section-ink);
+    text-underline-offset: 3px;
+}
+
+.post-body img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1.9rem 0;
+}
+
+.post-body figure { margin: 1.9rem 0; }
+.post-body figcaption {
+    font-family: var(--display);
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+}
+
+.post-body blockquote {
+    margin: 1.9rem 0;
+    padding-left: 1.3rem;
+    border-left: 3px solid var(--section-ink);
+    color: #3d4a3a;
+}
+
+.post-body ul,
+.post-body ol { padding-left: 1.3rem; margin: 0 0 1.3rem; }
+.post-body li { margin-bottom: 0.4rem; }
+
+.post-body code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    background: var(--parchment);
+    padding: 0.12em 0.35em;
+    border-radius: 2px;
+}
+
+.post-body pre {
+    background: var(--parchment);
+    border: 1px solid var(--rule);
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    margin: 1.7rem 0;
+}
+.post-body pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+.post-body hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 2.6rem 0;
+}
+
+.post-body table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.8rem 0;
+    font-size: 0.95rem;
+}
+.post-body th,
+.post-body td {
+    border: 1px solid var(--rule);
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+}
+.post-body th {
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--parchment);
+}
+
+.post-back {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--display);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.post-back a { color: var(--section-ink); text-decoration: none; }
+.post-back a:hover { text-decoration: underline; }

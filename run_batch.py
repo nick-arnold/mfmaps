@@ -85,6 +85,10 @@ def do_batch(bid, areas):
                 print("  build FAIL %s: %s" % (area, e))
             shutil.rmtree(adir, ignore_errors=True)
     ncf.close()
+    if os.path.getsize(seq) == 0:
+        print(f"  batch {bid:03d}: EMPTY (upstream throttle?) — skipping, will retry next run")
+        os.remove(seq)
+        return
     subprocess.run(["tippecanoe", "-o", out, *TILE, seq], check=True)
     os.remove(seq)
     try:

@@ -5,13 +5,24 @@ import json, sys, os, zipfile, io, datetime, urllib.request, urllib.error
 SDA = "https://sdmdataaccess.nrcs.usda.gov/Tabular/post.rest"
 WSS = "https://websoilsurvey.sc.egov.usda.gov/DSD/Download/Cache/SSA"
 
-def sda_query(sql):
+def sda_query(sql, _tries=4):
     body = json.dumps({"format": "JSON+COLUMNNAME", "query": sql}).encode()
-    req = urllib.request.Request(SDA, data=body,
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        rows = json.load(r).get("Table", [])
-    return [dict(zip(rows[0], row)) for row in rows[1:]] if rows else []
+    import time
+    last = None
+    for attempt in range(_tries):
+        try:
+            req = urllib.request.Request(SDA, data=body,
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=90) as r:
+                raw = r.read()
+            if not raw.strip():
+                raise ValueError("empty SDA response")
+            rows = json.loads(raw).get("Table", [])
+            return [dict(zip(rows[0], row)) for row in rows[1:]] if rows else []
+        except Exception as e:
+            last = e
+            time.sleep(2 * (2 ** attempt))   # 2,4,8,16s backoff
+    raise last
 
 def wss_urls(areasymbols):
     quoted = ",".join("'%s'" % a for a in areasymbols)

@@ -1,5 +1,7 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
@@ -19,7 +21,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('about/', views.about, name='about'),
 
+    path('blog/', include('blog.urls')),
+
     # Section routes — keep last.
     path('<slug:section>/', views.section_landing, name='section_landing'),
     path('<slug:section>/<slug:page>/', views.section_page, name='section_page'),
 ]
+
+# Dev only. In production media lives on Spaces and nginx never sees it.
+if settings.DEBUG and not settings.USE_SPACES:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

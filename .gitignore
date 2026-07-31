@@ -52,3 +52,4 @@ build/
 ssurgo_work/
 ssurgo_test/
 .DS_Store
+*.pmtiles-journal

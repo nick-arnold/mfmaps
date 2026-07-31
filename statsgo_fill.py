@@ -42,7 +42,7 @@ def statsgo_attrs(tabular):
 
 def clip_region(region_dir, hole_union, out_fh):
     tabular = os.path.join(region_dir, "tabular")
-    shp = glob.glob(os.path.join(region_dir, "spatial", "gsmsoilmu_a_*.shp"))
+    shp = glob.glob(os.path.join(glob.escape(region_dir), "spatial", "gsmsoilmu_a_*.shp"))
     if not shp:
         print(f"  !! no gsmsoilmu_a_*.shp in {region_dir}"); return 0
     attrs = statsgo_attrs(tabular)

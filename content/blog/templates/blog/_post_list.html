@@ -1,0 +1,30 @@
+{% if posts %}
+<ol class="post-list">
+    {% for post in posts %}
+    <li class="post-item">
+        {% if not post.is_live %}
+        <p class="post-flag">{{ post.get_status_display }} — not visible to the public</p>
+        {% endif %}
+
+        <h2 class="post-item-title">
+            <a href="{{ post.get_absolute_url }}">{{ post.title }}</a>
+        </h2>
+
+        <p class="post-meta">
+            {% if post.published_at %}
+            <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"F j, Y" }}</time>
+            {% else %}
+            <span>Unpublished</span>
+            {% endif %}
+            {% if show_type %}<span class="post-meta-sep">·</span>{{ post.post_type.name }}{% endif %}
+        </p>
+
+        <p class="post-excerpt">
+            {% if post.excerpt %}{{ post.excerpt }}{% else %}{{ post.body|truncatewords:34 }}{% endif %}
+        </p>
+    </li>
+    {% endfor %}
+</ol>
+{% else %}
+<p class="post-empty">{{ empty_message|default:"Nothing here yet." }}</p>
+{% endif %}

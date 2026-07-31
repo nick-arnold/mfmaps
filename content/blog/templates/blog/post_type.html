@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load markdown_filters %}
+
+{% block title %}{{ post_type.name }} — MF Maps{% endblock %}
+{% block description %}{{ post_type.meta_description|default:"Posts from MF Maps." }}{% endblock %}
+
+{% block content %}
+
+    <header class="section-hero">
+        <p class="eyebrow"><a href="{% url 'blog:index' %}">Blog</a></p>
+        <h1 class="legend-title">{{ post_type.name }}</h1>
+        {% if post_type.intro %}
+        <div class="prose-block">{{ post_type.intro|render_markdown }}</div>
+        {% endif %}
+    </header>
+
+    {% include "blog/_post_list.html" with posts=posts empty_message="No posts in this section yet." %}
+
+{% endblock %}

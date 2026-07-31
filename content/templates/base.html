@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
-<body{% if section %} class="in-section" style="--section-ink: {{ section_data.color }}"{% endif %}>
+<body{% if section %} class="in-section" style="--section-ink: {{ section_data.color }}"{% elif request.path|slice:':5' == '/blog' %} class="in-section" style="--section-ink: #6b5b7c"{% endif %}>
 
 <a class="skip-link" href="#main">Skip to content</a>
 
@@ -37,6 +37,12 @@
                     <span class="legend-chip" aria-hidden="true"></span>{{ data.label }}
                 </a>
             {% endfor %}
+
+            <a href="{% url 'blog:index' %}"
+               class="main-nav-link{% if request.path|slice:':5' == '/blog' %} is-current{% endif %}"
+               style="--item-ink: #6b5b7c">
+                <span class="legend-chip" aria-hidden="true"></span>Blog
+            </a>
         </nav>
 
         <a class="map-cta" href="https://map.mfmaps.com/">Open the map</a>

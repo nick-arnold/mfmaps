@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Local apps
+    'blog',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +140,83 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Media files (blog uploads)
+# https://docs.djangoproject.com/en/6.0/topics/files/
+#
+# Production writes to a DigitalOcean Space over the S3 API. Local dev falls
+# back to the filesystem, so you don't need credentials on a laptop -- if
+# DO_SPACES_KEY is unset, uploads land in content/media/ and are served by
+# Django's dev server.
+#
+# The bucket is deliberately separate from mfmaps-tiles: tile data is
+# machine-generated and gets nuked and re-uploaded routinely, blog photos are
+# irreplaceable. Keep them apart.
+
+DO_SPACES_KEY = os.environ.get('DO_SPACES_KEY', '')
+DO_SPACES_SECRET = os.environ.get('DO_SPACES_SECRET', '')
+DO_SPACES_REGION = os.environ.get('DO_SPACES_REGION', 'sfo3')
+DO_SPACES_MEDIA_BUCKET = os.environ.get('DO_SPACES_MEDIA_BUCKET', 'mfmaps-media')
+DO_SPACES_ENDPOINT = os.environ.get(
+    'DO_SPACES_ENDPOINT',
+    f'https://{DO_SPACES_REGION}.digitaloceanspaces.com',
+)
+
+# Origin hostname by default. Once the Space has CDN enabled, set
+# DO_SPACES_MEDIA_DOMAIN to the .cdn. variant to serve through the edge:
+#   mfmaps-media.sfo3.cdn.digitaloceanspaces.com
+DO_SPACES_MEDIA_DOMAIN = os.environ.get(
+    'DO_SPACES_MEDIA_DOMAIN',
+    f'{DO_SPACES_MEDIA_BUCKET}.{DO_SPACES_REGION}.digitaloceanspaces.com',
+)
+
+USE_SPACES = bool(DO_SPACES_KEY and DO_SPACES_SECRET)
+
+if USE_SPACES:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+            'OPTIONS': {
+                'bucket_name': DO_SPACES_MEDIA_BUCKET,
+                'endpoint_url': DO_SPACES_ENDPOINT,
+                'region_name': DO_SPACES_REGION,
+                'access_key': DO_SPACES_KEY,
+                'secret_key': DO_SPACES_SECRET,
+                'custom_domain': DO_SPACES_MEDIA_DOMAIN,
+                'default_acl': 'public-read',
+                # Public bucket -- no signed URLs. Signing would break CDN
+                # caching and expire every image URL ever pasted into a post.
+                'querystring_auth': False,
+                # Never clobber an existing key; a re-upload gets a suffix.
+                'file_overwrite': False,
+                'object_parameters': {
+                    'CacheControl': 'public, max-age=31536000',
+                },
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+    MEDIA_URL = f'https://{DO_SPACES_MEDIA_DOMAIN}/'
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Behind nginx, so Django only learns the real scheme from this header.
+# Safe here because nginx is the only ingress and always sets it -- never
+# enable this if anything can reach gunicorn directly.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Without these, admin logins fail CSRF on HTTPS.
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS',
+        'https://mfmaps.com,https://www.mfmaps.com',
+    ).split(',') if o
+]
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True

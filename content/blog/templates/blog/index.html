@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load markdown_filters %}
+
+{% block title %}Blog — MF Maps{% endblock %}
+{% block description %}Foraging outings, field thinking, and notes from building MF Maps.{% endblock %}
+
+{% block content %}
+
+    <header class="section-hero">
+        <p class="eyebrow">MF Maps</p>
+        <h1 class="legend-title">Blog</h1>
+        <p class="lede">
+            Outings, thinking, and the work of building the map.
+        </p>
+    </header>
+
+    {% if post_types %}
+    <ul class="legend-grid legend-grid-tight">
+        {% for pt in post_types %}
+        <li class="legend-card">
+            <a href="{{ pt.get_absolute_url }}">
+                <span class="legend-swatch" aria-hidden="true"></span>
+                <h3>{{ pt.name }}</h3>
+                {% if pt.meta_description %}
+                <p class="legend-sub">{{ pt.meta_description }}</p>
+                {% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% include "blog/_post_list.html" with posts=posts show_type=1 empty_message="No posts yet." %}
+
+{% endblock %}
