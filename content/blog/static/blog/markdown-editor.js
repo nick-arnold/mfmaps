@@ -33,6 +33,10 @@
 
             uploadImage: true,
             imageUploadEndpoint: UPLOAD_URL,
+            /* Our endpoint returns a full Spaces URL. Without this EasyMDE
+               prepends window.location.origin and you get
+               https://mfmaps.com/https://mfmaps-media... */
+            imagePathAbsolute: true,
             imageCSRFToken: csrfToken(),
             imageCSRFName: 'csrfmiddlewaretoken',
             imageMaxSize: 25 * 1024 * 1024,
