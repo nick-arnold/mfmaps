@@ -12,7 +12,7 @@ from .imaging import is_new_upload, to_web_image
 # this list and against each other.
 RESERVED_SLUGS = {
     'feed', 'rss', 'atom', 'page', 'tag', 'tags',
-    'search', 'archive', 'index', 'sitemap', 'preview',
+    'search', 'archive', 'index', 'sitemap', 'preview', 'upload-image',
 }
 
 

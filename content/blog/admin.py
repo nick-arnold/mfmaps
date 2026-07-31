@@ -4,6 +4,19 @@ from django.utils.html import format_html
 from .models import BlogImage, Post, PostType, PostTypeAlias
 
 
+# EasyMDE, pinned. Loaded from a CDN rather than vendored -- if you'd rather
+# not depend on unpkg being up when you sit down to write, download these two
+# files into blog/static/blog/vendor/ and swap the URLs for static() paths.
+EASYMDE_CSS = 'https://unpkg.com/easymde@2.18.0/dist/easymde.min.css'
+EASYMDE_JS = 'https://unpkg.com/easymde@2.18.0/dist/easymde.min.js'
+
+
+class MarkdownEditorMedia:
+    class Media:
+        css = {'all': [EASYMDE_CSS, 'blog/markdown-editor.css']}
+        js = [EASYMDE_JS, 'blog/markdown-editor.js']
+
+
 class PostTypeAliasInline(admin.TabularInline):
     model = PostTypeAlias
     extra = 0
@@ -13,7 +26,7 @@ class PostTypeAliasInline(admin.TabularInline):
 
 
 @admin.register(PostType)
-class PostTypeAdmin(admin.ModelAdmin):
+class PostTypeAdmin(MarkdownEditorMedia, admin.ModelAdmin):
     list_display = ['name', 'slug', 'post_count', 'order']
     list_editable = ['order']
     prepopulated_fields = {'slug': ('name',)}
@@ -34,7 +47,7 @@ class PostTypeAdmin(admin.ModelAdmin):
 
 
 @admin.register(Post)
-class PostAdmin(admin.ModelAdmin):
+class PostAdmin(MarkdownEditorMedia, admin.ModelAdmin):
     list_display = ['title', 'post_type', 'status', 'author', 'published_at']
     list_filter = ['status', 'post_type', 'author']
     search_fields = ['title', 'body']
