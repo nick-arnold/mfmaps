@@ -220,3 +220,66 @@ CSRF_TRUSTED_ORIGINS = [
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+
+# Logging
+# https://docs.djangoproject.com/en/6.0/topics/logging/
+#
+# Django's default config only emails admins on a 500 and otherwise stays
+# silent, so an unhandled exception in production leaves nothing in
+# `docker compose logs`. This routes everything to stdout, which is where
+# Docker collects it.
+#
+# django.request at ERROR is the line that matters: that's the full traceback
+# for any 500.
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        # Tracebacks for 4xx/5xx responses.
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        # Very chatty at INFO -- every S3 call. Only raise this when
+        # debugging a storage problem.
+        'botocore': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        's3transfer': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'blog': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
