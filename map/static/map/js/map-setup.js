@@ -164,7 +164,6 @@ const LAYER_ORDER_FAMILIES = [
     id => isHydroWaterLayer(id),                                       // 9  water
     id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
     id => isHydroLabelLayer(id),                                       // 11 water labels
-    id => id === 'tide-stations',                                      // 12 tide markers
     
 ];
     
@@ -1169,7 +1168,7 @@ function registerTideStations() {
                 // full curve, so they're the more useful marker to keep.
                 'symbol-sort-key': ['match', ['get', 'type'], 'reference', 0, 1],
             },
-        }, BASEMAP_LINE_ANCHOR);
+        });
     }
 
     _registeredGroups.add('tide-stations');
