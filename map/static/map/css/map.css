@@ -3,6 +3,11 @@
    ============================================================ */
 
    :root {
+
+    --display: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+
+    --bs-body-font-family: var(--display);
     /* ---- Brand tokens — keep in sync with content/static/css/site.css ---- */
     --ink:        #14261a;
     --forest:     #2c5530;
@@ -1126,3 +1131,128 @@ body { background: var(--paper); color: var(--ink); }
 }
 
 .fab-label { background: rgba(20, 38, 26, 0.92); color: var(--paper); }
+
+/* ============================================================
+   Type — matches mfmaps.com
+   Archivo for chrome, Source Serif 4 for human-written prose.
+   ============================================================ */
+
+   html, body { font-family: var(--display); }
+
+   /* ---- Brand wordmark: matches .wordmark ---- */
+   .app-bar-brand {
+       font-family: var(--display);
+       font-weight: 700;
+       letter-spacing: -0.015em;
+       color: var(--forest);
+   }
+   .app-bar-brand strong { font-weight: 700; }
+   
+   /* ---- Top tabs: matches .main-nav-link ---- */
+   .app-tab {
+       font-family: var(--display);
+       font-size: 0.78rem;
+       font-weight: 500;
+       letter-spacing: 0.06em;
+       text-transform: uppercase;
+   }
+   .app-tab.active { font-weight: 700; }
+   
+   /* ---- Mobile dock: same treatment, tighter ---- */
+   .dock-tab {
+       font-family: var(--display);
+       font-size: 0.6rem;
+       font-weight: 600;
+       letter-spacing: 0.07em;
+       text-transform: uppercase;
+   }
+   .dock-tab.active { font-weight: 700; }
+   
+   /* ---- Panel headers: matches .sub-nav-home ---- */
+   .side-panel-header h6,
+   .list-panel-header h6,
+   .right-info-panel-header h6,
+   .layers-sheet .offcanvas-title,
+   .info-sheet .offcanvas-title {
+       font-family: var(--display);
+       font-size: 0.72rem;
+       font-weight: 700;
+       letter-spacing: 0.1em;
+       text-transform: uppercase;
+       color: var(--forest);
+       margin: 0;
+   }
+   
+   /* ---- Layer section headings: matches .eyebrow ---- */
+   .layer-section > summary {
+       font-family: var(--display);
+       font-size: 0.7rem !important;
+       font-weight: 700;
+       letter-spacing: 0.14em;
+       text-transform: uppercase;
+       color: var(--muted) !important;
+   }
+   
+   /* ---- Control labels: Archivo, sentence case, readable ---- */
+   .form-check-label,
+   .form-label,
+   .form-select,
+   .form-control {
+       font-family: var(--display);
+       font-size: 0.875rem;
+       letter-spacing: 0;
+       color: var(--ink);
+   }
+   
+   /* ---- Buttons: matches .btn on the content site ---- */
+   .btn,
+   .crosshair-buttons .btn {
+       font-family: var(--display);
+       font-weight: 600;
+       letter-spacing: 0.04em;
+       text-transform: uppercase;
+   }
+   .btn-sm { font-size: 0.72rem; }
+   
+   /* ---- Tabs inside panels ---- */
+   .nav-tabs .nav-link {
+       font-family: var(--display);
+       font-size: 0.75rem;
+       font-weight: 500;
+       letter-spacing: 0.06em;
+       text-transform: uppercase;
+   }
+   .nav-tabs .nav-link.active { font-weight: 700; }
+   
+   /* ---- Dropdown / toast / tooltips ---- */
+   .dropdown-menu,
+   .toast,
+   .fab-label,
+   .crosshair-help {
+       font-family: var(--display);
+   }
+   
+   /* ---- Popup titles ---- */
+   .observation-popup .popup-species {
+       font-family: var(--display);
+       font-weight: 700;
+       letter-spacing: -0.01em;
+   }
+   .observation-popup .popup-meta,
+   .observation-popup .popup-h3 {
+       font-family: var(--display);
+       font-size: 0.7rem;
+       font-weight: 600;
+       letter-spacing: 0.1em;
+       text-transform: uppercase;
+   }
+   .observation-popup .popup-h3 { text-transform: none; letter-spacing: 0.04em; }
+   
+   /* ---- Serif: only where a person wrote sentences ---- */
+   .observation-popup .popup-notes,
+   .hydro-comment-content .comment-body,
+   .hydro-comment-content p {
+       font-family: var(--body);
+       font-size: 0.95rem;
+       line-height: 1.55;
+   }
