@@ -17,7 +17,6 @@ import build_ssurgo as build
 SPACES = "s3://mfmaps-tiles/soils"
 WORK = os.path.expanduser("~/ssurgo_work")
 TILE = ["-l", "soils", "-Z9", "-z13",
-        "--detect-shared-borders",
         "--simplification=4",
         "--coalesce-densest-as-needed", "--extend-zooms-if-still-dropping",
         "--no-tiny-polygon-reduction",

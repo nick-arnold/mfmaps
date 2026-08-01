@@ -214,6 +214,7 @@ export const LAYER_IDS = {
     // Separate layer/toggle from the detailed per-unit boundaries above.
     'public-land-dissolved': ['public-land-dissolved-glow', 'public-land-dissolved-outline'],
     'soils': ['soils-fill'],
+    'tide-stations': ['tide-stations'],
 };
 
 export const H3_RES = 8;

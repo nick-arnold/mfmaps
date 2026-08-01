@@ -33,6 +33,11 @@ import {
 } from './state.js';
 import { escapeHtml} from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
+import {
+    predict as tidePredict,
+    stationTides as tideStationTides,
+    M_TO_FT as TIDE_M_TO_FT,
+} from './tides.js';
 
 const US_BOUNDS = [
     [-125.0, 24.5],
@@ -103,7 +108,7 @@ const DEFERRED_REGISTRARS = {
     'public-land':             registerPublicLand,
     'public-land-dissolved':   registerPublicLandDissolved,
     'soils':                   registerSoils,
-
+    'tide-stations':           registerTideStations,
 };
 
 // =============================================================================
@@ -159,6 +164,9 @@ const LAYER_ORDER_FAMILIES = [
     id => isHydroWaterLayer(id),                                       // 9  water
     id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
     id => isHydroLabelLayer(id),                                       // 11 water labels
+    id => id === 'tide-stations',                                      // 12 tide markers
+    
+];
     
 ];
 
@@ -1059,6 +1067,62 @@ function registerSoils() {
     }
 
     _registeredGroups.add('soils');
+    enforceLayerOrder();
+}
+
+// --- Tide stations (NOAA CO-OPS harmonic + subordinate) -------------------
+// 3,158 US stations as plain GeoJSON — small enough that PMTiles would be
+// overhead. Markers carry only what's needed to draw and style them; the
+// constituents needed to actually predict a tide live in a separate file
+// that is fetched lazily on first click (see showTideInfo).
+//
+// Two station classes, deliberately styled apart:
+//   reference   — full harmonic constituents, continuous curve, live height
+//   subordinate — time/height offsets from a reference station, high/low only
+// That difference is a property of NOAA's data, not of this code, so the map
+// shows it rather than hiding it.
+
+function registerTideStations() {
+    if (_registeredGroups.has('tide-stations')) return;
+    const { map } = state;
+
+    const url = window.MFMAPS_TIDE_STATIONS_URL;
+    if (!url) {
+        console.warn('MFMAPS_TIDE_STATIONS_URL not set — skipping tide layer');
+        return;
+    }
+
+    if (!map.getSource('tide_stations')) {
+        map.addSource('tide_stations', {
+            type: 'geojson',
+            data: url,
+            attribution: 'Tides: NOAA CO-OPS',
+        });
+    }
+
+    if (!map.getLayer('tide-stations')) {
+        map.addLayer({
+            id: 'tide-stations',
+            type: 'circle',
+            source: 'tide_stations',
+            minzoom: 4,
+            layout: { visibility: 'none' },
+            paint: {
+                'circle-color': ['match', ['get', 'type'],
+                    'reference', STREAM_COLOR,
+                    WATER_FILL,
+                ],
+                'circle-radius': ['interpolate', ['linear'], ['zoom'],
+                    4, 2.5, 8, 4.5, 12, 7, 16, 10,
+                ],
+                'circle-stroke-width': 1.2,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.95,
+            },
+        }, BASEMAP_LINE_ANCHOR);
+    }
+
+    _registeredGroups.add('tide-stations');
     enforceLayerOrder();
 }
 
@@ -2106,6 +2170,154 @@ function showHydroInfo(feature, lngLat) {
     }
 }
 
+// --- Tide station info panel ---------------------------------------------
+// The constituents file is ~340 KB gzipped, so it's fetched once on the first
+// station click and kept for the session. Predictions themselves are local
+// and instant — a sum of ~37 cosines — so there is no per-click network cost.
+
+let _tideHarmonics = null;
+let _tideHarmonicsPromise = null;
+
+function loadTideHarmonics() {
+    if (_tideHarmonics) return Promise.resolve(_tideHarmonics);
+    if (_tideHarmonicsPromise) return _tideHarmonicsPromise;
+    const url = window.MFMAPS_TIDE_HARMONICS_URL;
+    _tideHarmonicsPromise = fetch(url)
+        .then(r => {
+            if (!r.ok) throw new Error(`${r.status} fetching tide harmonics`);
+            return r.json();
+        })
+        .then(json => { _tideHarmonics = json; return json; });
+    return _tideHarmonicsPromise;
+}
+
+// 48-hour curve. Only meaningful for harmonic stations — subordinate ones
+// have no continuous solution to draw.
+function tideCurveSvg(station, now) {
+    const d = station.datums || {};
+    const z0 = (d.MSL ?? 0) - (d[station.chart_datum || 'MLLW'] ?? 0);
+    const W = 300, H = 58, N = 288;
+    const t0 = +now, span = 48 * 3600 * 1000;
+
+    const vals = [];
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i <= N; i++) {
+        const v = tidePredict(station.harmonic_constituents,
+                              new Date(t0 + (i / N) * span), z0) * TIDE_M_TO_FT;
+        vals.push(v);
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+    }
+    const pad = (hi - lo) * 0.12 || 0.5;
+    lo -= pad; hi += pad;
+    const yOf = v => H - ((v - lo) / (hi - lo)) * H;
+
+    let path = `M0,${yOf(vals[0]).toFixed(1)}`;
+    for (let i = 1; i <= N; i++) {
+        path += ` L${((i / N) * W).toFixed(1)},${yOf(vals[i]).toFixed(1)}`;
+    }
+
+    let ticks = '';
+    for (let h = 0; h <= 48; h++) {
+        const t = new Date(t0 + h * 3600000);
+        if (t.getHours() === 0) {
+            const px = (((+t - t0) / span) * W).toFixed(1);
+            ticks += `<line x1="${px}" y1="0" x2="${px}" y2="${H}" stroke="#dee2e6"/>`;
+        }
+    }
+
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+                 style="display:block;width:100%;height:58px;margin:2px 0 8px;">
+        ${ticks}
+        <path d="${path} L${W},${H} L0,${H} Z" fill="${WATER_FILL}" opacity="0.4"/>
+        <path d="${path}" fill="none" stroke="${STREAM_COLOR}" stroke-width="1.6"/>
+        <line x1="0" y1="0" x2="0" y2="${H}" stroke="#d96d2a" stroke-width="1.4"/>
+    </svg>`;
+}
+
+async function showTideInfo(stationId) {
+    const bodyEl = showInfoPanel({
+        title: 'Tide station',
+        bodyHtml: '<div class="small text-muted">Loading predictions…</div>',
+    });
+
+    let H;
+    try {
+        H = await loadTideHarmonics();
+    } catch (err) {
+        if (bodyEl) bodyEl.innerHTML =
+            `<div class="small text-danger">Could not load tide data. ${escapeHtml(err.message)}</div>`;
+        return;
+    }
+
+    const st = H[stationId];
+    if (!st) {
+        if (bodyEl) bodyEl.innerHTML = '<div class="small text-muted">No record for this station.</div>';
+        return;
+    }
+
+    const now = new Date();
+    const res = tideStationTides(st, ref => H[String(ref).split('/').pop()] || null,
+                                 now, new Date(+now + 2 * 864e5));
+
+    const titleEl = document.getElementById('sidePanelInfoTitle')
+                 || document.getElementById('hydroInfoSheetLabel');
+    if (titleEl) titleEl.textContent = st.name;
+
+    if (res.error) {
+        if (bodyEl) bodyEl.innerHTML = `<div class="small text-muted">${escapeHtml(res.error)}</div>`;
+        return;
+    }
+
+    const tz = st.timezone || undefined;
+    const fmtTime = t => t.toLocaleTimeString('en-US',
+        { hour: 'numeric', minute: '2-digit', timeZone: tz });
+    const fmtDay = t => t.toLocaleDateString('en-US',
+        { weekday: 'long', month: 'short', day: 'numeric', timeZone: tz });
+
+    let html = '<div class="hydro-info">';
+
+    if (res.type === 'harmonic') {
+        html += `<div style="font-size:1.5rem;font-weight:650;color:${STREAM_COLOR};line-height:1.1;">
+                    ${(res.now * TIDE_M_TO_FT).toFixed(2)} ft
+                    <span class="text-muted" style="font-size:.8rem;font-weight:400;">right now</span>
+                 </div>`;
+        html += `<div class="small text-muted mb-2">above ${escapeHtml(res.datum)} · ` +
+                `${st.harmonic_constituents.length} constituents</div>`;
+        html += tideCurveSvg(st, now);
+    } else {
+        const ref = H[String(st.offsets.reference).split('/').pop()];
+        html += `<div class="small text-muted mb-2">High and low only, above MLLW — ` +
+                `offset from ${escapeHtml(ref ? ref.name : 'its reference station')}.</div>`;
+    }
+
+    html += '<table style="width:100%;border-collapse:collapse;font-size:.8rem;">';
+    let lastDay = null;
+    for (const e of res.extremes) {
+        const day = fmtDay(e.time);
+        if (day !== lastDay) {
+            html += `<tr><td colspan="3" class="text-muted"
+                     style="padding-top:8px;font-size:.68rem;text-transform:uppercase;
+                            letter-spacing:.05em;">${escapeHtml(day)}</td></tr>`;
+            lastDay = day;
+        }
+        html += `<tr style="border-bottom:1px solid #f0f4f6;">
+            <td style="width:1.4rem;font-weight:650;color:${e.type === 'H' ? STREAM_COLOR : '#d96d2a'};">
+                ${e.type}</td>
+            <td class="text-muted" style="white-space:nowrap;">${fmtTime(e.time)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums;">
+                ${(e.height * TIDE_M_TO_FT).toFixed(2)} ft</td></tr>`;
+    }
+    html += '</table>';
+
+    html += `<div class="small text-muted mt-2 pt-2" style="border-top:1px solid #dee2e6;font-size:.7rem;">
+        Astronomical prediction only — no weather, storm surge, or river discharge.
+        Not for navigation.</div>`;
+    html += '</div>';
+
+    if (bodyEl) bodyEl.innerHTML = html;
+}
+
 function wireHydroInteractions() {
     const map = state.map;
     let lastHoveredKey = null;
@@ -2141,6 +2353,14 @@ function wireHydroInteractions() {
         if (map.getLayer('observations-layer')) {
             const obsHit = map.queryRenderedFeatures(e.point, { layers: ['observations-layer'] });
             if (obsHit.length) return;
+        }
+        if (map.getLayer('tide-stations') &&
+            map.getLayoutProperty('tide-stations', 'visibility') === 'visible') {
+            const tideHit = map.queryRenderedFeatures(e.point, { layers: ['tide-stations'] });
+            if (tideHit.length) {
+                showTideInfo(tideHit[0].properties.id);
+                return;
+            }
         }
         const feat = queryNearbyHydroFeature(e.point);
         if (!feat) {
