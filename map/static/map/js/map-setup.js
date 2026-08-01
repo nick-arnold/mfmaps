@@ -1082,6 +1082,43 @@ function registerSoils() {
 // That difference is a property of NOAA's data, not of this code, so the map
 // shows it rather than hiding it.
 
+// Tide station markers, drawn to canvas at device resolution. Canvas rather
+// than an SVG/loadImage round-trip because registration is synchronous — the
+// panel toggle flips visibility the instant this returns, and a layer that
+// doesn't exist yet would silently never appear.
+function makeTideIcon(fillColor, waveColor) {
+    const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
+    const S = 24, size = S * dpr;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.beginPath();
+    ctx.arc(12, 12, 9.5, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(6, 12.8);
+    ctx.quadraticCurveTo(9, 8.6, 12, 12.8);
+    ctx.quadraticCurveTo(15, 17, 18, 12.8);
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = waveColor;
+    ctx.stroke();
+
+    return {
+        width: size,
+        height: size,
+        data: ctx.getImageData(0, 0, size, size).data,
+        pixelRatio: dpr,
+    };
+}
+
 function registerTideStations() {
     if (_registeredGroups.has('tide-stations')) return;
     const { map } = state;
@@ -1090,6 +1127,13 @@ function registerTideStations() {
     if (!url) {
         console.warn('MFMAPS_TIDE_STATIONS_URL not set — skipping tide layer');
         return;
+    }
+
+    if (!map.hasImage('tide-harmonic')) {
+        map.addImage('tide-harmonic', makeTideIcon(STREAM_COLOR, '#ffffff'));
+    }
+    if (!map.hasImage('tide-subordinate')) {
+        map.addImage('tide-subordinate', makeTideIcon(WATER_FILL, STREAM_COLOR));
     }
 
     if (!map.getSource('tide_stations')) {
@@ -1103,21 +1147,27 @@ function registerTideStations() {
     if (!map.getLayer('tide-stations')) {
         map.addLayer({
             id: 'tide-stations',
-            type: 'circle',
+            type: 'symbol',
             source: 'tide_stations',
             minzoom: 4,
-            layout: { visibility: 'none' },
-            paint: {
-                'circle-color': ['match', ['get', 'type'],
-                    'reference', STREAM_COLOR,
-                    WATER_FILL,
+            layout: {
+                visibility: 'none',
+                'icon-image': ['match', ['get', 'type'],
+                    'reference', 'tide-harmonic',
+                    'tide-subordinate',
                 ],
-                'circle-radius': ['interpolate', ['linear'], ['zoom'],
-                    4, 2.5, 8, 4.5, 12, 7, 16, 10,
+                'icon-size': ['interpolate', ['linear'], ['zoom'],
+                    4, 0.42, 8, 0.62, 12, 0.85, 16, 1.0,
                 ],
-                'circle-stroke-width': 1.2,
-                'circle-stroke-color': '#ffffff',
-                'circle-opacity': 0.95,
+                // Collision culling is the point of using symbols here: 3,158
+                // circles merge into an unreadable mass below z8. Symbols thin
+                // themselves out and fill back in as you zoom.
+                'icon-allow-overlap': false,
+                'icon-ignore-placement': false,
+                'icon-padding': 2,
+                // Harmonic stations win placement contests — they carry the
+                // full curve, so they're the more useful marker to keep.
+                'symbol-sort-key': ['match', ['get', 'type'], 'reference', 0, 1],
             },
         }, BASEMAP_LINE_ANCHOR);
     }
