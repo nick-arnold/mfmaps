@@ -1,13 +1,17 @@
 /* ============================================================
-   MF Maps — map app styles
+   MF Maps — map app styles (map.mfmaps.com)
+
+   Brand tokens are duplicated from content/static/css/site.css.
+   The two projects have separate static volumes, so a shared file
+   is not practical. If you change a token here, change it there.
+
+   Bootstrap 5.3.3 loads before this file. Where Bootstrap exposes
+   a CSS variable we remap it in :root. Where Bootstrap compiles a
+   literal colour into a rule (form switches, .btn-primary, focus
+   rings) we override the rule directly under "Bootstrap overrides".
    ============================================================ */
 
    :root {
-
-    --display: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
-
-    --bs-body-font-family: var(--display);
     /* ---- Brand tokens — keep in sync with content/static/css/site.css ---- */
     --ink:        #14261a;
     --forest:     #2c5530;
@@ -19,18 +23,23 @@
 
     --forest-rgb: 44, 85, 48;
     --ember-rgb:  217, 109, 42;
+    --paper-rgb:  250, 248, 242;
 
-    /* Back-compat: existing rules in this file still reference these. */
+    /* Back-compat aliases. Prefer --forest / --ember in new rules. */
     --brand-green:  var(--forest);
     --brand-orange: var(--ember);
 
-    /* App metrics */
+    --display: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+
+    /* ---- App metrics ---- */
     --app-bar-h: 52px;
     --bottom-dock-h: 64px;
     --side-panel-w: 320px;
     --fab-size: 44px;
 
     /* ---- Bootstrap 5.3 variable remap ---- */
+    --bs-body-font-family: var(--display);
     --bs-body-bg: var(--paper);
     --bs-body-color: var(--ink);
     --bs-emphasis-color: var(--ink);
@@ -44,6 +53,9 @@
     --bs-link-hover-color: var(--ink);
     --bs-primary: var(--forest);
     --bs-primary-rgb: var(--forest-rgb);
+    --bs-border-radius: 2px;
+    --bs-border-radius-sm: 2px;
+    --bs-border-radius-lg: 3px;
 }
 
 html, body {
@@ -51,22 +63,228 @@ html, body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-family: var(--display);
 }
 
 body {
     display: flex;
     flex-direction: column;
+    background: var(--paper);
+    color: var(--ink);
+}
+
+:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   Bootstrap overrides
+   These beat rules where Bootstrap hardcodes #0d6efd or #fff
+   rather than reading a CSS variable.
+   ============================================================ */
+
+/* ---- Form switches and checkboxes ---- */
+
+.form-check-input {
+    background-color: var(--paper);
+    border-color: var(--rule);
+}
+
+.form-check-input:checked {
+    background-color: var(--forest);
+    border-color: var(--forest);
+}
+
+.form-check-input:focus {
+    border-color: rgba(var(--forest-rgb), 0.5);
+    box-shadow: 0 0 0 0.25rem rgba(var(--forest-rgb), 0.2);
+}
+
+.form-switch .form-check-input {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%236d7268'/%3e%3c/svg%3e");
+}
+
+.form-switch .form-check-input:focus {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%236d7268'/%3e%3c/svg%3e");
+}
+
+.form-switch .form-check-input:checked {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23faf8f2'/%3e%3c/svg%3e");
+}
+
+/* ---- Text inputs ---- */
+
+.form-control,
+.form-select {
+    background-color: var(--paper);
+    border-color: var(--rule);
+    color: var(--ink);
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--paper);
+    border-color: rgba(var(--forest-rgb), 0.6);
+    box-shadow: 0 0 0 0.2rem rgba(var(--forest-rgb), 0.15);
+}
+
+.form-control::placeholder { color: var(--muted); opacity: 0.75; }
+
+/* ---- Buttons ---- */
+
+.btn-primary {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: var(--ember);
+    --bs-btn-border-color: var(--ember);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #c25f22;
+    --bs-btn-hover-border-color: #c25f22;
+    --bs-btn-active-bg: #ad541e;
+    --bs-btn-active-border-color: #ad541e;
+    --bs-btn-disabled-bg: var(--ember);
+    --bs-btn-disabled-border-color: var(--ember);
+    --bs-btn-focus-shadow-rgb: var(--ember-rgb);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--forest);
+    --bs-btn-border-color: var(--forest);
+    --bs-btn-hover-color: var(--paper);
+    --bs-btn-hover-bg: var(--forest);
+    --bs-btn-hover-border-color: var(--forest);
+    --bs-btn-active-color: var(--paper);
+    --bs-btn-active-bg: var(--forest);
+    --bs-btn-active-border-color: var(--forest);
+    --bs-btn-focus-shadow-rgb: var(--forest-rgb);
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--forest);
+    --bs-btn-border-color: var(--rule);
+    --bs-btn-hover-color: var(--ink);
+    --bs-btn-hover-bg: var(--parchment);
+    --bs-btn-hover-border-color: var(--forest);
+    --bs-btn-active-color: var(--ink);
+    --bs-btn-active-bg: var(--parchment);
+    --bs-btn-active-border-color: var(--forest);
+    --bs-btn-focus-shadow-rgb: var(--forest-rgb);
+}
+
+.btn-link {
+    --bs-btn-color: var(--forest);
+    --bs-btn-hover-color: var(--ink);
+}
+
+/* ---- Containers ---- */
+
+.dropdown-menu {
+    --bs-dropdown-bg: var(--paper);
+    --bs-dropdown-border-color: var(--rule);
+    --bs-dropdown-link-color: var(--ink);
+    --bs-dropdown-link-hover-bg: var(--parchment);
+    --bs-dropdown-link-hover-color: var(--ink);
+    --bs-dropdown-link-active-bg: var(--forest);
+    --bs-dropdown-link-active-color: var(--paper);
+    --bs-dropdown-border-radius: 2px;
+}
+
+.offcanvas {
+    --bs-offcanvas-bg: var(--paper);
+    --bs-offcanvas-border-color: var(--rule);
+}
+
+.modal {
+    --bs-modal-bg: var(--paper);
+    --bs-modal-border-color: var(--rule);
+    --bs-modal-border-radius: 2px;
+    --bs-modal-header-border-color: var(--rule);
+    --bs-modal-footer-border-color: var(--rule);
+}
+
+.nav-tabs {
+    --bs-nav-tabs-border-color: var(--rule);
+    --bs-nav-link-color: var(--muted);
+    --bs-nav-link-hover-color: var(--ink);
+    --bs-nav-tabs-link-active-color: var(--ink);
+    --bs-nav-tabs-link-active-bg: var(--paper);
+    --bs-nav-tabs-link-active-border-color: var(--rule) var(--rule) var(--paper);
+    --bs-nav-tabs-border-radius: 2px;
+}
+
+.card {
+    --bs-card-bg: var(--paper);
+    --bs-card-border-color: var(--rule);
+    --bs-card-border-radius: 2px;
+}
+
+.input-group-text {
+    background-color: var(--parchment);
+    border-color: var(--rule);
+    color: var(--muted);
+}
+
+/* ============================================================
+   Typography
+   Archivo for chrome, Source Serif 4 only where a person wrote
+   sentences. Matches the roles used on mfmaps.com.
+   ============================================================ */
+
+/* Chrome faces */
+.btn,
+.modal-title,
+.offcanvas-title,
+.dropdown-menu,
+.toast,
+.form-label,
+.form-check-label,
+.form-control,
+.form-select,
+.fab-label,
+.crosshair-help {
+    font-family: var(--display);
+}
+
+/* Buttons — matches .btn on the content site */
+.btn {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.btn-sm { font-size: 0.72rem; }
+.btn-link { text-transform: none; letter-spacing: 0; }
+
+/* Control labels — sentence case, sized for density */
+.form-check-label,
+.form-label,
+.form-control,
+.form-select {
+    font-size: 0.875rem;
+    letter-spacing: 0;
+    color: var(--ink);
+}
+
+/* Prose — the only serif in the app */
+.observation-popup .popup-notes,
+.hydro-comment-content .comment-body,
+.hydro-comment-content p {
+    font-family: var(--body);
+    font-size: 0.95rem;
+    line-height: 1.55;
 }
 
 /* ============================================================
    Desktop top app bar
+   The 3px rule + offset shadow echoes the .masthead neatline on
+   mfmaps.com. The shadow paints outside the box, so it does not
+   affect layout — but the toast offset below accounts for it.
    ============================================================ */
 
 .app-bar {
     height: var(--app-bar-h);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background: #ffffff;
+    background: var(--paper);
+    border-bottom: 3px solid var(--forest);
+    box-shadow: 0 3px 0 0 var(--paper), 0 4px 0 0 var(--rule);
     align-items: center;
     padding: 0 16px;
     flex-shrink: 0;
@@ -75,12 +293,17 @@ body {
 
 .app-bar-brand {
     margin-right: 24px;
-    font-size: 1.05rem;
-    color: var(--brand-green);
     display: flex;
     align-items: center;
     gap: 8px;
+    font-family: var(--display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--forest);
 }
+
+.app-bar-brand strong { font-weight: 700; }
 
 .app-bar-logo {
     height: 36px;
@@ -92,24 +315,34 @@ body {
     gap: 4px;
 }
 
+/* Squared pill. The content site marks current nav with an underline,
+   but these tabs switch mode inside one app rather than navigating
+   away, so the filled state is the more honest affordance. To match
+   the site literally instead: set background to transparent here and
+   on .active, and use border-bottom: 2px solid var(--forest). */
 .app-tab {
     background: none;
     border: none;
-    padding: 8px 14px;
-    border-radius: 6px;
+    border-radius: 2px;
+    padding: 8px 12px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: #666;
-    font-size: 0.9rem;
     cursor: pointer;
+    font-family: var(--display);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 
-.app-tab:hover { background: rgba(0, 0, 0, 0.04); color: #333; }
+.app-tab:hover { background: var(--parchment); color: var(--ink); }
 
 .app-tab.active {
-    color: var(--brand-green);
-    background: rgba(44, 85, 48, 0.08);
+    color: var(--forest);
+    background: rgba(var(--forest-rgb), 0.1);
+    font-weight: 700;
 }
 
 .app-tab i { font-size: 1rem; }
@@ -138,9 +371,10 @@ body {
    ============================================================ */
 
 .side-panel {
+    position: relative;
     width: var(--side-panel-w);
-    background: #ffffff;
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
     flex-direction: column;
     flex-shrink: 0;
     z-index: 5;
@@ -148,20 +382,67 @@ body {
 
 .side-panel-header {
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid var(--rule);
 }
 
 .side-panel-body {
     padding: 16px;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
 }
+
+/* Panel titles — matches .sub-nav-home */
+.side-panel-header h6,
+.list-panel-header h6,
+.right-info-panel-header h6,
+.layers-sheet .offcanvas-title,
+.info-sheet .offcanvas-title {
+    font-family: var(--display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--forest);
+    margin: 0;
+}
+
+/* ============================================================
+   Layer panel sections
+   The !important flags are fighting Bootstrap utility classes
+   (.text-uppercase .text-muted .small .fw-bold) that are still on
+   the <summary> elements in home.html. Strip those classes from
+   the template and the !important can come out.
+   ============================================================ */
+
+.layer-section {
+    border-top: 1px solid var(--rule);
+    padding-top: 0.9rem;
+    margin-bottom: 0.9rem;
+}
+
+.layer-section:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.layer-section > summary {
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.layer-section > summary:hover { color: var(--ink); }
 
 /* ============================================================
    Floating action button stack (right edge)
    ============================================================ */
 
-   .fab-stack {
+.fab-stack {
     position: absolute;
     right: 12px;
     bottom: 12px;
@@ -176,10 +457,10 @@ body {
     width: var(--fab-size);
     height: var(--fab-size);
     border-radius: 50%;
-    background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    color: #333;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 2px 8px rgba(20, 38, 26, 0.16);
+    color: var(--ink);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -192,26 +473,39 @@ body {
 .fab:hover { transform: translateY(-1px); }
 .fab:active { transform: translateY(0); }
 
+/* Armed pick-mode (query, soil probe, access): forest fill, ember ring */
 .fab[aria-pressed="true"] {
-    background: var(--brand-green);
-    color: white;
-    border-color: var(--brand-green);
+    background: var(--forest);
+    border-color: var(--forest);
+    color: var(--paper);
+    box-shadow: 0 0 0 3px rgba(var(--ember-rgb), 0.45);
 }
 
+/* The radial toggle */
 .fab-primary {
     width: 56px;
     height: 56px;
     font-size: 1.3rem;
-    background: var(--brand-green);
-    color: white;
-    border-color: var(--brand-green);
-    box-shadow: 0 4px 12px rgba(44, 85, 48, 0.3);
+    background: var(--forest);
+    border-color: var(--forest);
+    color: var(--paper);
+    box-shadow: 0 4px 12px rgba(var(--forest-rgb), 0.3);
 }
 
 .fab-primary:hover { background: #244526; border-color: #244526; }
 
-/* Standalone reset-to-north control (moved out of the FAB radial) */
-/* Stacked directly above the FAB toggle, right edge. */
+/* Add-observation, the primary action in the arc. Ember, matching
+   .btn-primary on the content site. This class was referenced in
+   home.html but never defined until now. */
+.fab-accent {
+    background: var(--ember);
+    border-color: var(--ember);
+    color: #fff;
+}
+
+.fab-accent:hover { background: #c25f22; border-color: #c25f22; }
+
+/* Standalone reset-to-north control, stacked above the FAB toggle. */
 .north-reset {
     position: absolute;
     right: 18px;
@@ -219,9 +513,9 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 2px 8px rgba(20, 38, 26, 0.16);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -229,7 +523,8 @@ body {
     cursor: pointer;
     z-index: 10;
 }
-.north-reset:hover { background: #f6f6f6; }
+
+.north-reset:hover { background: var(--parchment); }
 .north-reset:active { transform: translateY(1px); }
 
 /* Bigger dial inside the circle. Rotates so the N always points true north. */
@@ -290,6 +585,14 @@ body {
 #fabToggle { transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1); }
 .fab-radial.is-open #fabToggle { transform: rotate(90deg); }
 
+.fab-radial.is-armed #fabToggle {
+    box-shadow: 0 0 0 3px rgba(var(--ember-rgb), 0.5);
+}
+
+.fab-radial.is-armed.is-open #fabToggle {
+    box-shadow: none;
+}
+
 /* Labels: desktop hover only. Too cramped on mobile — title attr covers it. */
 .fab-label {
     position: absolute;
@@ -297,25 +600,26 @@ body {
     top: 50%;
     transform: translateY(-50%);
     white-space: nowrap;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     line-height: 1;
     padding: 5px 9px;
-    border-radius: 5px;
-    background: rgba(24, 24, 27, 0.9);
-    color: #fff;
+    border-radius: 2px;
+    background: rgba(20, 38, 26, 0.92);
+    color: var(--paper);
     opacity: 0;
     pointer-events: none;
     transition: opacity 120ms ease;
 }
+
 @media (hover: hover) and (min-width: 768px) {
     .fab-arc-item:hover .fab-label,
     .fab-arc-item:focus-visible .fab-label { opacity: 1; }
 }
 
-/* Active pick-mode state (query, soil probe) */
-.fab[aria-pressed="true"] {
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.45);
-}
+body.list-mode .fab-stack { display: none; }
+body.info-panel-open .fab-stack { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     .fab-arc-item,
@@ -324,14 +628,15 @@ body {
         transition-delay: 0ms;
     }
 }
+
 /* ============================================================
    Mobile bottom dock
    ============================================================ */
 
 .bottom-dock {
     height: var(--bottom-dock-h);
-    background: white;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
     display: flex;
     justify-content: space-around;
     align-items: stretch;
@@ -351,19 +656,24 @@ body {
     align-items: center;
     justify-content: center;
     gap: 2px;
-    color: #888;
-    font-size: 0.72rem;
     cursor: pointer;
+    font-family: var(--display);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 
 .dock-tab i { font-size: 1.4rem; }
 
 .dock-tab.active {
-    color: var(--brand-green);
+    color: var(--forest);
+    font-weight: 700;
 }
 
 /* ============================================================
-   Mobile offcanvas bottom sheet
+   Mobile offcanvas bottom sheets
    ============================================================ */
 
 .layers-sheet {
@@ -373,13 +683,22 @@ body {
     border-top-right-radius: 16px;
 }
 
-.layers-sheet .offcanvas-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    /* drag-handle visual cue */
+.info-sheet {
+    --bs-offcanvas-height: 55vh;
+    height: 55vh !important;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}
+
+.layers-sheet .offcanvas-header,
+.info-sheet .offcanvas-header {
+    border-bottom: 1px solid var(--rule);
     position: relative;
 }
 
-.layers-sheet .offcanvas-header::before {
+/* drag-handle visual cue */
+.layers-sheet .offcanvas-header::before,
+.info-sheet .offcanvas-header::before {
     content: '';
     position: absolute;
     top: 8px;
@@ -388,7 +707,14 @@ body {
     width: 40px;
     height: 4px;
     border-radius: 2px;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--rule);
+}
+
+.info-sheet .offcanvas-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
 }
 
 /* ============================================================
@@ -397,7 +723,7 @@ body {
 
 .list-panel {
     position: absolute;
-    background: white;
+    background: var(--paper);
     z-index: 6;
 }
 
@@ -426,7 +752,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid var(--rule);
 }
 
 .list-panel-body {
@@ -435,10 +761,75 @@ body {
 }
 
 /* ============================================================
-   Query mode
+   Right-side selection panel (desktop)
+   Feature-click info, and — via the .right-info-panel modifier on
+   the Saved/Reports sections — those panels too.
    ============================================================ */
 
-   .query-mode .maplibregl-canvas {
+.right-info-panel {
+    position: absolute;
+    background: var(--paper);
+    z-index: 6;
+}
+
+@media (min-width: 768px) {
+    .right-info-panel {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: auto;
+        width: 380px;
+        max-width: 90vw;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--rule);
+        box-shadow: -10px 0 28px rgba(20, 38, 26, 0.15);
+    }
+}
+
+.right-info-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    flex-shrink: 0;
+}
+
+.right-info-panel-header h6 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.right-info-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px;
+}
+
+/* ============================================================
+   Panel tabs (Reports mine/public)
+   ============================================================ */
+
+.nav-tabs .nav-link {
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.nav-tabs .nav-link.active { font-weight: 700; }
+
+/* ============================================================
+   Query and pick modes
+   ============================================================ */
+
+.query-mode .maplibregl-canvas {
     cursor: crosshair !important;
 }
 
@@ -446,15 +837,16 @@ body {
 .access-mode .maplibregl-canvas {
     cursor: crosshair !important;
 }
+
 body.tree-species-mode .maplibregl-canvas-container,
 body.tree-species-mode .maplibregl-canvas-container.maplibregl-interactive,
 body.tree-species-mode canvas.maplibregl-canvas {
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%23fff' stroke-width='3' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><g stroke='%23111' stroke-width='1.5' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><circle cx='24' cy='22' r='7.4' fill='%23fff' stroke='%23111' stroke-width='1.2'/><path d='M24 16.6 L27.4 21.6 L25.4 21.6 L28.2 25.4 L19.8 25.4 L22.6 21.6 L20.6 21.6 Z' fill='%232e7d32'/><rect x='23.3' y='25' width='1.4' height='2.6' fill='%235d4037'/></svg>") 11 11, crosshair !important;
 }
 
-
-
-body.soil-probe-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%23fff' stroke-width='3' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><g stroke='%23111' stroke-width='1.5' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><circle cx='24' cy='22' r='7' fill='%23fff' stroke='%23111' stroke-width='1.2'/><path d='M24 17.8v5.4' stroke='%23111' stroke-width='2' stroke-linecap='round'/><circle cx='24' cy='24.6' r='2.6' fill='%23c0392b'/></svg>") 11 11, crosshair; }
+body.soil-probe-mode {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g stroke='%23fff' stroke-width='3' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><g stroke='%23111' stroke-width='1.5' stroke-linecap='round'><path d='M11 3v6M11 13v6M3 11h6M13 11h6'/></g><circle cx='24' cy='22' r='7' fill='%23fff' stroke='%23111' stroke-width='1.2'/><path d='M24 17.8v5.4' stroke='%23111' stroke-width='2' stroke-linecap='round'/><circle cx='24' cy='24.6' r='2.6' fill='%23c0392b'/></svg>") 11 11, crosshair;
+}
 
 body.soil-probe-mode .maplibregl-canvas-container,
 body.soil-probe-mode .maplibregl-canvas-container.maplibregl-interactive,
@@ -466,9 +858,9 @@ body.soil-probe-mode canvas.maplibregl-canvas {
     position: absolute;
     top: 12px;
     left: 12px;
-    background: white;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
     padding: 12px;
     max-width: 320px;
     max-height: 50vh;
@@ -487,131 +879,183 @@ body.soil-probe-mode canvas.maplibregl-canvas {
    MapLibre control overrides
    ============================================================ */
 
-   .maplibregl-ctrl-top-right { display: none; }
-   .maplibregl-ctrl-bottom-right { display: none; }
-   
-   /* Scale bar + attribution: keep bottom-left, clear of any safe area */
-   .maplibregl-ctrl-bottom-left {
-       margin-left: 12px !important;
-       margin-bottom: 12px !important;
-   }
-
-@media (min-width: 768px) {
-    .maplibregl-ctrl-bottom-left {
-        margin-bottom: 12px !important;
-    }
-}
-
-/* Bottom-right MapLibre controls — we're not using them anymore; hide */
+.maplibregl-ctrl-top-right { display: none; }
 .maplibregl-ctrl-bottom-right { display: none; }
 
+/* Scale bar + attribution: keep bottom-left, clear of any safe area */
+.maplibregl-ctrl-bottom-left {
+    margin-left: 12px !important;
+    margin-bottom: 12px !important;
+}
+
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib.maplibregl-compact {
+    background: rgba(var(--paper-rgb), 0.85);
+    border-radius: 2px;
+    font-family: var(--display);
+}
+
+.maplibregl-ctrl-attrib a { color: var(--forest); }
+
+.maplibregl-ctrl-scale {
+    background: rgba(var(--paper-rgb), 0.85);
+    border-color: var(--ink);
+    border-radius: 0;
+    color: var(--ink);
+    font-family: var(--display);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
 /* ============================================================
-   Account menu — desktop bar
+   Account menus
    ============================================================ */
 
-   .app-bar-account { position: relative; }
+.app-bar-account { position: relative; }
 
-   .account-btn {
-       background: none;
-       border: none;
-       padding: 4px 8px;
-       font-size: 1.4rem;
-       color: #444;
-       cursor: pointer;
-       border-radius: 6px;
-   }
-   
-   .account-btn:hover { background: rgba(0, 0, 0, 0.05); color: #222; }
-   
-   .app-bar-account .dropdown-menu { min-width: 220px; }
-   
-   /* ============================================================
-      Account menu — mobile floating
-      ============================================================ */
-   
-   .mobile-account {
-       position: absolute;
-       top: 12px;
-       right: 12px;
-       z-index: 11;
-   }
-   
-   .mobile-account .account-btn {
-       background: white;
-       border: 1px solid rgba(0, 0, 0, 0.08);
-       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-       width: 44px;
-       height: 44px;
-       border-radius: 50%;
-       padding: 0;
-       display: flex;
-       align-items: center;
-       justify-content: center;
-       font-size: 1.4rem;
-       color: #444;
-   }
-   
-   .mobile-account .dropdown-menu { min-width: 220px; }
-   
-   /* ============================================================
-      Saved/Reports panels keep .list-panel for mobile full-screen
-      behavior, plus .right-info-panel (defined below) which overrides
-      the desktop positioning to dock on the right at 380px, same as
-      the feature-click info panel.
-      ============================================================ */
+.account-btn {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    font-size: 1.4rem;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 2px;
+}
 
-      /* ============================================================
+.account-btn:hover { background: var(--parchment); color: var(--ink); }
+
+.app-bar-account .dropdown-menu { min-width: 220px; }
+
+/* Mobile floating account button */
+.mobile-account {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 11;
+}
+
+.mobile-account .account-btn {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: 0 2px 8px rgba(20, 38, 26, 0.16);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: var(--ink);
+}
+
+.mobile-account .dropdown-menu { min-width: 220px; }
+
+/* ============================================================
    Toast notifications
    ============================================================ */
 
 .toast-container {
-    top: 60px !important;  /* clear the desktop app bar */
+    top: 64px !important;  /* clears the app bar plus its neatline shadow */
 }
 
 @media (max-width: 767.98px) {
     .toast-container {
-        top: 12px !important;  /* sit just under the mobile account button row */
+        top: 12px !important;  /* sits under the mobile account button row */
     }
 }
 
-#appToast.text-bg-success { background-color: var(--brand-green) !important; color: white; }
-#appToast.text-bg-danger { background-color: #b3261e !important; color: white; }
+#appToast.text-bg-dark {
+    background-color: var(--ink) !important;
+    color: var(--paper) !important;
+}
+
+#appToast.text-bg-success {
+    background-color: var(--forest) !important;
+    color: var(--paper) !important;
+}
+
+#appToast.text-bg-danger {
+    background-color: #b3261e !important;
+    color: #fff !important;
+}
 
 /* ============================================================
-   MapLibre popup styling
+   MapLibre popups
    ============================================================ */
 
-   .maplibregl-popup-content {
+.maplibregl-popup-content {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
     padding: 12px 14px;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 12px rgba(20, 38, 26, 0.18);
     min-width: 200px;
     max-width: 280px;
 }
 
+/* The tip is a CSS triangle, so each anchor needs its own edge colour. */
+.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+    border-bottom-color: var(--paper);
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+    border-top-color: var(--paper);
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+    border-right-color: var(--paper);
+}
+
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+    border-left-color: var(--paper);
+}
+
+.maplibregl-popup-close-button {
+    font-size: 1.2rem;
+    padding: 2px 8px;
+    color: var(--muted);
+}
+
+.maplibregl-popup-close-button:hover {
+    background: var(--parchment);
+    color: var(--ink);
+}
+
 .observation-popup .popup-species {
-    font-weight: 600;
+    font-family: var(--display);
+    font-weight: 700;
     font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
     margin-bottom: 2px;
 }
 
 .observation-popup .popup-meta {
-    font-size: 0.75rem;
-    color: #888;
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
     margin-bottom: 8px;
 }
 
 .observation-popup .popup-notes {
-    font-size: 0.85rem;
+    color: var(--ink);
     margin-bottom: 10px;
-    color: #333;
     white-space: pre-wrap;
 }
 
 .observation-popup .popup-h3 {
-    font-family: monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.7rem;
-    color: #999;
+    color: var(--muted);
     margin-bottom: 10px;
 }
 
@@ -626,26 +1070,20 @@ body.soil-probe-mode canvas.maplibregl-canvas {
 }
 
 /* Edit-mode pin styling */
-.observation-edit-marker {
-    cursor: grab;
-}
+.observation-edit-marker { cursor: grab; }
 .observation-edit-marker:active { cursor: grabbing; }
-
-.maplibregl-popup-close-button {
-    font-size: 1.2rem;
-    padding: 2px 8px;
-}
 
 /* ============================================================
    Drag-edit floating tooltip
    ============================================================ */
 
-   .drag-tooltip {
+.drag-tooltip {
     position: absolute;
     z-index: 9;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    box-shadow: 0 4px 16px rgba(20, 38, 26, 0.22);
     min-width: 280px;
     padding: 10px 12px;
     pointer-events: auto;
@@ -661,8 +1099,8 @@ body.soil-probe-mode canvas.maplibregl-canvas {
     height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-top: 8px solid white;
-    filter: drop-shadow(0 2px 1px rgba(0,0,0,0.1));
+    border-top: 8px solid var(--paper);
+    filter: drop-shadow(0 2px 1px rgba(20, 38, 26, 0.12));
 }
 
 /* ============================================================
@@ -683,19 +1121,19 @@ body.soil-probe-mode canvas.maplibregl-canvas {
 .crosshair-ring {
     position: absolute;
     inset: 0;
-    border: 3px solid var(--brand-orange);
+    border: 3px solid var(--ember);
     border-radius: 50%;
     box-shadow:
-        0 0 0 2px rgba(255, 255, 255, 0.9),
-        0 0 12px rgba(0, 0, 0, 0.4);
+        0 0 0 2px rgba(var(--paper-rgb), 0.9),
+        0 0 12px rgba(20, 38, 26, 0.4);
 }
 
 .crosshair-ring::before,
 .crosshair-ring::after {
     content: '';
     position: absolute;
-    background: var(--brand-orange);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+    background: var(--ember);
+    box-shadow: 0 0 0 1px rgba(var(--paper-rgb), 0.9);
 }
 
 .crosshair-ring::before {
@@ -722,8 +1160,8 @@ body.soil-probe-mode canvas.maplibregl-canvas {
     left: 50%;
     width: 8px;
     height: 8px;
-    background: var(--brand-orange);
-    border: 2px solid #ffffff;
+    background: var(--ember);
+    border: 2px solid var(--paper);
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
@@ -734,8 +1172,9 @@ body.soil-probe-mode canvas.maplibregl-canvas {
     right: 0;
     bottom: 0;
     padding: 16px;
-    background: rgba(255, 255, 255, 0.97);
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
+    background: rgba(var(--paper-rgb), 0.97);
+    border-top: 1px solid var(--rule);
+    box-shadow: 0 -2px 12px rgba(20, 38, 26, 0.15);
     z-index: 1040;
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0));
 }
@@ -747,8 +1186,8 @@ body.soil-probe-mode canvas.maplibregl-canvas {
 
 .crosshair-help {
     text-align: center;
-    color: #555;
-    font-size: 14px;
+    color: var(--muted);
+    font-size: 0.85rem;
     margin-bottom: 12px;
 }
 
@@ -757,145 +1196,25 @@ body.soil-probe-mode canvas.maplibregl-canvas {
     gap: 12px;
 }
 
-.crosshair-buttons .btn {
-    flex: 1;
-}
+.crosshair-buttons .btn { flex: 1; }
 
 /* Subtle dim of the map background during crosshair mode */
 body.crosshair-mode #map::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(20, 38, 26, 0.08);
     pointer-events: none;
     z-index: 5;
-}
-
-body.list-mode .fab-stack {
-    display: none;
-}
-
-body.info-panel-open .fab-stack {
-    display: none;
-}
-
-.fab-radial.is-armed #fabToggle {
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
-}
-.fab-radial.is-armed.is-open #fabToggle {
-    box-shadow: none;
-}
-/* ============================================================
-   Right-side selection panel (desktop) — feature-click info, and
-   (via the .right-info-panel modifier above) Saved/Reports too
-   ============================================================ */
-
-   .side-panel-body {
-    min-height: 0;
-}
-
-.side-panel {
-    position: relative;
-}
-
-.side-panel-body {
-    flex: 1;
-    min-height: 0;
-}
-
-.right-info-panel {
-    position: absolute;
-    background: #ffffff;
-    z-index: 6;
-}
-
-@media (min-width: 768px) {
-    .right-info-panel {
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: auto;
-        width: 380px;
-        max-width: 90vw;
-        display: flex;
-        flex-direction: column;
-        border-left: 1px solid rgba(0, 0, 0, 0.08);
-        box-shadow: -10px 0 28px rgba(0, 0, 0, 0.15);
-    }
-}
-
-.right-info-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 12px 16px;
-    background: #ffffff;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    flex-shrink: 0;
-}
-
-.right-info-panel-header h6 {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.right-info-panel-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 14px 16px;
-}
-
-/* ============================================================
-   Mobile info sheet (separate offcanvas from the Layers sheet)
-   ============================================================ */
-
-.info-sheet {
-    --bs-offcanvas-height: 55vh;
-    height: 55vh !important;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-}
-
-.info-sheet .offcanvas-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    position: relative;
-}
-
-.info-sheet .offcanvas-header::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.15);
-}
-
-.info-sheet .offcanvas-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--brand-green);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding-right: 8px;
 }
 
 /* ============================================================
    Hydro comments — card styling
    ============================================================ */
 
-   .hydro-comments {
-    background: rgba(44, 85, 48, 0.05);
-    border-radius: 10px;
+.hydro-comments {
+    background: var(--parchment);
+    border-radius: 2px;
     padding: 12px;
 }
 
@@ -910,15 +1229,15 @@ body.info-panel-open .fab-stack {
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    background: #ffffff;
-    border-radius: 8px;
-    border-left: 3px solid var(--brand-green);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--forest);
+    border-radius: 2px;
     padding: 8px 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .hydro-comment-row.is-private {
-    border-left-color: var(--brand-orange);
+    border-left-color: var(--ember);
 }
 
 .hydro-comment-avatar {
@@ -926,11 +1245,12 @@ body.info-panel-open .fab-stack {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--brand-green);
-    color: #ffffff;
+    background: var(--forest);
+    color: var(--paper);
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: var(--display);
     font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -938,7 +1258,7 @@ body.info-panel-open .fab-stack {
 }
 
 .hydro-comment-row.is-private .hydro-comment-avatar {
-    background: var(--brand-orange);
+    background: var(--ember);
 }
 
 .hydro-comment-content {
@@ -947,312 +1267,14 @@ body.info-panel-open .fab-stack {
 }
 
 .hydro-comment-form {
-    background: #ffffff;
-    border-radius: 8px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
     padding: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .hydro-comment-input:focus,
 .hydro-comment-edit-input:focus {
-    border-color: var(--brand-green) !important;
-    box-shadow: 0 0 0 0.2rem rgba(44, 85, 48, 0.15) !important;
+    border-color: var(--forest) !important;
+    box-shadow: 0 0 0 0.2rem rgba(var(--forest-rgb), 0.15) !important;
 }
-
-/* ============================================================
-   Brand alignment with mfmaps.com
-   Bootstrap loads before this file, so equal-specificity wins here.
-   ============================================================ */
-
-   :focus-visible {
-    outline: 2px solid var(--ember);
-    outline-offset: 2px;
-}
-
-body { background: var(--paper); color: var(--ink); }
-
-/* ---- Bootstrap components that hardcode #0d6efd ---- */
-
-.form-check-input:checked {
-    background-color: var(--forest);
-    border-color: var(--forest);
-}
-.form-check-input:focus {
-    border-color: rgba(var(--forest-rgb), 0.5);
-    box-shadow: 0 0 0 0.25rem rgba(var(--forest-rgb), 0.2);
-}
-.form-switch .form-check-input:focus {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%236d7268'/%3e%3c/svg%3e");
-}
-.form-switch .form-check-input:checked {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23faf8f2'/%3e%3c/svg%3e");
-}
-
-.form-control:focus,
-.form-select:focus {
-    border-color: rgba(var(--forest-rgb), 0.6);
-    box-shadow: 0 0 0 0.2rem rgba(var(--forest-rgb), 0.15);
-}
-
-.btn-primary {
-    --bs-btn-bg: var(--ember);
-    --bs-btn-border-color: var(--ember);
-    --bs-btn-hover-bg: #c25f22;
-    --bs-btn-hover-border-color: #c25f22;
-    --bs-btn-active-bg: #ad541e;
-    --bs-btn-active-border-color: #ad541e;
-    --bs-btn-disabled-bg: var(--ember);
-    --bs-btn-disabled-border-color: var(--ember);
-    --bs-btn-focus-shadow-rgb: var(--ember-rgb);
-}
-
-.btn-outline-secondary {
-    --bs-btn-color: var(--forest);
-    --bs-btn-border-color: var(--rule);
-    --bs-btn-hover-color: var(--ink);
-    --bs-btn-hover-bg: var(--parchment);
-    --bs-btn-hover-border-color: var(--forest);
-    --bs-btn-active-color: var(--ink);
-    --bs-btn-active-bg: var(--parchment);
-    --bs-btn-active-border-color: var(--forest);
-    --bs-btn-focus-shadow-rgb: var(--forest-rgb);
-}
-
-.nav-tabs {
-    --bs-nav-tabs-border-color: var(--rule);
-    --bs-nav-link-color: var(--muted);
-    --bs-nav-link-hover-color: var(--ink);
-    --bs-nav-tabs-link-active-color: var(--ink);
-    --bs-nav-tabs-link-active-bg: var(--paper);
-    --bs-nav-tabs-link-active-border-color: var(--rule) var(--rule) var(--paper);
-}
-
-.dropdown-menu {
-    --bs-dropdown-bg: var(--paper);
-    --bs-dropdown-border-color: var(--rule);
-    --bs-dropdown-link-color: var(--ink);
-    --bs-dropdown-link-hover-bg: var(--parchment);
-    --bs-dropdown-link-hover-color: var(--ink);
-    --bs-dropdown-link-active-bg: var(--forest);
-    --bs-dropdown-link-active-color: var(--paper);
-    --bs-dropdown-border-radius: 2px;
-}
-
-.offcanvas {
-    --bs-offcanvas-bg: var(--paper);
-    --bs-offcanvas-border-color: var(--rule);
-}
-
-/* ---- Surfaces: cream, not white ---- */
-
-.app-bar,
-.side-panel,
-.bottom-dock,
-.list-panel,
-.right-info-panel,
-.right-info-panel-header,
-.query-result,
-.drag-tooltip,
-.crosshair-bar,
-.maplibregl-popup-content,
-.fab,
-.north-reset,
-.mobile-account .account-btn,
-.hydro-comment-row,
-.hydro-comment-form {
-    background: var(--paper);
-}
-
-.drag-tooltip-arrow { border-top-color: var(--paper); }
-.hydro-comments { background: var(--parchment); }
-.north-reset:hover { background: var(--parchment); }
-
-/* ---- Rules: warm tan, not cool gray ---- */
-
-.app-bar,
-.side-panel,
-.side-panel-header,
-.bottom-dock,
-.list-panel-header,
-.right-info-panel,
-.right-info-panel-header,
-.query-result,
-.fab,
-.north-reset,
-.mobile-account .account-btn,
-.layers-sheet .offcanvas-header,
-.info-sheet .offcanvas-header {
-    border-color: var(--rule);
-}
-
-.layers-sheet .offcanvas-header::before,
-.info-sheet .offcanvas-header::before {
-    background: var(--rule);
-}
-
-/* ---- Text: ink and muted, not #333/#666/#888 ---- */
-
-.app-tab { color: var(--muted); }
-.app-tab:hover { background: var(--parchment); color: var(--ink); }
-.app-tab.active { color: var(--forest); background: rgba(var(--forest-rgb), 0.1); }
-
-.dock-tab { color: var(--muted); }
-.dock-tab.active { color: var(--forest); }
-
-.account-btn { color: var(--ink); }
-.account-btn:hover { background: var(--parchment); color: var(--ink); }
-.mobile-account .account-btn { color: var(--ink); }
-
-.right-info-panel-header h6 { color: var(--ink); }
-.crosshair-help { color: var(--muted); }
-.observation-popup .popup-meta,
-.observation-popup .popup-h3 { color: var(--muted); }
-.observation-popup .popup-notes { color: var(--ink); }
-
-/* ---- FAB: green fill, ember arm-ring (was Bootstrap blue) ---- */
-
-.fab[aria-pressed="true"] {
-    background: var(--forest);
-    border-color: var(--forest);
-    color: var(--paper);
-    box-shadow: 0 0 0 3px rgba(var(--ember-rgb), 0.45);
-}
-
-.fab-primary {
-    background: var(--forest);
-    border-color: var(--forest);
-    color: var(--paper);
-    box-shadow: 0 4px 12px rgba(var(--forest-rgb), 0.3);
-}
-.fab-primary:hover { background: #244526; border-color: #244526; }
-
-.fab-radial.is-armed #fabToggle {
-    box-shadow: 0 0 0 3px rgba(var(--ember-rgb), 0.5);
-}
-
-.fab-label { background: rgba(20, 38, 26, 0.92); color: var(--paper); }
-
-/* ============================================================
-   Type — matches mfmaps.com
-   Archivo for chrome, Source Serif 4 for human-written prose.
-   ============================================================ */
-
-   html, body { font-family: var(--display); }
-
-   /* ---- Brand wordmark: matches .wordmark ---- */
-   .app-bar-brand {
-       font-family: var(--display);
-       font-weight: 700;
-       letter-spacing: -0.015em;
-       color: var(--forest);
-   }
-   .app-bar-brand strong { font-weight: 700; }
-   
-   /* ---- Top tabs: matches .main-nav-link ---- */
-   .app-tab {
-       font-family: var(--display);
-       font-size: 0.78rem;
-       font-weight: 500;
-       letter-spacing: 0.06em;
-       text-transform: uppercase;
-   }
-   .app-tab.active { font-weight: 700; }
-   
-   /* ---- Mobile dock: same treatment, tighter ---- */
-   .dock-tab {
-       font-family: var(--display);
-       font-size: 0.6rem;
-       font-weight: 600;
-       letter-spacing: 0.07em;
-       text-transform: uppercase;
-   }
-   .dock-tab.active { font-weight: 700; }
-   
-   /* ---- Panel headers: matches .sub-nav-home ---- */
-   .side-panel-header h6,
-   .list-panel-header h6,
-   .right-info-panel-header h6,
-   .layers-sheet .offcanvas-title,
-   .info-sheet .offcanvas-title {
-       font-family: var(--display);
-       font-size: 0.72rem;
-       font-weight: 700;
-       letter-spacing: 0.1em;
-       text-transform: uppercase;
-       color: var(--forest);
-       margin: 0;
-   }
-   
-   /* ---- Layer section headings: matches .eyebrow ---- */
-   .layer-section > summary {
-       font-family: var(--display);
-       font-size: 0.7rem !important;
-       font-weight: 700;
-       letter-spacing: 0.14em;
-       text-transform: uppercase;
-       color: var(--muted) !important;
-   }
-   
-   /* ---- Control labels: Archivo, sentence case, readable ---- */
-   .form-check-label,
-   .form-label,
-   .form-select,
-   .form-control {
-       font-family: var(--display);
-       font-size: 0.875rem;
-       letter-spacing: 0;
-       color: var(--ink);
-   }
-   
-   /* ---- Buttons: matches .btn on the content site ---- */
-   .btn,
-   .crosshair-buttons .btn {
-       font-family: var(--display);
-       font-weight: 600;
-       letter-spacing: 0.04em;
-       text-transform: uppercase;
-   }
-   .btn-sm { font-size: 0.72rem; }
-   
-   /* ---- Tabs inside panels ---- */
-   .nav-tabs .nav-link {
-       font-family: var(--display);
-       font-size: 0.75rem;
-       font-weight: 500;
-       letter-spacing: 0.06em;
-       text-transform: uppercase;
-   }
-   .nav-tabs .nav-link.active { font-weight: 700; }
-   
-   /* ---- Dropdown / toast / tooltips ---- */
-   .dropdown-menu,
-   .toast,
-   .fab-label,
-   .crosshair-help {
-       font-family: var(--display);
-   }
-   
-   /* ---- Popup titles ---- */
-   .observation-popup .popup-species {
-       font-family: var(--display);
-       font-weight: 700;
-       letter-spacing: -0.01em;
-   }
-   .observation-popup .popup-meta,
-   .observation-popup .popup-h3 {
-       font-family: var(--display);
-       font-size: 0.7rem;
-       font-weight: 600;
-       letter-spacing: 0.1em;
-       text-transform: uppercase;
-   }
-   .observation-popup .popup-h3 { text-transform: none; letter-spacing: 0.04em; }
-   
-   /* ---- Serif: only where a person wrote sentences ---- */
-   .observation-popup .popup-notes,
-   .hydro-comment-content .comment-body,
-   .hydro-comment-content p {
-       font-family: var(--body);
-       font-size: 0.95rem;
-       line-height: 1.55;
-   }
