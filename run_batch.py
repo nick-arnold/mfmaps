@@ -56,6 +56,7 @@ def enrich(area_dir, area, seq_fh, notcom_fh=None):
                 if notcom_fh is not None:
                     notcom_fh.write(json.dumps({"type":"Feature","geometry":feat["geometry"],"properties":{}}) + "\n")
                 continue
+            props["areasymbol"] = area
             feat["properties"] = props
             seq_fh.write(json.dumps(feat) + "\n")
     os.remove(geom)
@@ -73,7 +74,8 @@ def do_batch(bid, areas):
             try:
                 fetch.download([area], WORK)
             except Exception as e:
-                print("  dl FAIL %s: %s" % (area, e)); continue
+                print("  dl FAIL %s: %s" % (area, e))
+                open("failed_areas.txt","a").write(area + "\n"); continue
             adir = os.path.join(WORK, area)
             if not os.path.isdir(adir):
                 print("  %s: no data (skipped)" % area); continue
