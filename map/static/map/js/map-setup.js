@@ -168,7 +168,7 @@ const LAYER_ORDER_FAMILIES = [
     
 ];
     
-];
+
 
 // Re-assert the desired stacking of all currently-registered overlay layers.
 // Idempotent and cheap; safe to call after any registration.
