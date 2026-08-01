@@ -287,6 +287,7 @@ body {
     box-shadow: 0 3px 0 0 var(--paper), 0 4px 0 0 var(--rule);
     align-items: center;
     padding: 0 16px;
+    display: flex;
     flex-shrink: 0;
     z-index: 20;
 }
@@ -1277,4 +1278,59 @@ body.crosshair-mode #map::after {
 .hydro-comment-edit-input:focus {
     border-color: var(--forest) !important;
     box-shadow: 0 0 0 0.2rem rgba(var(--forest-rgb), 0.15) !important;
+}
+
+/* ============================================================
+   Mobile masthead
+   The desktop bar collapses to badge + wordmark; mode switching
+   lives in the bottom dock, so the tabs are hidden here. The
+   account button moves up out of the map and into the bar.
+   ============================================================ */
+
+   @media (max-width: 767.98px) {
+    :root { --app-bar-h: 44px; }
+
+    .app-bar { padding: 0 12px; }
+
+    .app-bar-tabs,
+    .app-bar-account { display: none; }
+
+    .app-bar-brand {
+        margin-right: 0;
+        gap: 7px;
+        font-size: 0.95rem;
+    }
+
+    .app-bar-logo { height: 28px; width: 28px; }
+
+    /* Fixed, so it escapes .app-main and sits inside the bar
+       without moving anything in the DOM. */
+    .mobile-account {
+        position: fixed;
+        top: 3px;
+        right: 6px;
+        z-index: 30;
+    }
+
+    .mobile-account .account-btn {
+        width: 38px;
+        height: 38px;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        color: var(--forest);
+        font-size: 1.3rem;
+    }
+
+    .toast-container { top: 56px !important; }
+}
+
+/* ---- MapLibre scale bar: hairline, not a slab ---- */
+
+.maplibregl-ctrl-scale {
+    border: 1px solid var(--ink);
+    border-top: 0;
+    padding: 0 5px;
+    font-size: 0.68rem;
+    font-weight: 600;
 }
