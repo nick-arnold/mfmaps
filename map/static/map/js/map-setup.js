@@ -2328,6 +2328,13 @@ function wireHydroInteractions() {
         if (state.queryMode) return;
         if (state.accessMode) return;
         if (state.crosshairMode) return;
+        if (map.getLayer('tide-stations') &&
+            map.getLayoutProperty('tide-stations', 'visibility') === 'visible' &&
+            map.queryRenderedFeatures(e.point, { layers: ['tide-stations'] }).length) {
+            map.getCanvas().style.cursor = 'pointer';
+            if (lastHoveredKey !== null) { setHoveredHydro(null); lastHoveredKey = null; }
+            return;
+        }
         const feat = queryNearbyHydroFeature(e.point);
         if (!feat) {
             if (lastHoveredKey !== null) {
