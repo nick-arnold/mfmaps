@@ -1059,7 +1059,7 @@ function registerSoils() {
             layout: { visibility: 'none' },
             paint: {
                 'fill-color': ['coalesce', ['get', 'color'], '#cccccc'],
-                'fill-opacity': 0.20,
+                'fill-opacity': 0.25,
                 'fill-outline-color': 'rgba(0,0,0,0.15)',
             },
         }, BASEMAP_LINE_ANCHOR);
