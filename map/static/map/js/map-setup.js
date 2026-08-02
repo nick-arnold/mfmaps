@@ -33,6 +33,7 @@ import {
 } from './state.js';
 import { escapeHtml} from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
+import { registerShadeProtocol } from './shade-filter.js';
 import {
     predict as tidePredict,
     stationTides as tideStationTides,
@@ -109,6 +110,7 @@ const DEFERRED_REGISTRARS = {
     'public-land-dissolved':   registerPublicLandDissolved,
     'soils':                   registerSoils,
     'tide-stations':           registerTideStations,
+    'shade-test': registerShadeTest,
 };
 
 // =============================================================================
@@ -267,6 +269,7 @@ export function initMap() {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
         registerSpeciesFilterProtocol();
+        registerShadeProtocol();
         state._pmtilesRegistered = true;
     }
 
@@ -324,6 +327,8 @@ function addEagerSourcesAndLayers() {
     registerTrails();
     registerObservations();
     registerCanopy();          
+
+    
 }
 
 // --- Terrain hillshade (CONUS / AK / HI) ---------------------------------
@@ -677,6 +682,30 @@ function registerAspect() {
     });
 
     _registeredGroups.add('aspect');
+}
+
+// --- TEMP: baked hillshade test (Oregon Cascades, z10 only) --------------
+function registerShadeTest() {
+    if (_registeredGroups.has('shade-test')) return;
+    const { map } = state;
+
+    map.addSource('shade-test', {
+        type: 'raster',
+        tiles: [`shade://${TERRAIN_BASE}/shade-test/conus_shade_z10_test.pmtiles#{z}/{x}/{y}`],
+        tileSize: 512,
+        minzoom: 10,
+        maxzoom: 10,
+        bounds: [-123.0, 43.4, -121.9, 44.1],
+    });
+    map.addLayer({
+        id: 'shade-test-layer',
+        type: 'raster',
+        source: 'shade-test',
+        paint: { 'raster-opacity': 1.0 },
+        layout: { visibility: 'none' },
+    }, BASEMAP_LINE_ANCHOR);
+
+    _registeredGroups.add('shade-test');
 }
 
 // --- Tree canopy cover ---------------------------------------------------

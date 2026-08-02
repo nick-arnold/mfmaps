@@ -61,6 +61,7 @@ def clip_region(region_dir, hole_union, out_fh):
         if piece.is_empty: continue
         a = attrs.get(mukeys[i])
         if not a or not a.get("series"): continue
+        if a["series"].strip().lower() == "water": continue   # drop water; NHD handles it
         # color/group with the SAME functions as SSURGO
         a = dict(a)
         a["color"] = B.series_color(a.get("taxorder"), a.get("series"))

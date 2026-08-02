@@ -56,6 +56,8 @@ def enrich(area_dir, area, seq_fh, notcom_fh=None):
                 if notcom_fh is not None:
                     notcom_fh.write(json.dumps({"type":"Feature","geometry":feat["geometry"],"properties":{}}) + "\n")
                 continue
+            if (props.get("series") or "").strip().lower() == "water":
+                continue   # drop SSURGO water entirely; NHD handles hydrography
             props["areasymbol"] = area
             feat["properties"] = props
             seq_fh.write(json.dumps(feat) + "\n")
