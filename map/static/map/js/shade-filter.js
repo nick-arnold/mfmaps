@@ -74,11 +74,15 @@ export function registerShadeProtocol() {
         const img = ctx.getImageData(0, 0, c.width, c.height);
         const d = img.data;
         for (let i = 0; i < d.length; i += 4) {
+            // Tiles now carry a nodata mask in A. Multiply the shading alpha
+            // by it so nodata stays fully transparent instead of painting
+            // shadow over empty ground.
+            const mask = d[i + 3];
             const a = SHADE_LUT[d[i]];      // R channel; gray so R==G==B
             d[i] = SHADOW_RGB[0];
             d[i + 1] = SHADOW_RGB[1];
             d[i + 2] = SHADOW_RGB[2];
-            d[i + 3] = a;
+            d[i + 3] = (a * mask) / 255;
         }
         ctx.putImageData(img, 0, 0);
 
