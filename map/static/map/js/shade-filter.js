@@ -10,7 +10,6 @@
 // URL format:  shade://<pmtiles-url>#{z}/{x}/{y}
 // =============================================================================
 
-import * as pmtiles from 'pmtiles';
 
 const TILE_SIZE = 512;
 const SHADOW_RGB = [58, 42, 24];        // #3a2a18
