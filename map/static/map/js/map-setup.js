@@ -110,9 +110,34 @@ const DEFERRED_REGISTRARS = {
     'public-land-dissolved':   registerPublicLandDissolved,
     'soils':                   registerSoils,
     'tide-stations':           registerTideStations,
-    'shade-test': registerShadeTest,
+    'baked-hillshade':         registerBakedHillshade,
+    'terrain':                 registerTerrain,
 };
 
+// Groups built after first paint rather than during it. Every entry must also
+// exist in DEFERRED_REGISTRARS. Registration is spread one-group-per-idle-slot
+// so a long list can't stall interaction — add to this array to preload more.
+const IDLE_PRELOAD_GROUPS = [
+    'terrain',
+];
+
+const _requestIdle = window.requestIdleCallback
+    || (cb => setTimeout(() => cb(), 1));
+
+function preloadIdleGroups(groups = IDLE_PRELOAD_GROUPS) {
+    const queue = [...groups];
+    const step = () => {
+        const g = queue.shift();
+        if (!g) return;
+        try {
+            ensureGroupRegistered(g);
+        } catch (err) {
+            console.warn(`Idle preload failed for "${g}":`, err);
+        }
+        if (queue.length) _requestIdle(step);
+    };
+    _requestIdle(step);
+}
 // =============================================================================
 // CENTRAL LAYER ORDERING
 // =============================================================================
@@ -307,8 +332,10 @@ export function initMap() {
             wireUrlSync();
             await preloadTreeSpeciesLegends();
 
-            // Force a repaint once sources settle to unblock hillshade rendering
+            // Basemap has painted — build the heavier groups now, off the
+            // critical path.
             state.map.once('idle', () => {
+                preloadIdleGroups();
                 state.map.triggerRepaint();
             });
 
@@ -322,7 +349,6 @@ export function initMap() {
 // =============================================================================
 
 function addEagerSourcesAndLayers() {
-    registerTerrain();
     registerContours();
     registerTrails();
     registerObservations();
@@ -684,28 +710,33 @@ function registerAspect() {
     _registeredGroups.add('aspect');
 }
 
-// --- TEMP: baked hillshade test (Oregon Cascades, z10 only) --------------
-function registerShadeTest() {
-    if (_registeredGroups.has('shade-test')) return;
+// --- Baked hillshade (CONUS) — test alongside the live terrain-RGB ------
+// Grayscale WebP tiles, colorized to #3a2a18 + alpha by the shade:// protocol.
+// One archive covering z5-13 rather than four zoom tiers.
+function registerBakedHillshade() {
+    if (_registeredGroups.has('baked-hillshade')) return;
     const { map } = state;
 
-    map.addSource('shade-test', {
+    map.addSource('shade-conus', {
         type: 'raster',
-        tiles: [`shade://${TERRAIN_BASE}/shade-test/conus_shade_z10_test.pmtiles#{z}/{x}/{y}`],
+        tiles: [`shade://${TERRAIN_BASE}/conus_shade_v1.pmtiles#{z}/{x}/{y}`],
         tileSize: 512,
-        minzoom: 10,
-        maxzoom: 10,
-        bounds: [-123.0, 43.4, -121.9, 44.1],
+        minzoom: 5,
+        maxzoom: 13,
+        bounds: REGION_BOUNDS.conus,
     });
     map.addLayer({
-        id: 'shade-test-layer',
+        id: 'shade-conus-hillshade',
         type: 'raster',
-        source: 'shade-test',
-        paint: { 'raster-opacity': 1.0 },
+        source: 'shade-conus',
+        minzoom: 5,
+        maxzoom: 22,
+        paint: { 'raster-opacity': 0.55 },
         layout: { visibility: 'none' },
     }, BASEMAP_LINE_ANCHOR);
 
-    _registeredGroups.add('shade-test');
+    _registeredGroups.add('baked-hillshade');
+    enforceLayerOrder();
 }
 
 // --- Tree canopy cover ---------------------------------------------------

@@ -149,6 +149,7 @@ export const LAYER_IDS = {
         'hawaii-z8-10-hillshade',
         'hawaii-z11-12-hillshade',
     ],
+    'baked-hillshade': ['shade-conus-hillshade'],
     contour: (() => {
         const regions = ['conus', 'alaska', 'hawaii'];
         const zoomTiers = [10, 11, 12, 13];

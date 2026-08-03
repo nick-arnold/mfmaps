@@ -29,7 +29,11 @@ def load_notcom_union(path):
             line = line.strip()
             if not line: continue
             g = shape(json.loads(line)["geometry"])
-            if g.is_valid and not g.is_empty:
+            if g.is_empty:
+                continue
+            if not g.is_valid:
+                g = g.buffer(0)   # repair self-intersections (e.g. OR608 rectangle)
+            if not g.is_empty:
                 geoms.append(g)
     print(f"  {len(geoms)} NOTCOM polygons -> unioning…")
     return unary_union(geoms)

@@ -280,6 +280,13 @@
         </label>
     </div>
     <div class="form-check form-switch mb-2">
+      <input class="form-check-input layer-toggle" type="checkbox"
+            id="layer-baked-hillshade-CTX" data-layer-group="baked-hillshade">
+      <label class="form-check-label" for="layer-baked-hillshade-CTX">
+          Hillshade (baked, CONUS)
+      </label>
+  </div>
+    <div class="form-check form-switch mb-2">
         <input class="form-check-input layer-toggle" type="checkbox"
                id="layer-slope-CTX" data-layer-group="slope">
         <label class="form-check-label" for="layer-slope-CTX">
@@ -730,7 +737,8 @@
           "./observations.js":     "{% static 'map/js/observations.js' %}",
           "./reports.js":          "{% static 'map/js/reports.js' %}",
           "./species-picker.js":   "{% static 'map/js/species-picker.js' %}",
-          "./species-filter.js":   "{% static 'map/js/species-filter.js' %}"
+          "./species-filter.js":   "{% static 'map/js/species-filter.js' %}",
+          "./shade-filter.js":     "{% static 'map/js/shade-filter.js' %}"
       }
   }
   </script>

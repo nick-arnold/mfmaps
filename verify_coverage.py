@@ -16,7 +16,7 @@ def sda_all_areas():
 
 def present_in_tiles(pmtiles, z=9):
     # decode the whole zoom level; grep areasymbols. (z9 = coarse, every area present, fast-ish)
-    p = subprocess.Popen(["tippecanoe-decode", pmtiles, str(z)],
+    p = subprocess.Popen(["tippecanoe-decode", pmtiles],
                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     found = set()
     for line in p.stdout:
