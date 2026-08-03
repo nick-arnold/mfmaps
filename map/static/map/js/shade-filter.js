@@ -17,7 +17,7 @@ const SHADOW_RGB = [58, 42, 24];        // #3a2a18
 // gray value -> alpha. Breakpoints from the z3 histogram: p5=123, p25=185,
 // median=220, flat=255. Interpolated linearly between stops.
 const ALPHA_STOPS = [
-    [0, 220], [100, 175], [150, 130], [190, 85], [220, 45], [240, 15], [255, 0]
+    [0, 255], [140, 230], [190, 180], [215, 120], [235, 60], [248, 20], [255, 0]
 ];
 
 const SHADE_LUT = (() => {
