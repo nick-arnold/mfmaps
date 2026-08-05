@@ -11,9 +11,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'brand/apple-touch-icon.png' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">  
+    <link href="{% static 'map/css/vendor/bootstrap.min.css' %}" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.css" rel="stylesheet">
+    <link href="{% static 'map/css/vendor/maplibre-gl.css' %}" rel="stylesheet">
 
     <link href="{% static 'map/css/map.css' %}?v={% now 'U' %}" rel="stylesheet"></head>
 <body>
@@ -720,11 +721,11 @@
   window.MFMAPS_TIDE_STATIONS_URL  = "{% static 'map/data/tide-stations.geojson' %}";
   window.MFMAPS_TIDE_HARMONICS_URL = "{% static 'map/data/tide-harmonics.json' %}";
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://unpkg.com/maplibre-gl@5.21.1/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
-<script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
-<script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
+<script src="{% static 'map/js/vendor/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'map/js/vendor/maplibre-gl.js' %}"></script>
+<script src="{% static 'map/js/vendor/pmtiles.js' %}"></script>
+<script src="{% static 'map/js/vendor/h3-js.umd.js' %}"></script>
+<script src="{% static 'map/js/vendor/turf.min.js' %}"></script>
 
 <script type="importmap">
   {
