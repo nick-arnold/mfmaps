@@ -137,16 +137,9 @@ export const LAYER_IDS = {
     ],
     terrain: [
         'terrain-conus-hillshade',
-        'alaska-z3-4-hillshade',
-        'alaska-z5-7-hillshade',
-        'alaska-z8-10-hillshade',
-        'alaska-z11-12-hillshade',
-        'hawaii-z3-4-hillshade',
-        'hawaii-z5-7-hillshade',
-        'hawaii-z8-10-hillshade',
-        'hawaii-z11-12-hillshade',
+        'terrain-alaska-hillshade',
+        'terrain-hawaii-hillshade',
     ],
-    'baked-hillshade': ['shade-conus-hillshade'],
     contour: (() => {
         const regions = ['conus', 'alaska', 'hawaii'];
         const zoomTiers = [10, 11, 12, 13];

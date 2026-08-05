@@ -33,7 +33,6 @@ import {
 } from './state.js';
 import { escapeHtml} from './api.js';
 import { registerSpeciesFilterProtocol } from './species-filter.js';
-import { registerShadeProtocol } from './shade-filter.js';
 import {
     predict as tidePredict,
     stationTides as tideStationTides,
@@ -110,7 +109,6 @@ const DEFERRED_REGISTRARS = {
     'public-land-dissolved':   registerPublicLandDissolved,
     'soils':                   registerSoils,
     'tide-stations':           registerTideStations,
-    'baked-hillshade':         registerBakedHillshade,
     'terrain':                 registerTerrain,
     'contour':                 registerContours,
     'canopy':                  registerCanopy,
@@ -299,7 +297,6 @@ export function initMap() {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
         registerSpeciesFilterProtocol();
-        registerShadeProtocol();
         state._pmtilesRegistered = true;
     }
 
@@ -367,15 +364,9 @@ function registerTerrain() {
     const { map } = state;
 
     const terrainTiers = [
-        { id: 'terrain-conus',  file: 'conus_terrain_v1.pmtiles', minzoom: 3, maxzoom: 22, sourceMaxzoom: 12, region: 'conus'  },
-        { id: 'alaska-z3-4',    file: 'alaska_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'alaska' },
-        { id: 'alaska-z5-7',    file: 'alaska_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'alaska' },
-        { id: 'alaska-z8-10',   file: 'alaska_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'alaska' },
-        { id: 'alaska-z11-12',  file: 'alaska_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'alaska' },
-        { id: 'hawaii-z3-4',    file: 'hawaii_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'hawaii' },
-        { id: 'hawaii-z5-7',    file: 'hawaii_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'hawaii' },
-        { id: 'hawaii-z8-10',   file: 'hawaii_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'hawaii' },
-        { id: 'hawaii-z11-12',  file: 'hawaii_z11-12_v1.pmtiles',minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'hawaii' },
+        { id: 'terrain-conus',  file: 'conus_terrain_v1.pmtiles',  minzoom: 3, maxzoom: 22, sourceMaxzoom: 12, region: 'conus'  },
+        { id: 'terrain-alaska', file: 'alaska_terrain_v1.pmtiles', minzoom: 3, maxzoom: 22, sourceMaxzoom: 12, region: 'alaska' },
+        { id: 'terrain-hawaii', file: 'hawaii_terrain_v1.pmtiles', minzoom: 3, maxzoom: 22, sourceMaxzoom: 12, region: 'hawaii' },
     ];
 
     terrainTiers.forEach(tier => {
@@ -710,34 +701,6 @@ function registerAspect() {
     _registeredGroups.add('aspect');
 }
 
-// --- Baked hillshade (CONUS) — test alongside the live terrain-RGB ------
-// Grayscale WebP tiles, colorized to #3a2a18 + alpha by the shade:// protocol.
-// One archive covering z5-13 rather than four zoom tiers.
-function registerBakedHillshade() {
-    if (_registeredGroups.has('baked-hillshade')) return;
-    const { map } = state;
-
-    map.addSource('shade-conus', {
-        type: 'raster',
-        tiles: [`shade://${TERRAIN_BASE}/conus_shade_v2.pmtiles#{z}/{x}/{y}`],
-        tileSize: 512,
-        minzoom: 3,
-        maxzoom: 13,
-        bounds: REGION_BOUNDS.conus,
-    });
-    map.addLayer({
-        id: 'shade-conus-hillshade',
-        type: 'raster',
-        source: 'shade-conus',
-        minzoom: 3,
-        maxzoom: 22,
-        paint: { 'raster-opacity': 0.55 },
-        layout: { visibility: 'none' },
-    }, BASEMAP_LINE_ANCHOR);
-
-    _registeredGroups.add('baked-hillshade');
-    enforceLayerOrder();
-}
 
 // --- Tree canopy cover ---------------------------------------------------
 
