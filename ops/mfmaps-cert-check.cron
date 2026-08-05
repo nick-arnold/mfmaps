@@ -1,0 +1,5 @@
+# Daily TLS expiry check. Pings Healthchecks.io; if the ping stops arriving,
+# Healthchecks alerts -- so a broken check is as loud as a broken cert.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+15 6 * * * root /usr/local/bin/check-cert-expiry.sh >> /var/log/mfmaps-cert-check.log 2>&1

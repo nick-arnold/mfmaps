@@ -53,3 +53,6 @@ ssurgo_work/
 ssurgo_test/
 .DS_Store
 *.pmtiles-journal
+
+# TLS check secret -- lives at /etc/mfmaps-cert-check.env, never in git
+ops/mfmaps-cert-check.env

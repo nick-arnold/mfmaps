@@ -1,0 +1,28 @@
+# Bootstrap override -- ONLY for issuing the very first Let's Encrypt cert on a
+# fresh server, or after losing /etc/letsencrypt.
+#
+# The chicken-and-egg: every server block in nginx/nginx.conf references
+# /etc/letsencrypt/live/mfmaps.com/*.pem. If those files don't exist, nginx
+# refuses to start, so you can't serve the ACME challenge, so you can't get the
+# cert. This override swaps in an HTTP-only config that serves nothing but the
+# challenge path.
+#
+# This is a FRAGMENT -- it has no build/image key and will not run alone.
+# Usage:
+#
+#   COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.bootstrap.yml"
+#   $COMPOSE up -d nginx
+#   sudo certbot certonly --webroot -w /var/www/certbot \
+#        -d mfmaps.com -d www.mfmaps.com -d map.mfmaps.com --key-type ecdsa
+#   $COMPOSE down
+#   docker compose -f docker-compose.prod.yml up -d     # real config, has certs now
+#
+# Then install the renewal hook and cron job -- see ops/README.md.
+
+services:
+  nginx:
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx-http-only.conf:/etc/nginx/conf.d/default.conf:ro
+      - /var/www/certbot:/var/www/certbot:ro
