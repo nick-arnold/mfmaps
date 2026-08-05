@@ -722,9 +722,9 @@ function registerBakedHillshade() {
 
     map.addSource('shade-conus', {
         type: 'raster',
-        tiles: [`shade://${TERRAIN_BASE}/conus_shade_v1.pmtiles#{z}/{x}/{y}`],
+        tiles: [`shade://${TERRAIN_BASE}/conus_shade_v2.pmtiles#{z}/{x}/{y}`],
         tileSize: 512,
-        minzoom: 5,
+        minzoom: 3,
         maxzoom: 13,
         bounds: REGION_BOUNDS.conus,
     });
@@ -732,7 +732,7 @@ function registerBakedHillshade() {
         id: 'shade-conus-hillshade',
         type: 'raster',
         source: 'shade-conus',
-        minzoom: 5,
+        minzoom: 3,
         maxzoom: 22,
         paint: { 'raster-opacity': 0.55 },
         layout: { visibility: 'none' },
