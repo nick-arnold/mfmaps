@@ -112,6 +112,8 @@ const DEFERRED_REGISTRARS = {
     'tide-stations':           registerTideStations,
     'baked-hillshade':         registerBakedHillshade,
     'terrain':                 registerTerrain,
+    'contour':                 registerContours,
+    'canopy':                  registerCanopy,
 };
 
 // Groups built after first paint rather than during it. Every entry must also
@@ -119,6 +121,9 @@ const DEFERRED_REGISTRARS = {
 // so a long list can't stall interaction — add to this array to preload more.
 const IDLE_PRELOAD_GROUPS = [
     'terrain',
+    'canopy',
+    'contour',
+
 ];
 
 const _requestIdle = window.requestIdleCallback
@@ -349,10 +354,8 @@ export function initMap() {
 // =============================================================================
 
 function addEagerSourcesAndLayers() {
-    registerContours();
     registerTrails();
     registerObservations();
-    registerCanopy();          
 
     
 }
