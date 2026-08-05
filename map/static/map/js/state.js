@@ -136,10 +136,7 @@ export const LAYER_IDS = {
         'trails-path-natural',
     ],
     terrain: [
-        'terrain-z3-4-hillshade',
-        'terrain-z5-7-hillshade',
-        'terrain-z8-10-hillshade',
-        'terrain-z11-12-hillshade',
+        'terrain-conus-hillshade',
         'alaska-z3-4-hillshade',
         'alaska-z5-7-hillshade',
         'alaska-z8-10-hillshade',

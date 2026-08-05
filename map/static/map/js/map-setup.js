@@ -367,10 +367,7 @@ function registerTerrain() {
     const { map } = state;
 
     const terrainTiers = [
-        { id: 'terrain-z3-4',   file: 'conus_z3-4_v1.pmtiles',   minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'conus'  },
-        { id: 'terrain-z5-7',   file: 'conus_z5-7_v1.pmtiles',   minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'conus'  },
-        { id: 'terrain-z8-10',  file: 'conus_z8-10_v1.pmtiles',  minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'conus'  },
-        { id: 'terrain-z11-12', file: 'conus_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, sourceMaxzoom: 12, region: 'conus'  },
+        { id: 'terrain-conus',  file: 'conus_terrain_v1.pmtiles', minzoom: 3, maxzoom: 22, sourceMaxzoom: 12, region: 'conus'  },
         { id: 'alaska-z3-4',    file: 'alaska_z3-4_v1.pmtiles',  minzoom: 3,  maxzoom: 5,  sourceMaxzoom: 4,  region: 'alaska' },
         { id: 'alaska-z5-7',    file: 'alaska_z5-7_v1.pmtiles',  minzoom: 5,  maxzoom: 8,  sourceMaxzoom: 7,  region: 'alaska' },
         { id: 'alaska-z8-10',   file: 'alaska_z8-10_v1.pmtiles', minzoom: 8,  maxzoom: 11, sourceMaxzoom: 10, region: 'alaska' },
