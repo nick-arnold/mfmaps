@@ -747,16 +747,16 @@ function registerTreeSpecies() {
     const { map } = state;
 
     [
-        { id: 'tree-species',    region: 'conus', opacity: 0.28, bounds: REGION_BOUNDS.conus  },
-        { id: 'tree-species-ak', region: 'ak',   opacity: 0.20, bounds: REGION_BOUNDS.alaska },
-        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28, bounds: REGION_BOUNDS.hawaii },
+        { id: 'tree-species',    region: 'conus', opacity: 0.28, bounds: REGION_BOUNDS.conus,  srcMax: 13 },
+        { id: 'tree-species-ak', region: 'ak',   opacity: 0.20, bounds: REGION_BOUNDS.alaska, srcMax: 14 },
+        { id: 'tree-species-hi', region: 'hi',   opacity: 0.28, bounds: REGION_BOUNDS.hawaii, srcMax: 14 },
     ].forEach(cfg => {
         map.addSource(cfg.id, {
             type: 'raster',
             tiles: [`speciesfilter://${cfg.region}/{z}/{x}/{y}`],
             tileSize: 256,
             minzoom: 4,
-            maxzoom: 14,
+            maxzoom: cfg.srcMax,
             bounds: cfg.bounds,
         });
         map.addLayer({
@@ -2459,11 +2459,11 @@ const TREE_SPECIES_REGIONS = [
     {
         name: 'conus',
         pmtilesUrl:     'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_v1.pmtiles',
-        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data_v1.pmtiles',
+        dataPmtilesUrl: 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_data_v2.pmtiles',
         legendUrl:      'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/tree-species/treemap_composite_conus_legend.json',
         bbox: [-125.5, 24.0, -66.0, 50.0],
         lookupType: 'data-tile',
-        maxZoom: 14,
+        maxZoom: 13,
     },
     {
         name: 'ak',
