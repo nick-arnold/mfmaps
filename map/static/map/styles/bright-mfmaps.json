@@ -2134,13 +2134,14 @@
       "layout": {
         "icon-image": "road_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1.4,
+        "icon-size": 1.6,
         "symbol-placement": {"base": 1, "stops": [[10, "point"], [11, "line"]]},
         "symbol-spacing": 200,
         "text-field": "{ref}",
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
-        "text-size": 10
+        "text-size": 10,
+        "icon-offset": [2, 3]
       },
       "paint": {}
     },
@@ -2159,7 +2160,7 @@
       "layout": {
         "icon-image": "{network}_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1.4,
+        "icon-size": 1.6,
         "symbol-placement": {
           "base": 1,
           "stops": [[7, "point"], [7, "line"], [8, "line"]]
@@ -2168,7 +2169,8 @@
         "text-field": "{ref}",
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
-        "text-size": 10
+        "text-size": 10,
+        "icon-offset": [2, 3]
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
@@ -2187,13 +2189,14 @@
       "layout": {
         "icon-image": "{network}_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1.4,
+        "icon-size": 1.6,
         "symbol-placement": {"base": 1, "stops": [[10, "point"], [11, "line"]]},
         "symbol-spacing": 200,
         "text-field": "{ref}",
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
-        "text-size": 10
+        "text-size": 10,
+        "icon-offset": [2, 3]
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
