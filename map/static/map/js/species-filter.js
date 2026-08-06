@@ -11,8 +11,7 @@
 // =============================================================================
 
 import { state } from './state.js';
-import { getRegionByName, getRegionPmtilesForFilter } from './map-setup.js';
-
+import { getRegionByName, getRegionPmtilesForFilter, getTreeSpeciesRegions } from './map-setup.js';
 const TILE_SIZE = 256;
 const _dataCache = new Map();
 const MAX_CACHE = 400;
@@ -182,4 +181,20 @@ export function registerSpeciesFilterProtocol() {
     if (_registered) return;
     maplibregl.addProtocol('speciesfilter', speciesFilterProtocol);
     _registered = true;
+}
+
+// Resolve the archive header and root directory ahead of the user's first
+// tile request. PMTiles needs header -> root dir -> leaf dir before it can
+// fetch any tile, and those are sequential round trips -- ~300-400ms on LTE.
+// Doing it at registration moves that wait off the toggle.
+export async function warmSpeciesArchives() {
+    const regions = getTreeSpeciesRegions();
+    await Promise.all(regions.map(async (region) => {
+        try {
+            const pm = getRegionPmtilesForFilter(region);
+            if (pm?.data) await pm.data.getHeader();
+        } catch (err) {
+            console.warn(`Species archive warm failed for ${region.name}:`, err);
+        }
+    }));
 }

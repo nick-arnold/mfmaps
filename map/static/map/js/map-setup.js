@@ -32,7 +32,7 @@ import {
     saveBurnSeverityPerimeterVisible,
 } from './state.js';
 import { escapeHtml} from './api.js';
-import { registerSpeciesFilterProtocol } from './species-filter.js';
+import { registerSpeciesFilterProtocol, warmSpeciesArchives } from './species-filter.js';
 import {
     predict as tidePredict,
     stationTides as tideStationTides,
@@ -121,7 +121,7 @@ const IDLE_PRELOAD_GROUPS = [
     'terrain',
     'canopy',
     'contour',
-
+    'tree-species',
 ];
 
 const _requestIdle = window.requestIdleCallback
@@ -775,6 +775,7 @@ function registerTreeSpecies() {
 
     _registeredGroups.add('tree-species');
     enforceLayerOrder();
+    warmSpeciesArchives();
 }
 
 // --- Burn severity (MTBS annual mosaics + national perimeter vector) ------
