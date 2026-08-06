@@ -2134,7 +2134,7 @@
       "layout": {
         "icon-image": "road_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1,
+        "icon-size": 1.4,
         "symbol-placement": {"base": 1, "stops": [[10, "point"], [11, "line"]]},
         "symbol-spacing": 200,
         "text-field": "{ref}",
@@ -2159,7 +2159,7 @@
       "layout": {
         "icon-image": "{network}_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1,
+        "icon-size": 1.4,
         "symbol-placement": {
           "base": 1,
           "stops": [[7, "point"], [7, "line"], [8, "line"]]
@@ -2187,7 +2187,7 @@
       "layout": {
         "icon-image": "{network}_{ref_length}",
         "icon-rotation-alignment": "viewport",
-        "icon-size": 1,
+        "icon-size": 1.4,
         "symbol-placement": {"base": 1, "stops": [[10, "point"], [11, "line"]]},
         "symbol-spacing": 200,
         "text-field": "{ref}",
