@@ -2141,7 +2141,7 @@
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
         "text-size": 10,
-        "icon-offset": [4, 6]
+        "icon-offset": [4.5, 5]
       },
       "paint": {}
     },
@@ -2170,7 +2170,7 @@
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
         "text-size": 10,
-        "icon-offset": [4, 6]
+        "icon-offset": [4.5, 5]
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
@@ -2196,7 +2196,7 @@
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
         "text-size": 10,
-        "icon-offset": [4, 6]
+        "icon-offset": [4.5, 5]
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
