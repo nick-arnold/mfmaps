@@ -122,6 +122,7 @@ const IDLE_PRELOAD_GROUPS = [
     'canopy',
     'contour',
     'tree-species',
+    'soils',
 ];
 
 const _requestIdle = window.requestIdleCallback
