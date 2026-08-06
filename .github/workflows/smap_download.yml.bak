@@ -200,9 +200,6 @@ jobs:
           aws s3 cp era5_isolines_${DATE}.pmtiles s3://mfmaps-tiles/soil-moisture/isolines/era5_isolines_${DATE}.pmtiles $EP --acl public-read
           aws s3 cp era5_isolines_latest.pmtiles s3://mfmaps-tiles/soil-moisture/isolines/era5_isolines_latest.pmtiles $EP --acl public-read
 
-          echo "{\"raster\":\"era5_raster_${DATE}.pmtiles\",\"isolines\":\"era5_isolines_${DATE}.pmtiles\",\"date\":\"$(cat ERA5_DATE)\"}" > sm_manifest.json
-          aws s3 cp sm_manifest.json s3://mfmaps-tiles/soil-moisture/manifest.json $EP --acl public-read --cache-control "public, max-age=300"
-
           echo "Done"
 
       - name: Purge CDN cache

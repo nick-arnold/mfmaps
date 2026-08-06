@@ -123,6 +123,9 @@ const IDLE_PRELOAD_GROUPS = [
     'contour',
     'tree-species',
     'soils',
+    'soil-moisture-raster',
+    'soil-temperature-raster',
+
 ];
 
 const _requestIdle = window.requestIdleCallback
@@ -882,47 +885,82 @@ function registerBurnSeverity() {
 function registerSoilMoisture() {
     if (_registeredGroups.has('soil-moisture-raster')) return;
     const { map } = state;
-
-    map.addSource('soil-moisture-raster', {
-        type: 'raster',
-        url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/era5_raster_latest.pmtiles`,
-        tileSize: 256,
-        minzoom: 3,
-        maxzoom: 8,
-    });
-    map.addLayer({
-        id: 'soil-moisture-raster-layer',
-        type: 'raster',
-        source: 'soil-moisture-raster',
-        minzoom: 3,
-        maxzoom: 22,
-        paint: {
-            'raster-opacity': 0.35,
-            'raster-resampling': 'linear',
-        },
-        layout: { visibility: 'none' }
-    }, BASEMAP_LINE_ANCHOR);
-
     _registeredGroups.add('soil-moisture-raster');
+
+    // The daily ERA5 job overwrites a fixed `_latest` filename, which leaves
+    // CDN edges serving byte ranges from mixed versions -- the source of
+    // intermittent "no content-length" errors. The manifest names the current
+    // dated archive so every fetch hits an immutable file.
+    (async () => {
+        let file = 'era5_raster_latest.pmtiles';
+        try {
+            const r = await fetch(`${SOIL_MOISTURE_BASE}/manifest.json`, { cache: 'no-cache' });
+            if (r.ok) {
+                const m = await r.json();
+                if (m.raster) file = m.raster;
+            }
+        } catch (err) {
+            console.warn('Soil moisture manifest fetch failed, using latest:', err);
+        }
+
+        if (map.getSource('soil-moisture-raster')) return;
+
+        map.addSource('soil-moisture-raster', {
+            type: 'raster',
+            url: `pmtiles://${SOIL_MOISTURE_BASE}/raster/${file}`,
+            tileSize: 256,
+            minzoom: 3,
+            maxzoom: 8,
+        });
+        map.addLayer({
+            id: 'soil-moisture-raster-layer',
+            type: 'raster',
+            source: 'soil-moisture-raster',
+            minzoom: 3,
+            maxzoom: 22,
+            paint: {
+                'raster-opacity': 0.35,
+                'raster-resampling': 'linear',
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+
+        enforceLayerOrder();
+    })();
 }
 
 
 
 function registerSoilTemperature() {
-    if (_registeredGroups.has('soil-temperature')) return;
+    if (_registeredGroups.has('soil-temperature-raster')) return;
+    const { map } = state;
+    _registeredGroups.add('soil-temperature-raster');
 
-    if (!map.getSource('soil-temperature-raster')) {
+    // Same manifest pattern as soil moisture -- the daily job overwrites a
+    // fixed `_latest` filename, which leaves CDN edges serving byte ranges
+    // from mixed versions.
+    (async () => {
+        let file = 'era5_st_raster_latest.pmtiles';
+        try {
+            const r = await fetch(`${SOIL_TEMP_TILES_BASE}/manifest.json`, { cache: 'no-cache' });
+            if (r.ok) {
+                const m = await r.json();
+                if (m.raster) file = m.raster;
+            }
+        } catch (err) {
+            console.warn('Soil temperature manifest fetch failed, using latest:', err);
+        }
+
+        if (map.getSource('soil-temperature-raster')) return;
+
         map.addSource('soil-temperature-raster', {
             type: 'raster',
-            url: `pmtiles://${SOIL_TEMP_TILES_BASE}/raster/era5_st_raster_latest.pmtiles`,
+            url: `pmtiles://${SOIL_TEMP_TILES_BASE}/raster/${file}`,
             tileSize: 256,
             minzoom: 3,
             maxzoom: 8,
             attribution: 'Soil temperature: ECMWF ERA5-Land',
         });
-    }
-
-    if (!map.getLayer('soil-temperature-raster-layer')) {
         map.addLayer({
             id: 'soil-temperature-raster-layer',
             type: 'raster',
@@ -933,10 +971,9 @@ function registerSoilTemperature() {
                 'raster-resampling': 'linear',
             },
         }, BASEMAP_LINE_ANCHOR);
-    }
 
-    _registeredGroups.add('soil-temperature');
-    enforceLayerOrder();
+        enforceLayerOrder();
+    })();
 }
 
 // --- Public land (PAD-US flattened, filtered to go-able land) -------------
@@ -2907,11 +2944,22 @@ export function setLayerGroupVisibility(group, visible) {
         return;
     }
 
-    (LAYER_IDS[group] || []).forEach(id => {
-        if (state.map.getLayer(id)) {
-            state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+    // Some groups build asynchronously (they fetch a manifest first), so the
+    // layer may not exist yet on the first toggle. Retry briefly rather than
+    // silently doing nothing.
+    const apply = (attempt = 0) => {
+        const ids = LAYER_IDS[group] || [];
+        const missing = ids.filter(id => !state.map.getLayer(id));
+        ids.forEach(id => {
+            if (state.map.getLayer(id)) {
+                state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+            }
+        });
+        if (missing.length && attempt < 20) {
+            setTimeout(() => apply(attempt + 1), 100);
         }
-    });
+    };
+    apply();
 }
 
 export function isLayerGroupVisible(group) {
