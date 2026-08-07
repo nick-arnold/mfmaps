@@ -409,11 +409,13 @@ function registerContours() {
 
     // Nesting ladder, all regions: 400/200/100/50 ft, index at 2000/1000/500/250.
     // Every interval doubles, so a line's index status never changes as you zoom.
+    // labelEvery is deliberately finer than the index interval -- labelling only
+    // index lines leaves z10 nearly bare (2000 ft spacing = 3-4 lines on screen).
     const CONTOUR_ZOOM_TIERS = [
-        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
-        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
-        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
-        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 },
+        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1, labelEvery: 800 },
+        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1, labelEvery: 400 },
+        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2, labelEvery: 200 },
+        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2, labelEvery: 200 },
     ];
 
     function addMergedRegion(region, file) {
@@ -460,19 +462,16 @@ function registerContours() {
                 type: 'symbol',
                 source: srcId,
                 'source-layer': 'contours',
-                filter: ['all',
-                    ['==', ['get', 'idx'], 1],
-                    ['==', ['%', ['get', 'elev_ft'], 1000], 0],
-                ],
+                filter: ['==', ['%', ['get', 'elev_ft'], tier.labelEvery], 0],
                 minzoom: tier.minzoom,
                 maxzoom: tier.maxzoom,
                 layout: {
                     'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
                     'text-font': LABEL_FONT,
                     'symbol-placement': 'line',
-                    'text-size': 10,
-                    'symbol-spacing': 300,
-                    'text-max-angle': 25,
+                    'text-size': 9,
+                    'symbol-spacing': 250,
+                    'text-max-angle': 30,
                     'text-padding': 4,
                     'text-rotation-alignment': 'map',
                     'text-pitch-alignment': 'viewport',
@@ -484,7 +483,6 @@ function registerContours() {
                     'text-halo-blur': 0.5,
                 },
             }, BASEMAP_LINE_ANCHOR);
-
         });
     }
 
@@ -492,7 +490,8 @@ function registerContours() {
     addMergedRegion('hawaii', 'hawaii_contours_v1.pmtiles');
 
     // --- Alaska: still on the old per-zoom archives, non-nesting ladder ---
-    // Rebuild pending; remove this block once alaska_contours_v1 exists.
+    // Rebuild pending; replace this block with addMergedRegion('alaska', ...)
+    // once alaska_contours_v1 exists.
     const ALASKA_INTERVALS = { 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' };
 
     CONTOUR_ZOOM_TIERS.forEach(tier => {
@@ -534,6 +533,33 @@ function registerContours() {
                 'line-width': tier.wIndex,
                 'line-opacity': 0.7
             }
+        }, BASEMAP_LINE_ANCHOR);
+
+        map.addLayer({
+            id: `contour-label-alaska-z${tier.zoom}`,
+            type: 'symbol',
+            source: srcId,
+            'source-layer': 'contours',
+            filter: ['==', ['%', ['get', 'elev_ft'], tier.labelEvery], 0],
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: {
+                'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
+                'text-font': LABEL_FONT,
+                'symbol-placement': 'line',
+                'text-size': 9,
+                'symbol-spacing': 250,
+                'text-max-angle': 30,
+                'text-padding': 4,
+                'text-rotation-alignment': 'map',
+                'text-pitch-alignment': 'viewport',
+            },
+            paint: {
+                'text-color': CONTOUR_INDEX_COLOR,
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+                'text-halo-blur': 0.5,
+            },
         }, BASEMAP_LINE_ANCHOR);
     });
 
