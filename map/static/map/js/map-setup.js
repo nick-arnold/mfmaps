@@ -407,78 +407,24 @@ function registerContours() {
     if (_registeredGroups.has('contour')) return;
     const { map } = state;
 
-    // --- CONUS: single merged archive, z10-13 ---------------------------
-    // Nesting ladder: 500/250/100/50 ft, index at 2500/1000/500/250.
-    // Each interval divides the one below, so zooming in adds lines rather
-    // than swapping the set.
-    map.addSource('contours-conus', {
-        type: 'vector',
-        url: `pmtiles://${CONTOUR_BASE}/conus_contours_v3.pmtiles`,
-        bounds: REGION_BOUNDS.conus,
-    });
-
-    [
-        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
-        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
-        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
-        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 },
-    ].forEach(tier => {
-        map.addLayer({
-            id: `contour-intermediate-conus-z${tier.zoom}`,
-            type: 'line',
-            source: 'contours-conus',
-            'source-layer': 'contours',
-            filter: ['==', ['get', 'idx'], 0],
-            minzoom: tier.minzoom,
-            maxzoom: tier.maxzoom,
-            paint: {
-                'line-color': CONTOUR_INTERMEDIATE_COLOR,
-                'line-width': tier.wIntermediate,
-                'line-opacity': 0.5
-            }
-        }, BASEMAP_LINE_ANCHOR);
-
-        map.addLayer({
-            id: `contour-index-conus-z${tier.zoom}`,
-            type: 'line',
-            source: 'contours-conus',
-            'source-layer': 'contours',
-            filter: ['==', ['get', 'idx'], 1],
-            minzoom: tier.minzoom,
-            maxzoom: tier.maxzoom,
-            paint: {
-                'line-color': CONTOUR_INDEX_COLOR,
-                'line-width': tier.wIndex,
-                'line-opacity': 0.7
-            }
-        }, BASEMAP_LINE_ANCHOR);
-    });
-
-    // --- Alaska + Hawaii: still on the old per-zoom archives -------------
-    const CONTOUR_REGION_INTERVALS = {
-        hawaii: { 10: '250ft', 11: '150ft', 12: '100ft', 13: '50ft' },
-        alaska: { 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' },
-    };
-
+    // Nesting ladder, all regions: 400/200/100/50 ft, index at 2000/1000/500/250.
+    // Every interval doubles, so a line's index status never changes as you zoom.
     const CONTOUR_ZOOM_TIERS = [
         { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
         { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
         { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
-        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 }
+        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 },
     ];
 
-    Object.keys(CONTOUR_REGION_INTERVALS).forEach(region => {
+    function addMergedRegion(region, file) {
+        const srcId = `contours-${region}`;
+        map.addSource(srcId, {
+            type: 'vector',
+            url: `pmtiles://${CONTOUR_BASE}/${file}`,
+            bounds: REGION_BOUNDS[region],
+        });
+
         CONTOUR_ZOOM_TIERS.forEach(tier => {
-            const interval = CONTOUR_REGION_INTERVALS[region][tier.zoom];
-            const srcId = `contours-${region}-z${tier.zoom}`;
-            const file  = `${region}_contour_${interval}_z${tier.zoom}_v1.pmtiles`;
-
-            map.addSource(srcId, {
-                type: 'vector',
-                url: `pmtiles://${CONTOUR_BASE}/${file}`,
-                bounds: REGION_BOUNDS[region]
-            });
-
             map.addLayer({
                 id: `contour-intermediate-${region}-z${tier.zoom}`,
                 type: 'line',
@@ -509,6 +455,55 @@ function registerContours() {
                 }
             }, BASEMAP_LINE_ANCHOR);
         });
+    }
+
+    addMergedRegion('conus',  'conus_contours_v3.pmtiles');
+    addMergedRegion('hawaii', 'hawaii_contours_v1.pmtiles');
+
+    // --- Alaska: still on the old per-zoom archives, non-nesting ladder ---
+    // Rebuild pending; remove this block once alaska_contours_v1 exists.
+    const ALASKA_INTERVALS = { 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' };
+
+    CONTOUR_ZOOM_TIERS.forEach(tier => {
+        const interval = ALASKA_INTERVALS[tier.zoom];
+        const srcId = `contours-alaska-z${tier.zoom}`;
+        const file  = `alaska_contour_${interval}_z${tier.zoom}_v1.pmtiles`;
+
+        map.addSource(srcId, {
+            type: 'vector',
+            url: `pmtiles://${CONTOUR_BASE}/${file}`,
+            bounds: REGION_BOUNDS.alaska
+        });
+
+        map.addLayer({
+            id: `contour-intermediate-alaska-z${tier.zoom}`,
+            type: 'line',
+            source: srcId,
+            'source-layer': 'contours',
+            filter: ['==', ['get', 'idx'], 0],
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            paint: {
+                'line-color': CONTOUR_INTERMEDIATE_COLOR,
+                'line-width': tier.wIntermediate,
+                'line-opacity': 0.5
+            }
+        }, BASEMAP_LINE_ANCHOR);
+
+        map.addLayer({
+            id: `contour-index-alaska-z${tier.zoom}`,
+            type: 'line',
+            source: srcId,
+            'source-layer': 'contours',
+            filter: ['==', ['get', 'idx'], 1],
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            paint: {
+                'line-color': CONTOUR_INDEX_COLOR,
+                'line-width': tier.wIndex,
+                'line-opacity': 0.7
+            }
+        }, BASEMAP_LINE_ANCHOR);
     });
 
     _registeredGroups.add('contour');
