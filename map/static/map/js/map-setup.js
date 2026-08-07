@@ -455,6 +455,35 @@ function registerContours() {
                 }
             }, BASEMAP_LINE_ANCHOR);
         });
+        map.addLayer({
+            id: `contour-label-${region}-z${tier.zoom}`,
+            type: 'symbol',
+            source: srcId,
+            'source-layer': 'contours',
+            filter: ['all',
+                ['==', ['get', 'idx'], 1],
+                ['==', ['%', ['get', 'elev_ft'], 1000], 0],
+            ],
+            minzoom: tier.minzoom,
+            maxzoom: tier.maxzoom,
+            layout: {
+                'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
+                'text-font': LABEL_FONT,
+                'symbol-placement': 'line',
+                'text-size': 10,
+                'symbol-spacing': 300,
+                'text-max-angle': 25,
+                'text-padding': 4,
+                'text-rotation-alignment': 'map',
+                'text-pitch-alignment': 'viewport',
+            },
+            paint: {
+                'text-color': CONTOUR_INDEX_COLOR,
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.5,
+                'text-halo-blur': 0.5,
+            },
+        }, BASEMAP_LINE_ANCHOR);
     }
 
     addMergedRegion('conus',  'conus_contours_v3.pmtiles');
