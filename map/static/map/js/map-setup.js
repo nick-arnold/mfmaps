@@ -413,7 +413,7 @@ function registerContours() {
     // than swapping the set.
     map.addSource('contours-conus', {
         type: 'vector',
-        url: `pmtiles://${CONTOUR_BASE}/conus_contours_v2.pmtiles`,
+        url: `pmtiles://${CONTOUR_BASE}/conus_contours_v3.pmtiles`,
         bounds: REGION_BOUNDS.conus,
     });
 
