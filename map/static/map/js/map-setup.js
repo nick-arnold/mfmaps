@@ -409,23 +409,24 @@ function registerContours() {
 
     // Nesting ladder, all regions: 400/200/100/50 ft, index at 2000/1000/500/250.
     // Every interval doubles, so a line's index status never changes as you zoom.
-    // labelEvery is deliberately finer than the index interval -- labelling only
-    // index lines leaves z10 nearly bare (2000 ft spacing = 3-4 lines on screen).
+    //
+    // Labels go on index lines only. Placement is deliberately permissive --
+    // contour lines curve hard, and MapLibre's defaults reject most positions
+    // along them, which leaves major lines unlabelled. Tighten in this order if
+    // it reads too busy: raise symbolSpacing, then lower maxAngle, then set
+    // allowOverlap false.
     const CONTOUR_ZOOM_TIERS = [
-        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1, labelEvery: 800 },
-        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1, labelEvery: 400 },
-        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2, labelEvery: 200 },
-        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2, labelEvery: 200 },
+        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
+        { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
+        { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
+        { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 },
     ];
 
-    function addMergedRegion(region, file) {
-        const srcId = `contours-${region}`;
-        map.addSource(srcId, {
-            type: 'vector',
-            url: `pmtiles://${CONTOUR_BASE}/${file}`,
-            bounds: REGION_BOUNDS[region],
-        });
+    const LABEL_SPACING   = 200;   // px between repeats along one line
+    const LABEL_MAX_ANGLE = 90;    // degrees of curve text may follow
+    const LABEL_SIZE      = 9;
 
+    function contourLayers(region, srcId) {
         CONTOUR_ZOOM_TIERS.forEach(tier => {
             map.addLayer({
                 id: `contour-intermediate-${region}-z${tier.zoom}`,
@@ -462,17 +463,19 @@ function registerContours() {
                 type: 'symbol',
                 source: srcId,
                 'source-layer': 'contours',
-                filter: ['==', ['%', ['get', 'elev_ft'], tier.labelEvery], 0],
+                filter: ['==', ['get', 'idx'], 1],
                 minzoom: tier.minzoom,
                 maxzoom: tier.maxzoom,
                 layout: {
                     'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
                     'text-font': LABEL_FONT,
                     'symbol-placement': 'line',
-                    'text-size': 9,
-                    'symbol-spacing': 250,
-                    'text-max-angle': 30,
-                    'text-padding': 4,
+                    'text-size': LABEL_SIZE,
+                    'symbol-spacing': LABEL_SPACING,
+                    'text-max-angle': LABEL_MAX_ANGLE,
+                    'text-padding': 2,
+                    'text-allow-overlap': true,
+                    'text-ignore-placement': true,
                     'text-rotation-alignment': 'map',
                     'text-pitch-alignment': 'viewport',
                 },
@@ -486,22 +489,29 @@ function registerContours() {
         });
     }
 
+    function addMergedRegion(region, file) {
+        const srcId = `contours-${region}`;
+        map.addSource(srcId, {
+            type: 'vector',
+            url: `pmtiles://${CONTOUR_BASE}/${file}`,
+            bounds: REGION_BOUNDS[region],
+        });
+        contourLayers(region, srcId);
+    }
+
     addMergedRegion('conus',  'conus_contours_v3.pmtiles');
     addMergedRegion('hawaii', 'hawaii_contours_v1.pmtiles');
 
     // --- Alaska: still on the old per-zoom archives, non-nesting ladder ---
-    // Rebuild pending; replace this block with addMergedRegion('alaska', ...)
-    // once alaska_contours_v1 exists.
+    // Replace with addMergedRegion('alaska', 'alaska_contours_v1.pmtiles')
+    // once the rebuild lands.
     const ALASKA_INTERVALS = { 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' };
 
     CONTOUR_ZOOM_TIERS.forEach(tier => {
-        const interval = ALASKA_INTERVALS[tier.zoom];
         const srcId = `contours-alaska-z${tier.zoom}`;
-        const file  = `alaska_contour_${interval}_z${tier.zoom}_v1.pmtiles`;
-
         map.addSource(srcId, {
             type: 'vector',
-            url: `pmtiles://${CONTOUR_BASE}/${file}`,
+            url: `pmtiles://${CONTOUR_BASE}/alaska_contour_${ALASKA_INTERVALS[tier.zoom]}_z${tier.zoom}_v1.pmtiles`,
             bounds: REGION_BOUNDS.alaska
         });
 
@@ -540,17 +550,19 @@ function registerContours() {
             type: 'symbol',
             source: srcId,
             'source-layer': 'contours',
-            filter: ['==', ['%', ['get', 'elev_ft'], tier.labelEvery], 0],
+            filter: ['==', ['get', 'idx'], 1],
             minzoom: tier.minzoom,
             maxzoom: tier.maxzoom,
             layout: {
                 'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
                 'text-font': LABEL_FONT,
                 'symbol-placement': 'line',
-                'text-size': 9,
-                'symbol-spacing': 250,
-                'text-max-angle': 30,
-                'text-padding': 4,
+                'text-size': LABEL_SIZE,
+                'symbol-spacing': LABEL_SPACING,
+                'text-max-angle': LABEL_MAX_ANGLE,
+                'text-padding': 2,
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
                 'text-rotation-alignment': 'map',
                 'text-pitch-alignment': 'viewport',
             },
