@@ -410,13 +410,18 @@ function registerContours() {
     // Nesting ladder, all regions: 400/200/100/50 ft, index at 2000/1000/500/250.
     // Every interval doubles, so a line's index status never changes as you zoom.
     //
-    // Labels go on index lines only. Placement is deliberately permissive --
-    // contour lines curve hard, and MapLibre's defaults reject most positions
-    // along them, which leaves major lines unlabelled. Tighten in this order if
-    // it reads too busy: raise symbolSpacing, then lower maxAngle, then set
-    // allowOverlap false.
+    // Labels go on index lines only, with placement deliberately permissive --
+    // contour lines curve hard and MapLibre's defaults reject most positions
+    // along them, leaving major lines unlabelled. Tighten in this order if it
+    // reads busy: raise LABEL_SPACING, then lower LABEL_MAX_ANGLE, then set
+    // allow-overlap false.
+    //
+    // z10 uses short labels ("4k" not "4000'") because short text needs less
+    // straight line to sit on, which is exactly what's scarce there. Index
+    // lines at z10 are every 2000 ft, so they always divide into whole
+    // thousands -- no decimals. Finer tiers keep feet.
     const CONTOUR_ZOOM_TIERS = [
-        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1 },
+        { zoom: 10, minzoom: 10, maxzoom: 11, wIntermediate: 0.6, wIndex: 1.1, shortLabels: true },
         { zoom: 11, minzoom: 11, maxzoom: 12, wIntermediate: 0.7, wIndex: 1.1 },
         { zoom: 12, minzoom: 12, maxzoom: 13, wIntermediate: 0.7, wIndex: 1.2 },
         { zoom: 13, minzoom: 13, maxzoom: 22, wIntermediate: 0.8, wIndex: 1.2 },
@@ -467,12 +472,9 @@ function registerContours() {
                 minzoom: tier.minzoom,
                 maxzoom: tier.maxzoom,
                 layout: {
-                    'text-field': [
-                        'case',
-                        ['==', ['%', ['get', 'elev_ft'], 1000], 0],
-                        ['concat', ['to-string', ['/', ['get', 'elev_ft'], 1000]], 'k'],
-                        ['concat', ['to-string', ['get', 'elev_ft']], "'"]
-                    ],
+                    'text-field': tier.shortLabels
+                        ? ['concat', ['to-string', ['/', ['get', 'elev_ft'], 1000]], 'k']
+                        : ['concat', ['to-string', ['get', 'elev_ft']], "'"],
                     'text-font': LABEL_FONT,
                     'symbol-placement': 'line',
                     'text-size': LABEL_SIZE,
@@ -508,8 +510,8 @@ function registerContours() {
     addMergedRegion('hawaii', 'hawaii_contours_v1.pmtiles');
 
     // --- Alaska: still on the old per-zoom archives, non-nesting ladder ---
-    // Replace with addMergedRegion('alaska', 'alaska_contours_v1.pmtiles')
-    // once the rebuild lands.
+    // Replace this whole block with addMergedRegion('alaska',
+    // 'alaska_contours_v1.pmtiles') once the rebuild lands.
     const ALASKA_INTERVALS = { 10: '400ft', 11: '200ft', 12: '200ft', 13: '100ft' };
 
     CONTOUR_ZOOM_TIERS.forEach(tier => {
