@@ -467,7 +467,12 @@ function registerContours() {
                 minzoom: tier.minzoom,
                 maxzoom: tier.maxzoom,
                 layout: {
-                    'text-field': ['concat', ['to-string', ['get', 'elev_ft']], "'"],
+                    'text-field': [
+                        'case',
+                        ['==', ['%', ['get', 'elev_ft'], 1000], 0],
+                        ['concat', ['to-string', ['/', ['get', 'elev_ft'], 1000]], 'k'],
+                        ['concat', ['to-string', ['get', 'elev_ft']], "'"]
+                    ],
                     'text-font': LABEL_FONT,
                     'symbol-placement': 'line',
                     'text-size': LABEL_SIZE,
