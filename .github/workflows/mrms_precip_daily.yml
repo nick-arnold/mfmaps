@@ -1,0 +1,247 @@
+name: MRMS Daily Precip (30-day rolling store)
+
+# Maintains a rolling 30-day archive of daily MRMS 24-hour QPE rasters in
+# s3://mfmaps-tiles/precip/daily/.
+#
+# DESIGN: this job RECONCILES, it does not append. Every run computes the set of
+# dates that should exist, lists what actually exists in Spaces, and downloads
+# only the difference. Consequences:
+#   - The first run is the backfill. There is no separate backfill script.
+#   - A skipped/failed run self-heals on the next execution. No permanent holes.
+#   - Pass2's publish lag is harmless: a day that isn't out yet is just missing,
+#     and gets picked up on a later run.
+#
+# Downstream products (weekly sums, RGB-encoded PMTiles, the click-graph point
+# query) all read FROM this store. Nothing downstream re-downloads from NOAA.
+
+on:
+  schedule:
+    # 09:00 UTC daily. Pass2 is the gauge-corrected pass and lags roughly a day;
+    # LAG_DAYS below is what actually protects us, this is just a quiet hour.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      window_days:
+        description: 'Days to keep in the rolling store'
+        required: false
+        default: '30'
+      prune:
+        description: 'Delete objects older than the window (true/false)'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: mrms-precip-daily
+  cancel-in-progress: false
+
+env:
+  # --- Destination ---
+  DEST_BUCKET: mfmaps-tiles
+  DEST_PREFIX: precip/daily
+  SPACES_EP: https://sfo3.digitaloceanspaces.com
+
+  # --- Window ---
+  WINDOW_DAYS: ${{ github.event.inputs.window_days || '30' }}
+  PRUNE: ${{ github.event.inputs.prune || 'true' }}
+
+  # How many days back the newest expected COVERED day sits. A day's precip is
+  # published as a file stamped the NEXT day at 00Z, and Pass2 itself lags ~24h,
+  # so 2 is the first offset that's reliably available.
+  LAG_DAYS: 2
+
+  # --- Source ---
+  # NOAA Open Data bucket. Public, no account needed.
+  # Retention is NOT documented -- if the first run can't reach back 30 days,
+  # that's the answer, and the missing tail needs a one-time pull from the
+  # Iowa State archive (mtarchive.geol.iastate.edu, /YYYY/MM/DD/mrms/ncep/).
+  NOAA_BUCKET: noaa-mrms-pds
+  NOAA_PREFIX: CONUS/MultiSensor_QPE_24H_Pass2_00.00
+  NOAA_REGION: us-east-1
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Install GDAL and AWS CLI
+        run: |
+          sudo apt-get update -qq
+          # NOTE: do NOT try to apt-get install gunzip -- there is no such
+          # package, it ships inside gzip and is already present. Asking for it
+          # fails the whole step, because Actions runs `run:` under `bash -e`.
+          sudo apt-get install -y -qq gdal-bin python3-gdal awscli
+          gdalinfo --version
+          aws --version
+
+      - name: Work out which days are missing
+        id: plan
+        run: |
+          set -euo pipefail
+          EP="--endpoint-url ${SPACES_EP}"
+
+          # Desired covered days: LAG_DAYS back, WINDOW_DAYS long.
+          DESIRED=""
+          for i in $(seq "${LAG_DAYS}" $(( LAG_DAYS + WINDOW_DAYS - 1 ))); do
+            DESIRED="${DESIRED} $(date -u -d "${i} days ago" +%Y%m%d)"
+          done
+          echo "Desired window: $(echo ${DESIRED} | awk '{print $NF" -> "$1}')"
+
+          # What's already in Spaces. Listing needs credentials even though the
+          # objects themselves are public-read.
+          aws s3 ls "s3://${DEST_BUCKET}/${DEST_PREFIX}/" ${EP} \
+            | awk '{print $NF}' > existing_keys.txt || true
+          grep -oE 'mrms_qpe24_[0-9]{8}\.tif' existing_keys.txt \
+            | grep -oE '[0-9]{8}' | sort -u > existing_dates.txt || true
+          echo "Already stored: $(wc -l < existing_dates.txt) day(s)"
+
+          MISSING=""
+          for D in ${DESIRED}; do
+            if ! grep -qx "${D}" existing_dates.txt 2>/dev/null; then
+              MISSING="${MISSING} ${D}"
+            fi
+          done
+          MISSING=$(echo ${MISSING} | xargs || true)
+
+          echo "${MISSING}" > missing_dates.txt
+          echo "Missing: ${MISSING:-none}"
+          echo "missing_count=$(echo ${MISSING} | wc -w)" >> "$GITHUB_STEP_OUTPUT"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Fetch, convert, and upload missing days
+        run: |
+          set -uo pipefail
+          EP="--endpoint-url ${SPACES_EP}"
+          MISSING=$(cat missing_dates.txt)
+          mkdir -p work
+
+          FETCHED=0; FAILED=""
+
+          for D in ${MISSING}; do
+            D_ISO=$(date -u -d "${D}" +%Y-%m-%d)
+
+            # OFF-BY-ONE, READ THIS BEFORE CHANGING ANYTHING:
+            # MRMS 24H QPE filenames carry the END of the accumulation period.
+            # The file stamped D+1 at 000000 covers 00Z(D) -> 00Z(D+1), i.e. the
+            # precip that fell on day D. We name our COG for the day the rain
+            # fell, so the stamp is always D+1. Get this backwards and every
+            # weekly sum is shifted one day.
+            STAMP=$(date -u -d "${D_ISO} + 1 day" +%Y%m%d)
+            FN="MRMS_MultiSensor_QPE_24H_Pass2_00.00_${STAMP}-000000.grib2.gz"
+            KEY="${NOAA_PREFIX}/${STAMP}/${FN}"
+
+            echo "=== ${D_ISO}  (source stamp ${STAMP}) ==="
+
+            # --no-sign-request for the public NOAA bucket. --region is explicit
+            # so this call can't inherit anything meant for Spaces.
+            if ! aws s3 cp "s3://${NOAA_BUCKET}/${KEY}" "work/${FN}" \
+                 --no-sign-request --region "${NOAA_REGION}" --only-show-errors; then
+              echo "  not available yet -- will retry on a later run"
+              FAILED="${FAILED} ${D}"
+              continue
+            fi
+
+            gunzip -f "work/${FN}"
+            GRIB="work/${FN%.gz}"
+
+            # First-run verification aid. MRMS GRIB2 is 0.01 deg lat/lon, but
+            # the longitudes come through on a 0-360 convention on some GDAL
+            # builds. Check this output the first time you run it.
+            gdalinfo "${GRIB}" | sed -n '1,12p'
+
+            # Values are mm. Store Int16 at 0.1 mm: 3276 mm of headroom, half
+            # the size of Float32. MRMS uses negative flags (-1, -3) for
+            # missing/no-coverage, so anything < 0 becomes nodata in one sweep.
+            # --hideNoData means we see raw values and OUR where() decides.
+            gdal_calc.py -A "${GRIB}" --outfile=work/i16.tif \
+              --calc="numpy.where(A<0, -9999, numpy.rint(A*10))" \
+              --type=Int16 --NoDataValue=-9999 --hideNoData \
+              --co COMPRESS=DEFLATE --quiet
+
+            # Pin the CONUS domain and CRS. MRMS CONUS is 20-55N, 130-60W at
+            # 0.01 deg = 7000x3500. If the gdalinfo above already shows
+            # -130..-60 this is a harmless no-op; if it shows 230..300 this is
+            # what fixes it.
+            gdal_translate -q -a_srs EPSG:4326 -a_ullr -130.0 55.0 -60.0 20.0 \
+              work/i16.tif work/geo.tif
+
+            # COG, internally tiled. BLOCKSIZE matters: the point-query endpoint
+            # range-requests a single block per click. A striped GeoTIFF would
+            # pull a full 7000px scanline instead of a 512x512 tile.
+            # OVERVIEWS=NONE -- point queries read native resolution only.
+            OUT="mrms_qpe24_${D}.tif"
+            gdal_translate -q -of COG work/geo.tif "${OUT}" \
+              -co COMPRESS=DEFLATE -co PREDICTOR=2 -co BLOCKSIZE=512 \
+              -co OVERVIEWS=NONE -co NUM_THREADS=ALL_CPUS
+
+            # Sanity: a nationwide day with zero precipitation anywhere does not
+            # happen. All-nodata or all-zero means the decode is wrong.
+            MAXV=$(gdalinfo -stats "${OUT}" | grep -oE 'STATISTICS_MAXIMUM=[-0-9.]+' | cut -d= -f2)
+            echo "  max = ${MAXV} (0.1mm units)"
+            if [ -z "${MAXV}" ] || [ "$(printf '%.0f' "${MAXV}")" -le 0 ]; then
+              echo "  FATAL: no positive precip anywhere -- decode is wrong" >&2
+              exit 1
+            fi
+
+            # Public-read: lets the Django point query use /vsicurl/ with no
+            # credentials, and puts range requests behind the CDN.
+            aws s3 cp "${OUT}" "s3://${DEST_BUCKET}/${DEST_PREFIX}/${OUT}" \
+              ${EP} --acl public-read --only-show-errors
+
+            ls -lh "${OUT}"
+            rm -f "${OUT}" work/i16.tif work/geo.tif "${GRIB}"
+            FETCHED=$(( FETCHED + 1 ))
+          done
+
+          echo "fetched=${FETCHED}" >> "$GITHUB_ENV"
+          echo "failed=$(echo ${FAILED} | xargs || true)" >> "$GITHUB_ENV"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Prune days older than the window
+        if: env.PRUNE == 'true'
+        run: |
+          set -euo pipefail
+          EP="--endpoint-url ${SPACES_EP}"
+          CUTOFF=$(date -u -d "$(( LAG_DAYS + WINDOW_DAYS )) days ago" +%Y%m%d)
+          echo "Cutoff: deleting anything dated before ${CUTOFF}"
+
+          # NOTE: scoped to this one prefix on purpose. Never widen this to
+          # s3://mfmaps-tiles/precip/* -- the weekly and encoded products live
+          # alongside it, and this store is the only copy of days that have
+          # already aged out of the NOAA bucket.
+          aws s3 ls "s3://${DEST_BUCKET}/${DEST_PREFIX}/" ${EP} \
+            | awk '{print $NF}' | grep -oE 'mrms_qpe24_[0-9]{8}\.tif' | sort -u \
+          | while read -r F; do
+              FD=$(echo "${F}" | grep -oE '[0-9]{8}')
+              if [ "${FD}" -lt "${CUTOFF}" ]; then
+                echo "  rm ${F}"
+                aws s3 rm "s3://${DEST_BUCKET}/${DEST_PREFIX}/${F}" ${EP} --only-show-errors
+              fi
+            done
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Summary
+        if: always()
+        run: |
+          EP="--endpoint-url ${SPACES_EP}"
+          COUNT=$(aws s3 ls "s3://${DEST_BUCKET}/${DEST_PREFIX}/" ${EP} 2>/dev/null \
+                  | grep -c 'mrms_qpe24_' || echo 0)
+          {
+            echo "### MRMS daily precip store"
+            echo ""
+            echo "- Window: ${WINDOW_DAYS} days, ending ${LAG_DAYS} days back"
+            echo "- Downloaded this run: **${fetched:-0}**"
+            echo "- Unavailable (will retry): \`${failed:-none}\`"
+            echo "- Days now in store: **${COUNT}** / ${WINDOW_DAYS}"
+            echo "- Location: \`s3://${DEST_BUCKET}/${DEST_PREFIX}/\`"
+            echo "- Encoding: Int16, 0.1 mm, nodata -9999, EPSG:4326, COG 512px blocks"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
