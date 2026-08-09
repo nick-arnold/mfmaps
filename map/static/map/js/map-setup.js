@@ -1020,6 +1020,46 @@ function registerSoilMoisture() {
 // raster-color-mix and colorizes in the browser, so the ramp above can be
 // retuned by editing this file — no re-encode, no re-tile.
 
+// Built from PRECIP_COLOR_RAMP so it can never drift from what the map draws.
+// Positions are LINEAR in value, matching how the ramp interpolates — which
+// means the low end reads as a thin sliver. That's honest, and it's the same
+// argument for giving the greens more resolution.
+function renderPrecipLegend() {
+    const wraps = document.querySelectorAll('.precip-legend');
+    if (!wraps.length) return;
+
+    // Ramp array is ['interpolate', ['linear'], ['elevation'], v, color, ...]
+    const pairs = [];
+    for (let i = 3; i < PRECIP_COLOR_RAMP.length; i += 2) {
+        pairs.push([PRECIP_COLOR_RAMP[i], PRECIP_COLOR_RAMP[i + 1]]);
+    }
+    const max = pairs[pairs.length - 1][0];
+
+    const stops = pairs
+        .map(([v, c]) => `${c} ${(v / max * 100).toFixed(2)}%`)
+        .join(', ');
+
+    // Ticks in inches. 254 tenths-of-mm = 1 inch.
+    const ticks = [0, 0.5, 1, 2, 4, 6];
+    const tickHtml = ticks.map(inches => {
+        const pos = (inches * 254 / max * 100).toFixed(2);
+        return `<span style="position:absolute;left:${pos}%;transform:translateX(-50%);">
+                    ${inches === 0 ? '0' : inches}
+                </span>`;
+    }).join('');
+
+    const html = `
+        <div style="height:12px;border:1px solid var(--rule);border-radius:2px;
+                    background:linear-gradient(to right, ${stops});"></div>
+        <div style="position:relative;height:1.1em;font-size:.62rem;
+                    color:var(--muted);margin-top:2px;">${tickHtml}</div>
+        <div style="font-size:.62rem;color:var(--muted);margin-top:2px;">
+            inches · transparent where no rain fell
+        </div>`;
+
+    wraps.forEach(w => { w.innerHTML = html; });
+}
+
 function registerPrecip() {
     if (_registeredGroups.has('precip')) return;
     const { map } = state;
@@ -1092,7 +1132,7 @@ function registerPrecip() {
                     layout: { visibility: 'none' },
                     paint: {
                         'color-relief-color': PRECIP_COLOR_RAMP,
-                        'color-relief-opacity': 0.85,
+                        'color-relief-opacity': 0.5,
                     },
                 }, BASEMAP_LINE_ANCHOR);
             }
@@ -3539,6 +3579,7 @@ export function initPrecipControls() {
         });
     };
     applyLabels();
+    renderPrecipLegend();
 }
 
 const FAB_MODE_ICONS = {
