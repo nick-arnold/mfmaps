@@ -70,7 +70,10 @@ jobs:
           # NOTE: do NOT try to apt-get install gunzip -- there is no such
           # package, it ships inside gzip and is already present. Asking for it
           # fails the whole step, because Actions runs `run:` under `bash -e`.
-          sudo apt-get install -y -qq gdal-bin python3-gdal awscli
+          # awscli is NOT installed here on purpose: GitHub runners ship AWS
+          # CLI v2 already, and Ubuntu 24.04 removed the `awscli` package
+          # entirely -- asking for it fails the step with exit 100.
+          sudo apt-get install -y -qq gdal-bin python3-gdal
           gdalinfo --version
           aws --version
 
