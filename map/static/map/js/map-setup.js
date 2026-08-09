@@ -1024,23 +1024,32 @@ function registerSoilMoisture() {
 // Positions are LINEAR in value, matching how the ramp interpolates — which
 // means the low end reads as a thin sliver. That's honest, and it's the same
 // argument for giving the greens more resolution.
-function renderPrecipLegend() {
+// Built from the ramp constants so it can never drift from what the map draws.
+// Takes a product key because the 30-day total uses a different range — a
+// shared ramp would either saturate the month or squash the week into its
+// bottom fifth.
+function renderPrecipLegend(key) {
     const wraps = document.querySelectorAll('.precip-legend');
     if (!wraps.length) return;
 
+    const ramp = (key === 'total') ? PRECIP_COLOR_RAMP_30DAY : PRECIP_COLOR_RAMP;
+
     // Ramp array is ['interpolate', ['linear'], ['elevation'], v, color, ...]
     const pairs = [];
-    for (let i = 3; i < PRECIP_COLOR_RAMP.length; i += 2) {
-        pairs.push([PRECIP_COLOR_RAMP[i], PRECIP_COLOR_RAMP[i + 1]]);
+    for (let i = 3; i < ramp.length; i += 2) {
+        pairs.push([ramp[i], ramp[i + 1]]);
     }
     const max = pairs[pairs.length - 1][0];
 
+    // Positions are LINEAR in value, matching how the ramp interpolates. That
+    // makes the low end read as a thin sliver — honest, and the same argument
+    // for giving the greens more resolution.
     const stops = pairs
         .map(([v, c]) => `${c} ${(v / max * 100).toFixed(2)}%`)
         .join(', ');
 
-    // Ticks in inches. 254 tenths-of-mm = 1 inch.
-    const ticks = [0, 0.5, 1, 2, 4, 6];
+    // 254 tenths-of-mm = 1 inch.
+    const ticks = (key === 'total') ? [0, 2, 5, 8, 12, 16, 24] : [0, 0.5, 1, 2, 4, 6];
     const tickHtml = ticks.map(inches => {
         const pos = (inches * 254 / max * 100).toFixed(2);
         return `<span style="position:absolute;left:${pos}%;transform:translateX(-50%);">
@@ -3550,6 +3559,7 @@ export function initPrecipControls() {
             const key = e.target.value;
             selects.forEach(other => { if (other !== e.target) other.value = key; });
             setPrecipProduct(key);
+            renderPrecipLegend(key);
         });
     });
 
@@ -3579,7 +3589,7 @@ export function initPrecipControls() {
         });
     };
     applyLabels();
-    renderPrecipLegend();
+    renderPrecipLegend(state.precipProduct || 'week1');
 }
 
 const FAB_MODE_ICONS = {
