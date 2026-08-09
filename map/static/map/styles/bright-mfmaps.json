@@ -2169,7 +2169,7 @@
         "text-field": "{ref}",
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
-        "text-size": 10,
+        "text-size": 10
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
@@ -2194,7 +2194,7 @@
         "text-field": "{ref}",
         "text-font": ["Noto Sans Regular"],
         "text-rotation-alignment": "viewport",
-        "text-size": 10,
+        "text-size": 10
       },
       "paint": {"text-color": "rgba(0, 0, 0, 1)"}
     },
