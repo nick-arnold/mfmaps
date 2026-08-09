@@ -111,6 +111,25 @@ const PRECIP_COLOR_RAMP = [
     1524, '#e8c4f0',         // 6.00 in and up
 ];
 
+// 30-day totals run several times higher than a week, and a single shared ramp
+// would either saturate the month or collapse the week into its bottom fifth.
+// Same colors, same reading, ~4x the range.
+const PRECIP_COLOR_RAMP_30DAY = [
+    'interpolate', ['linear'], ['elevation'],
+       0, 'rgba(0,0,0,0)',   // dry
+      13, '#b8e4b8',         // 0.05 in  trace
+      64, '#66c266',         // 0.25 in
+     127, '#1a9641',         // 0.50 in
+     254, '#ffed6f',         // 1.00 in
+     508, '#fdae61',         // 2.00 in
+     762, '#f46d43',         // 3.00 in
+    1270, '#d7191c',         // 5.00 in
+    2032, '#a50026',         // 8.00 in
+    3048, '#8c1d8c',         // 12.0 in
+    4064, '#6a0dad',         // 16.0 in
+    6096, '#e8c4f0',         // 24.0 in and up
+];
+
 const PRECIP_PRODUCTS = ['week1', 'week2', 'week3', 'total'];
 
 let _precipMeta = null;
