@@ -79,19 +79,24 @@ const PRECIP_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/precip
 
 // Encoding contract. MUST match mrms_precip_tiles.yml: v = R*256 + G, in 0.1 mm.
 // raster-color-mix is a LINEAR channel combination — that's why the packing is
-// a plain base-256 split rather than anything cleverer.
-const PRECIP_COLOR_MIX = [65280, 255, 0, 0];
-
-// Tight on purpose: MapLibre builds a 256-entry LUT across this range, so
-// widening it to the full 6553 mm the packing allows would coarsen every step.
-// Above-range clamps to the top color — correct for radar clutter.
-const PRECIP_COLOR_RANGE = [0, 2000];   // 0.1 mm units → 0–200 mm
+// Encoding contract. MUST match mrms_precip_tiles.yml: v = R*256 + G, in 0.1 mm.
+// MapLibre's custom DEM encoding computes:
+//     value = -baseShift + R*redFactor + G*greenFactor + B*blueFactor
+// so these factors are the decode side of the packing. Same mechanism the
+// slope layer uses — MapLibre has no raster-color (that's Mapbox GL v3).
+const PRECIP_DEM_ENCODING = {
+    encoding: 'custom',
+    redFactor: 256,
+    greenFactor: 1,
+    blueFactor: 0,
+    baseShift: 0,
+};
 
 // Radar green→red, extended through magenta into violet. Not decoration: ~8% of
 // men can't separate green from red, and climbing in lightness keeps it readable.
 // Stops in 0.1 mm; comments are the inch values they came from.
 const PRECIP_COLOR_RAMP = [
-    'interpolate', ['linear'], ['raster-value'],
+    'interpolate', ['linear'], ['elevation'],
        0, 'rgba(0,0,0,0)',   // dry — transparent so hillshade reads through
        3, '#b8e4b8',         // 0.01 in  trace
       25, '#66c266',         // 0.10 in
@@ -1051,12 +1056,21 @@ function registerPrecip() {
             }
 
             const srcId = `precip-${e.key}`;
+
+            // raster-dem + color-relief, NOT raster + raster-color.
+            // raster-color is Mapbox GL v3 only; MapLibre 5.x has no such
+            // property. The custom DEM encoding decodes our packed bytes:
+            //     value = -baseShift + R*redFactor + G*greenFactor + B*blueFactor
+            // which for redFactor 256 / greenFactor 1 is exactly R*256+G, in
+            // 0.1 mm. Same mechanism registerSlope() already uses.
             if (!map.getSource(srcId)) {
                 map.addSource(srcId, {
-                    type: 'raster',
-                    url: `pmtiles://${PRECIP_BASE}/tiles/${pm}`,
+                    // Tiles-array form, not `url:` — matches how slope feeds
+                    // pmtiles into a raster-dem source.
+                    tiles: [`pmtiles://${PRECIP_BASE}/tiles/${pm}/{z}/{x}/{y}`],
+                    type: 'raster-dem',
+                    ...PRECIP_DEM_ENCODING,
                     tileSize: 256,
-                    minzoom: 3,
                     maxzoom: 8,
                     bounds: REGION_BOUNDS.conus,
                     attribution: 'Precipitation: NOAA MRMS',
@@ -1066,21 +1080,14 @@ function registerPrecip() {
             if (!map.getLayer(`${srcId}-layer`)) {
                 map.addLayer({
                     id: `${srcId}-layer`,
-                    type: 'raster',
+                    type: 'color-relief',
                     source: srcId,
                     minzoom: 3,
                     maxzoom: 22,
                     layout: { visibility: 'none' },
                     paint: {
-                        'raster-color': PRECIP_COLOR_RAMP,
-                        'raster-color-mix': PRECIP_COLOR_MIX,
-                        'raster-color-range': PRECIP_COLOR_RANGE,
-                        // MANDATORY. Interpolating packed bytes does not
-                        // interpolate the value — at a channel rollover it's
-                        // wildly wrong. The soil layers use 'linear'; copying
-                        // that here would corrupt every pixel silently.
-                        'raster-resampling': 'nearest',
-                        'raster-opacity': 0.85,
+                        'color-relief-color': PRECIP_COLOR_RAMP,
+                        'color-relief-opacity': 0.85,
                     },
                 }, BASEMAP_LINE_ANCHOR);
             }
