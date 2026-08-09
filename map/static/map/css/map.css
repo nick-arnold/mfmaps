@@ -416,28 +416,57 @@ body {
    the template and the !important can come out.
    ============================================================ */
 
-.layer-section {
+   .layer-section {
     border-top: 1px solid var(--rule);
-    padding-top: 0.9rem;
+    /* No padding-top: the summary carries its own now, so adding it here
+       would double the gap under the rule. */
     margin-bottom: 0.9rem;
 }
 
 .layer-section:first-child {
     border-top: 0;
-    padding-top: 0;
 }
 
+/* The whole summary row is the hit target, so the padding here is
+   functional, not decorative. The negative side margin bleeds the hover
+   fill out to the panel edge (.side-panel-body has 16px padding) so the
+   row reads as wide as it actually is. */
 .layer-section > summary {
     cursor: pointer;
     font-family: var(--display);
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--forest);
+    padding: 0.7rem 16px;
+    margin: 0 -16px 0.4rem;
+    border-radius: 2px;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.layer-section > summary:hover { color: var(--ink); }
+.layer-section > summary:hover {
+    color: var(--ink);
+    background: var(--parchment);
+}
+
+.layer-section > summary:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: -2px;
+}
+
+/* Open sections get a touch more weight so the current one is obvious
+   when several are expanded. */
+.layer-section[open] > summary { color: var(--ink); }
+
+/* Touch: taller rows, since this is where a small target actually hurts.
+   0.85rem padding + line-height puts the row near the 44px minimum. */
+@media (max-width: 767.98px) {
+    .layer-section > summary {
+        font-size: 0.88rem;
+        padding: 0.85rem 16px;
+    }
+}
 
 /* ============================================================
    Floating action button stack (right edge)

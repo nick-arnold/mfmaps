@@ -368,7 +368,31 @@
   </label>
 </div>
   </details>
+  <details class="layer-section" data-section-key="precipitation">
+    <summary class="mb-2">Precipitation</summary>
 
+    <div class="form-check form-switch mb-1">
+        <input class="form-check-input layer-toggle" type="checkbox"
+               id="layer-precip-CTX" data-layer-group="precip">
+        <label class="form-check-label" for="layer-precip-CTX">
+            Rainfall total
+        </label>
+    </div>
+    <div class="ps-3 mb-2 precip-controls">
+        <label class="form-label small text-muted mb-1"
+               for="precip-product-CTX">Period</label>
+        <select class="form-select form-select-sm precip-product-select"
+                id="precip-product-CTX">
+            <option value="week1">Most recent week</option>
+            <option value="week2">2 weeks ago</option>
+            <option value="week3">3 weeks ago</option>
+            <option value="total">Last 30 days</option>
+        </select>
+        <div class="small text-muted mt-1" style="font-size:.7rem;">
+            NOAA MRMS radar + gauge, 1&nbsp;km. Gauge correction lags ~2 days.
+        </div>
+    </div>
+  </details>
   <details class="layer-section" data-section-key="public-land">
     <summary class="mb-2">Public land</summary>
     <div class="form-check form-switch mb-2">

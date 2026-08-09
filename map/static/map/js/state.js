@@ -24,6 +24,7 @@ export const state = {
     burnSeverityYear: null,
     // Burn severity perimeter toggle (independent of raster year)
     burnSeverityPerimeterVisible: false,
+    precipProduct: 'week1',
     
 };
 
@@ -207,6 +208,12 @@ export const LAYER_IDS = {
     'public-land-dissolved': ['public-land-dissolved-glow', 'public-land-dissolved-outline'],
     'soils': ['soils-fill'],
     'tide-stations': ['tide-stations'],
+    'precip': [
+        'precip-week1-layer',
+        'precip-week2-layer',
+        'precip-week3-layer',
+        'precip-total-layer',
+    ],
 };
 
 export const H3_RES = 8;

@@ -75,7 +75,40 @@ const CONTOUR_BASE       = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
 const SOIL_TEMP_TILES_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soil-temperature';
 const PUBLIC_LAND_BASE   = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/public-land';
 const SOILS_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/soils';
+const PRECIP_BASE = 'https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/precip';
 
+// Encoding contract. MUST match mrms_precip_tiles.yml: v = R*256 + G, in 0.1 mm.
+// raster-color-mix is a LINEAR channel combination — that's why the packing is
+// a plain base-256 split rather than anything cleverer.
+const PRECIP_COLOR_MIX = [65280, 255, 0, 0];
+
+// Tight on purpose: MapLibre builds a 256-entry LUT across this range, so
+// widening it to the full 6553 mm the packing allows would coarsen every step.
+// Above-range clamps to the top color — correct for radar clutter.
+const PRECIP_COLOR_RANGE = [0, 2000];   // 0.1 mm units → 0–200 mm
+
+// Radar green→red, extended through magenta into violet. Not decoration: ~8% of
+// men can't separate green from red, and climbing in lightness keeps it readable.
+// Stops in 0.1 mm; comments are the inch values they came from.
+const PRECIP_COLOR_RAMP = [
+    'interpolate', ['linear'], ['raster-value'],
+       0, 'rgba(0,0,0,0)',   // dry — transparent so hillshade reads through
+       3, '#b8e4b8',         // 0.01 in  trace
+      25, '#66c266',         // 0.10 in
+      64, '#1a9641',         // 0.25 in
+     127, '#ffed6f',         // 0.50 in
+     191, '#fdae61',         // 0.75 in
+     254, '#f46d43',         // 1.00 in
+     381, '#d7191c',         // 1.50 in
+     508, '#a50026',         // 2.00 in
+     762, '#8c1d8c',         // 3.00 in
+    1016, '#6a0dad',         // 4.00 in
+    1524, '#e8c4f0',         // 6.00 in and up
+];
+
+const PRECIP_PRODUCTS = ['week1', 'week2', 'week3', 'total'];
+
+let _precipMeta = null;
 // Region bounding boxes ([west, south, east, north]) applied as source
 // `bounds` so MapLibre never requests tiles from a regional archive that
 // can't cover the current viewport (e.g. probing the Hawaii archive while
@@ -103,7 +136,7 @@ const DEFERRED_REGISTRARS = {
     'burn-severity-perimeter': registerBurnSeverity,
     'soil-moisture-raster':    registerSoilMoisture,
     'hydrography':             registerHydrography,
-    'wetlands':                registerHydrography,  
+    'wetlands':                registerHydrography,
     'soil-temperature-raster': registerSoilTemperature,
     'public-land':             registerPublicLand,
     'public-land-dissolved':   registerPublicLandDissolved,
@@ -112,6 +145,7 @@ const DEFERRED_REGISTRARS = {
     'terrain':                 registerTerrain,
     'contour':                 registerContours,
     'canopy':                  registerCanopy,
+    'precip':                  registerPrecip,
 };
 
 // Groups built after first paint rather than during it. Every entry must also
@@ -125,7 +159,7 @@ const IDLE_PRELOAD_GROUPS = [
     'soils',
     'soil-moisture-raster',
     'soil-temperature-raster',
-
+    'precip',
 ];
 
 const _requestIdle = window.requestIdleCallback
@@ -189,16 +223,16 @@ const LAYER_ORDER_FAMILIES = [
     id => id.startsWith('slope-') || id.startsWith('aspect-'),         // 2  derivatives
     id => id.startsWith('contour-'),                                   // 3  contours
     id => id.startsWith('tree-species') || id.startsWith('canopy-'),   // 4  vegetation
-    id => id === 'soil-moisture-raster-layer',                         // 5  soil moisture fill
-    id => id === 'soil-temperature-raster-layer',                      // 6  soil temp fill   <-- NEW
-    id => id === 'soils-fill',                                         // soils (broad fill)
-    id => /^burn-severity-.*-layer$/.test(id),                         // 7  burn rasters
-    id => id.startsWith('public-land-'),                               // 8  public land boundary
-    id => id.startsWith('trails-'),                                    // 9  trails
-    id => isHydroWaterLayer(id),                                       // 9  water
-    id => id.startsWith('burn-severity-perimeters-'),                  // 10 fire perimeters
-    id => isHydroLabelLayer(id),                                       // 11 water labels
-    
+    id => id === 'soil-moisture-raster-layer',                         // 5  soil moisture
+    id => id === 'soil-temperature-raster-layer',                      // 6  soil temp
+    id => /^precip-(week[123]|total)-layer$/.test(id),                 // 7  precipitation
+    id => id === 'soils-fill',                                         // 8  soils
+    id => /^burn-severity-.*-layer$/.test(id),                         // 9  burn rasters
+    id => id.startsWith('public-land-'),                               // 10 public land
+    id => id.startsWith('trails-'),                                    // 11 trails
+    id => isHydroWaterLayer(id),                                       // 12 water
+    id => id.startsWith('burn-severity-perimeters-'),                  // 13 fire perimeters
+    id => isHydroLabelLayer(id),                                       // 14 water labels
 ];
     
 
@@ -975,7 +1009,124 @@ function registerSoilMoisture() {
     })();
 }
 
+// --- Precipitation (MRMS, value-encoded RGB) -----------------------------
+// Unlike soil moisture/temperature, these tiles carry the VALUE (packed into
+// R and G) rather than baked-in colors. MapLibre reconstructs it via
+// raster-color-mix and colorizes in the browser, so the ramp above can be
+// retuned by editing this file — no re-encode, no re-tile.
 
+function registerPrecip() {
+    if (_registeredGroups.has('precip')) return;
+    const { map } = state;
+    _registeredGroups.add('precip');
+
+    // Filenames are dated and immutable, so index.json is the only thing that
+    // can say which archive is current. It also carries the date ranges.
+    (async () => {
+        let idx;
+        try {
+            const r = await fetch(`${PRECIP_BASE}/derived/index.json`, { cache: 'no-cache' });
+            if (!r.ok) throw new Error(`${r.status} fetching precip index`);
+            idx = await r.json();
+        } catch (err) {
+            console.warn('Precip index fetch failed — layer unavailable:', err);
+            _registeredGroups.delete('precip');   // let a later toggle retry
+            return;
+        }
+
+        _precipMeta = idx;
+
+        const entries = [
+            { key: 'week1', tif: idx.weeks?.week1?.file },
+            { key: 'week2', tif: idx.weeks?.week2?.file },
+            { key: 'week3', tif: idx.weeks?.week3?.file },
+            { key: 'total', tif: idx.total },
+        ];
+
+        for (const e of entries) {
+            const pm = e.tif && idx.tiles?.[e.tif];
+            if (!pm) {
+                console.warn(`Precip: no tile archive for ${e.key}`);
+                continue;
+            }
+
+            const srcId = `precip-${e.key}`;
+            if (!map.getSource(srcId)) {
+                map.addSource(srcId, {
+                    type: 'raster',
+                    url: `pmtiles://${PRECIP_BASE}/tiles/${pm}`,
+                    tileSize: 256,
+                    minzoom: 3,
+                    maxzoom: 8,
+                    bounds: REGION_BOUNDS.conus,
+                    attribution: 'Precipitation: NOAA MRMS',
+                });
+            }
+
+            if (!map.getLayer(`${srcId}-layer`)) {
+                map.addLayer({
+                    id: `${srcId}-layer`,
+                    type: 'raster',
+                    source: srcId,
+                    minzoom: 3,
+                    maxzoom: 22,
+                    layout: { visibility: 'none' },
+                    paint: {
+                        'raster-color': PRECIP_COLOR_RAMP,
+                        'raster-color-mix': PRECIP_COLOR_MIX,
+                        'raster-color-range': PRECIP_COLOR_RANGE,
+                        // MANDATORY. Interpolating packed bytes does not
+                        // interpolate the value — at a channel rollover it's
+                        // wildly wrong. The soil layers use 'linear'; copying
+                        // that here would corrupt every pixel silently.
+                        'raster-resampling': 'nearest',
+                        'raster-opacity': 0.85,
+                    },
+                }, BASEMAP_LINE_ANCHOR);
+            }
+        }
+
+        enforceLayerOrder();
+        setPrecipProduct(state.precipProduct || 'week1');
+    })();
+}
+
+// Only one product visible at a time — they cover different date ranges and
+// stacking them would just show the topmost. Mirrors the burn-severity picker.
+export function setPrecipProduct(key) {
+    const map = state.map;
+    if (!map) return;
+
+    ensureGroupRegistered('precip');
+    state.precipProduct = key;
+
+    const groupOn = document.querySelector('.layer-toggle[data-layer-group="precip"]')?.checked;
+
+    PRECIP_PRODUCTS.forEach(k => {
+        const layerId = `precip-${k}-layer`;
+        if (!map.getLayer(layerId)) return;
+        map.setLayoutProperty(layerId, 'visibility',
+            (groupOn && k === key) ? 'visible' : 'none');
+    });
+}
+
+// Date ranges for the UI. Null until index.json loads.
+// ALWAYS label with these rather than "this week" — Pass2 is gauge-corrected
+// and lags ~2 days, so week1 ends 2 days before today.
+export function getPrecipMeta() {
+    if (!_precipMeta) return null;
+    const fmt = d => `${d.slice(4, 6)}/${d.slice(6, 8)}`;
+    const r = (o) => o ? `${fmt(o.start)}–${fmt(o.end)}` : '';
+    return {
+        raw: _precipMeta,
+        labels: {
+            week1: r(_precipMeta.weeks?.week1),
+            week2: r(_precipMeta.weeks?.week2),
+            week3: r(_precipMeta.weeks?.week3),
+            total: r(_precipMeta.window),
+        },
+    };
+}
 
 function registerSoilTemperature() {
     if (_registeredGroups.has('soil-temperature-raster')) return;
@@ -2986,6 +3137,21 @@ export function setLayerGroupVisibility(group, visible) {
             setBurnSeverityYear(year);
         } else {
             hideBurnSeverityRasters();
+        }
+        return;
+    }
+
+    // Precipitation: only ONE product visible at a time, same reason.
+    if (group === 'precip') {
+        if (visible) {
+            setPrecipProduct(state.precipProduct || 'week1');
+        } else {
+            PRECIP_PRODUCTS.forEach(k => {
+                const id = `precip-${k}-layer`;
+                if (state.map.getLayer(id)) {
+                    state.map.setLayoutProperty(id, 'visibility', 'none');
+                }
+            });
         }
         return;
     }
