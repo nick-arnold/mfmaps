@@ -148,6 +148,7 @@ export const LAYER_IDS = {
             zoomTiers.forEach(z => {
                 ids.push(`contour-intermediate-${region}-z${z}`);
                 ids.push(`contour-index-${region}-z${z}`);
+                ids.push(`contour-label-${region}-z${z}`);
             });
         });
         return ids;
