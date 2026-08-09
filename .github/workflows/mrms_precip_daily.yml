@@ -107,8 +107,7 @@ jobs:
           MISSING=$(echo ${MISSING} | xargs || true)
 
           echo "${MISSING}" > missing_dates.txt
-          echo "Missing: ${MISSING:-none}"
-          echo "missing_count=$(echo ${MISSING} | wc -w)" >> "$GITHUB_STEP_OUTPUT"
+          echo "Missing: ${MISSING:-none} ($(echo ${MISSING} | wc -w) day(s))"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
