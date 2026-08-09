@@ -1,0 +1,149 @@
+name: MRMS Clutter Mask (manual)
+
+# Builds a static mask of pixels that report precipitation which is spatially
+# impossible -- persistent ground clutter, not weather.
+#
+# WHY NOT A PERCENTILE: the 99th percentile of a 7000x3500 grid is 245,000
+# pixels, and a global threshold cannot tell "extreme" from "wrong". A stalled
+# tropical system dropping 600 mm on Louisiana is extreme AND correct, and is
+# exactly the event users care most about. What separates clutter is that it
+# disagrees with its own neighbours by an order of magnitude. Real precip is
+# spatially coherent at 1 km; 1-2 pixel spikes are targets, not storms.
+#
+# Known example: 48.775,-121.815 is Mount Baker's summit, a permanent radar
+# target for the Puget Sound radars, reporting ~185 mm every single day.
+#
+# Run this occasionally (clutter changes when radars are re-sited or new
+# structures go up), not daily. The output is static and small.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ratio:
+        description: 'Flag if pixel exceeds neighbourhood median by this factor'
+        required: false
+        default: '3.0'
+      floor_mm:
+        description: 'Ignore pixels below this 30-day total (mm)'
+        required: false
+        default: '200'
+
+env:
+  DEST_BUCKET: mfmaps-tiles
+  DAILY_PREFIX: precip/daily
+  STATIC_PREFIX: precip/static
+  SPACES_EP: https://sfo3.digitaloceanspaces.com
+  GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+  RATIO: ${{ github.event.inputs.ratio || '3.0' }}
+  FLOOR_MM: ${{ github.event.inputs.floor_mm || '200' }}
+
+jobs:
+  build_mask:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Install GDAL and scipy
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal python3-scipy
+          gdalinfo --version
+
+      - name: Pull the daily store
+        run: |
+          set -euo pipefail
+          mkdir -p daily
+          aws s3 cp "s3://${DEST_BUCKET}/${DAILY_PREFIX}/" daily/ \
+            --recursive --exclude "*" --include "mrms_qpe24_*.tif" \
+            --endpoint-url "${SPACES_EP}" --only-show-errors
+          echo "Local dailies: $(ls daily | wc -l)"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Detect clutter
+        run: |
+          cat > clutter.py <<'PY'
+          import glob, os, sys
+          import numpy as np
+          from scipy.ndimage import median_filter
+          from osgeo import gdal
+          gdal.UseExceptions()
+
+          NODATA = -9999
+          RATIO = float(os.environ['RATIO'])
+          FLOOR = float(os.environ['FLOOR_MM']) * 10.0   # mm -> 0.1 mm units
+          WET   = 20                                     # 2 mm counts as "wet"
+
+          files = sorted(glob.glob('daily/mrms_qpe24_*.tif'))
+          if len(files) < 20:
+              sys.exit(f"FATAL: only {len(files)} dailies; need a full window")
+
+          total = None
+          wet_days = None
+          for f in files:
+              ds = gdal.Open(f)
+              arr = ds.GetRasterBand(1).ReadAsArray().astype(np.int32)
+              ok = arr != NODATA
+              if total is None:
+                  total = np.zeros(arr.shape, np.int32)
+                  wet_days = np.zeros(arr.shape, np.int16)
+                  valid = np.ones(arr.shape, bool)
+                  gt, proj = ds.GetGeoTransform(), ds.GetProjection()
+              total += np.where(ok, arr, 0)
+              wet_days += (ok & (arr >= WET)).astype(np.int16)
+              valid &= ok
+              ds = None
+
+          # Spatial coherence test. A 5x5 median is unmoved by a 1-2 pixel
+          # spike, so an isolated target stands far above its own neighbourhood
+          # while a real storm core sits close to it.
+          neigh = median_filter(total, size=5, mode='nearest').astype(np.float32)
+
+          ratio = total / np.maximum(neigh, 1.0)
+          flagged = valid & (total >= FLOOR) & (ratio >= RATIO)
+
+          n = int(flagged.sum())
+          print(f"files={len(files)}  flagged={n} pixel(s) "
+                f"of {int(valid.sum())} valid")
+
+          # Report them. There should be few enough to eyeball; if there are
+          # thousands, the thresholds are wrong and the mask should NOT ship.
+          rows, cols = np.nonzero(flagged)
+          order = np.argsort(-total[flagged])
+          for i in order[:40]:
+              r, c = rows[i], cols[i]
+              lon = gt[0] + (c + 0.5) * gt[1]
+              lat = gt[3] + (r + 0.5) * gt[5]
+              print(f"  {lat:8.3f},{lon:9.3f}  total={total[r,c]/10.0:7.1f} mm  "
+                    f"neigh={neigh[r,c]/10.0:6.1f} mm  "
+                    f"ratio={ratio[r,c]:5.1f}  wet_days={wet_days[r,c]}/{len(files)}")
+          if n > 40:
+              print(f"  ... and {n - 40} more")
+
+          if n > 5000:
+              sys.exit("FATAL: flagged >5000 pixels. That is not clutter, that "
+                       "is a bad threshold. Mask not written.")
+
+          drv = gdal.GetDriverByName('GTiff')
+          out = drv.Create('clutter_mask.tif', total.shape[1], total.shape[0],
+                           1, gdal.GDT_Byte, ['COMPRESS=DEFLATE'])
+          out.SetGeoTransform(gt); out.SetProjection(proj)
+          out.GetRasterBand(1).WriteArray(flagged.astype(np.uint8))
+          out = None
+          print("wrote clutter_mask.tif (1 = clutter, 0 = keep)")
+          PY
+          python3 clutter.py
+
+      - name: Upload mask
+        run: |
+          set -euo pipefail
+          gdal_translate -q -of COG clutter_mask.tif mrms_clutter_mask.tif \
+            -co COMPRESS=DEFLATE -co BLOCKSIZE=512 -co OVERVIEWS=NONE
+          aws s3 cp mrms_clutter_mask.tif \
+            "s3://${DEST_BUCKET}/${STATIC_PREFIX}/mrms_clutter_mask.tif" \
+            --endpoint-url "${SPACES_EP}" --acl public-read --only-show-errors
+          ls -lh mrms_clutter_mask.tif
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
