@@ -1162,7 +1162,9 @@ function registerPrecip() {
                     maxzoom: 22,
                     layout: { visibility: 'none' },
                     paint: {
-                        'color-relief-color': PRECIP_COLOR_RAMP,
+                        'color-relief-color': e.key === 'total'
+                            ? PRECIP_COLOR_RAMP_30DAY
+                            : PRECIP_COLOR_RAMP,
                         'color-relief-opacity': 0.5,
                     },
                 }, BASEMAP_LINE_ANCHOR);
