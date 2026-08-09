@@ -17,6 +17,7 @@ import {
     initCrosshair,
     initBurnSeverityControls,
     initSoilMoistureControls,
+    initPrecipControls,
 } from './map-setup.js';
 import {
     wireMapClicks,
@@ -79,6 +80,7 @@ async function main() {
     initLayerPanels();
     initSpeciesPicker();
     initBurnSeverityControls();
+    initPrecipControls();
     initSoilProbe();
     initQueryMode();
     initAccessMode();
