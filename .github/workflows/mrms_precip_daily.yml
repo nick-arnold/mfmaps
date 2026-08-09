@@ -265,15 +265,23 @@ jobs:
               ds = None
 
           peak = int(acc[valid].max()) if valid.any() else 0
-          if peak > 32767:
-              sys.exit(f"FATAL: sum {peak} overflows Int16 at 0.1mm -- "
-                       "rescale before shipping this")
 
-          acc = np.where(valid, acc, NODATA).astype(np.int16)
+          # Locate the peak so persistent radar artifacts are visible rather
+          # than silently baked in. A stuck pixel (ground clutter, wind farm,
+          # permanent echo) accumulates every single day and will dominate any
+          # long sum. Anything over ~1500 mm in 30 days deserves a look.
+          if valid.any():
+              flat = np.where(valid, acc, -1).argmax()
+              r, c = np.unravel_index(flat, acc.shape)
+              lon = gt[0] + (c + 0.5) * gt[1]
+              lat = gt[3] + (r + 0.5) * gt[5]
+              print(f"  peak {peak/10.0:.1f} mm at {lat:.3f},{lon:.3f}")
+
+          acc = np.where(valid, acc, NODATA).astype(np.int32)
 
           drv = gdal.GetDriverByName('GTiff')
           out = drv.Create(out_path, acc.shape[1], acc.shape[0], 1,
-                           gdal.GDT_Int16, ['COMPRESS=DEFLATE'])
+                           gdal.GDT_Int32, ['COMPRESS=DEFLATE'])
           out.SetGeoTransform(gt); out.SetProjection(proj)
           b = out.GetRasterBand(1)
           b.WriteArray(acc); b.SetNoDataValue(NODATA)
@@ -360,7 +368,9 @@ jobs:
           {
             echo '{'
             echo "  \"generated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
-            echo "  \"units\": \"0.1 mm, Int16, nodata -9999\","
+            echo "  \"units\": \"0.1 mm\","
+            echo "  \"daily_dtype\": \"Int16, nodata -9999\","
+            echo "  \"derived_dtype\": \"Int32, nodata -9999\","
             echo "  \"grid\": \"EPSG:4326, 0.01 deg, 7000x3500, -130/55 to -60/20\","
             echo "  \"base_url\": \"https://${DEST_BUCKET}.sfo3.cdn.digitaloceanspaces.com/${DERIVED_PREFIX}/\","
             echo "  \"daily_url\": \"https://${DEST_BUCKET}.sfo3.cdn.digitaloceanspaces.com/${DAILY_PREFIX}/\","
