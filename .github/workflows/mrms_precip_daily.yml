@@ -306,6 +306,14 @@ jobs:
 
           date_for_offset () { date -u -d "$1 days ago" +%Y%m%d; }
 
+          # ONE suffix for every derived product: the last day of the window.
+          # Do NOT name these for the last day each product covers -- week 3
+          # ends ~22 days back, which is always older than the prune cutoff,
+          # and the job would delete its own output the moment it wrote it.
+          # Per-product coverage lives in index.json, which is the only place
+          # anything should read it from.
+          STAMP=$(date_for_offset ${LAG_DAYS})
+
           # Every product is named for the LAST day it covers.
           declare -A SPEC
           ALL_DATES=""
@@ -326,10 +334,10 @@ jobs:
             done
             END=$(date_for_offset ${START_OFF})
             BEGIN=$(date_for_offset $(( START_OFF + 6 )))
-            OUT="derived/mrms_week${W}_${END}.tif"
+            OUT="derived/mrms_week${W}_${STAMP}.tif"
             echo "=== week ${W}: ${BEGIN} -> ${END} ==="
             python3 sum_days.py "${OUT}" ${FILES}
-            SPEC[week${W}]="mrms_week${W}_${END}.tif|${BEGIN}|${END}"
+            SPEC[week${W}]="mrms_week${W}_${STAMP}.tif|${BEGIN}|${END}"
           done
 
           # 30-day total over the full window.
@@ -346,7 +354,7 @@ jobs:
           W_END=$(date_for_offset ${LAG_DAYS})
           W_BEGIN=$(date_for_offset $(( LAG_DAYS + WINDOW_DAYS - 1 )))
           echo "=== ${WINDOW_DAYS}-day: ${W_BEGIN} -> ${W_END} ==="
-          python3 sum_days.py "derived/mrms_${WINDOW_DAYS}day_${W_END}.tif" ${FILES}
+          python3 sum_days.py "derived/mrms_${WINDOW_DAYS}day_${STAMP}.tif" ${FILES}
 
           # Convert all sums to COG and upload. Overviews left on (default) --
           # unlike the dailies, these get tiled for display.
@@ -375,7 +383,7 @@ jobs:
             echo "  \"base_url\": \"https://${DEST_BUCKET}.sfo3.cdn.digitaloceanspaces.com/${DERIVED_PREFIX}/\","
             echo "  \"daily_url\": \"https://${DEST_BUCKET}.sfo3.cdn.digitaloceanspaces.com/${DAILY_PREFIX}/\","
             echo "  \"window\": {\"start\": \"${W_BEGIN}\", \"end\": \"${W_END}\", \"days\": ${WINDOW_DAYS}},"
-            echo "  \"total\": \"mrms_${WINDOW_DAYS}day_${W_END}.tif\","
+            echo "  \"total\": \"mrms_${WINDOW_DAYS}day_${STAMP}.tif\","
             echo '  "weeks": {'
             SEP=""
             for W in 1 2 3; do
