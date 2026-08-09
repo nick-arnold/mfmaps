@@ -1,0 +1,304 @@
+name: MRMS Precip Tiles (value-encoded)
+
+# Turns the derived precip sums into value-encoded RGB PMTiles.
+#
+# WHAT MAKES THIS DIFFERENT FROM THE SOIL LAYERS:
+# soil-moisture and soil-temperature bake colors into the pixels with
+# `gdaldem color-relief`. The numbers are gone; the tile is a picture.
+# These tiles carry the VALUE. MapLibre reconstructs it with raster-color-mix
+# and colorizes in the browser, so the colormap can be retuned by editing the
+# style -- no re-encode, no re-tile.
+#
+# ENCODING (must match the style block below exactly):
+#   v     = precip in 0.1 mm, clamped 0..65535
+#   R     = v >> 8
+#   G     = v & 255
+#   B     = 0        (unused; free for a future flag channel)
+#   A     = 0 where nodata, 255 elsewhere
+#
+# MapLibre reverses it as a LINEAR combination of channels (raster-color-mix
+# cannot do anything non-linear, which is why the packing is what it is):
+#   raster-value = 65280 * (R/255) + 255 * (G/255) = R*256 + G  -> 0.1 mm
+#
+# ---------------------------------------------------------------------------
+# STYLE BLOCK -- keep in sync with the encoding above.
+#
+#   paint: {
+#     'raster-color-mix': [65280, 255, 0, 0],
+#     'raster-color-range': [0, 2000],          // 0.1mm units = 0-200mm
+#     'raster-resampling': 'nearest',           // MANDATORY, see below
+#     'raster-opacity': 0.85,
+#     'raster-color': [
+#       'interpolate', ['linear'], ['raster-value'],
+#          0,    'rgba(0,0,0,0)',       //  dry -- fully transparent
+#          3,    '#b8e4b8',             //  0.01 in  trace
+#         25,    '#66c266',             //  0.10 in
+#         64,    '#1a9641',             //  0.25 in
+#        127,    '#ffed6f',             //  0.50 in
+#        191,    '#fdae61',             //  0.75 in
+#        254,    '#f46d43',             //  1.00 in
+#        381,    '#d7191c',             //  1.50 in
+#        508,    '#a50026',             //  2.00 in
+#        762,    '#8c1d8c',             //  3.00 in
+#       1016,    '#6a0dad',             //  4.00 in
+#       1524,    '#e8c4f0'              //  6.00 in and up
+#     ]
+#   }
+#
+# raster-color-range is deliberately tight (0-200mm, not the full 6553mm the
+# packing allows). MapLibre builds a 256-entry lookup table across that range,
+# so a wider range would coarsen every step. Values above 200mm clamp to the
+# top color, which is exactly the behavior you want for radar artifacts like
+# the Mount Baker clutter pixel (5545mm).
+#
+# NODATA renders transparent here. Outside radar coverage and zero precip are
+# DIFFERENT CLAIMS and should not look identical -- put a static grey
+# "no radar coverage" layer underneath rather than letting the basemap show
+# through as if it were dry.
+#
+# ---------------------------------------------------------------------------
+# RESAMPLING -- THE ONE THING THAT SILENTLY DESTROYS THIS PRODUCT
+#
+# Interpolating packed bytes does not interpolate the value. Averaging
+# R=1,G=250 with R=2,G=0 gives R=1.5,G=125 -> 509, when the true mean of 506
+# and 512 is 509 only by luck; in general it is nonsense, and at channel
+# rollover it is wildly wrong.
+#
+# So: `near` in gdalwarp, `near` in gdal2tiles, `nearest` in the paint block.
+# The soil workflows use `bilinear` and `'raster-resampling': 'linear'`.
+# DO NOT COPY THOSE LINES HERE.
+#
+# The value-space warp (Int32 -> 3857) happens BEFORE packing, which is the
+# only place interpolation would be legitimate -- and even there `near` keeps
+# the sums exact.
+
+on:
+  schedule:
+    # 30 min after the reconcile+derive job, mirroring the offset convention
+    # already used between the two soil workflows.
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+
+env:
+  DEST_BUCKET: mfmaps-tiles
+  DERIVED_PREFIX: precip/derived
+  TILES_PREFIX: precip/tiles
+  SPACES_EP: https://sfo3.digitaloceanspaces.com
+  CDN_ENDPOINT_ID: 5a2c1d80-7525-4181-aa71-8a5c7fbfdf33
+  GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+  AWS_DEFAULT_REGION: sfo3
+
+jobs:
+  tile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin python3-gdal
+          python -m pip install --upgrade pip --quiet
+          pip install git+https://github.com/mapbox/mbutil.git --quiet
+
+      - name: Install pmtiles CLI (Go binary from protomaps/go-pmtiles)
+        run: |
+          # NOTE: this is the Go CLI. `pip install pmtiles` is a DIFFERENT
+          # package with no CLI. Do not "simplify" this into a pip install.
+          PMTILES_VERSION=1.22.1
+          curl -sSL -o pmtiles.tar.gz \
+            "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz"
+          tar -xzf pmtiles.tar.gz pmtiles
+          sudo mv pmtiles /usr/local/bin/
+          pmtiles version
+
+      - name: Read index.json and pull the derived sums
+        run: |
+          set -euo pipefail
+          mkdir -p src
+
+          # index.json is the pointer. Reading it (rather than recomputing date
+          # arithmetic) guarantees the tiles describe exactly the rasters the
+          # derive job published, even if a run was skipped.
+          curl -sf "https://${DEST_BUCKET}.sfo3.digitaloceanspaces.com/${DERIVED_PREFIX}/index.json" \
+            -o index.json
+          python3 -c "import json;json.load(open('index.json'))"
+          cat index.json
+
+          FILES=$(python3 - <<'PY'
+          import json
+          i = json.load(open('index.json'))
+          out = [i['total']] + [w['file'] for w in i['weeks'].values()]
+          print(' '.join(out))
+          PY
+          )
+          echo "TILE_FILES=${FILES}" >> "$GITHUB_ENV"
+
+          for F in ${FILES}; do
+            aws s3 cp "s3://${DEST_BUCKET}/${DERIVED_PREFIX}/${F}" "src/${F}" \
+              --endpoint-url "${SPACES_EP}" --only-show-errors
+          done
+          ls -lh src/
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Write the packer
+        run: |
+          cat > pack_rgb.py <<'PY'
+          import sys
+          import numpy as np
+          from osgeo import gdal
+          gdal.UseExceptions()
+
+          NODATA = -9999
+          src_path, out_path = sys.argv[1], sys.argv[2]
+
+          ds = gdal.Open(src_path)
+          arr = ds.GetRasterBand(1).ReadAsArray().astype(np.int64)
+          gt, proj = ds.GetGeoTransform(), ds.GetProjection()
+          h, w = arr.shape
+
+          valid = arr != NODATA
+
+          # Clamp into what two channels can hold. 65535 * 0.1mm = 6553mm.
+          # Nothing real reaches that; the clutter pixels do not either, but
+          # clamping means a future artifact cannot wrap around to a small
+          # number, which would be a silent lie rather than a visible one.
+          v = np.clip(np.where(valid, arr, 0), 0, 65535).astype(np.uint16)
+
+          R = (v >> 8).astype(np.uint8)
+          G = (v & 255).astype(np.uint8)
+          B = np.zeros((h, w), np.uint8)
+          A = np.where(valid, 255, 0).astype(np.uint8)
+
+          drv = gdal.GetDriverByName('GTiff')
+          out = drv.Create(out_path, w, h, 4, gdal.GDT_Byte,
+                           ['COMPRESS=DEFLATE', 'PHOTOMETRIC=RGB',
+                            'ALPHA=YES'])
+          out.SetGeoTransform(gt); out.SetProjection(proj)
+          for i, band in enumerate([R, G, B, A], start=1):
+              out.GetRasterBand(i).WriteArray(band)
+          out.GetRasterBand(4).SetColorInterpretation(gdal.GCI_AlphaBand)
+          out = None
+
+          # Round-trip check on the packing itself. If this ever fails the
+          # encoding is broken and every displayed value would be wrong.
+          back = (R.astype(np.int32) * 256 + G.astype(np.int32))
+          bad = int((back[valid] != v[valid]).sum())
+          if bad:
+              sys.exit(f"FATAL: {bad} pixels fail R*256+G round-trip")
+          print(f"  packed {out_path}: max {int(v.max())} (0.1mm), "
+                f"{int(valid.sum())} valid px, round-trip clean")
+          PY
+          echo "packer written"
+
+      - name: Warp, pack, and tile
+        run: |
+          set -euo pipefail
+          mkdir -p out
+
+          for F in ${TILE_FILES}; do
+            B=$(basename "${F}" .tif)
+            echo "=== ${B} ==="
+
+            # Warp in VALUE space, nearest neighbour. 611 m matches zoom 8 in
+            # EPSG:3857 units, which is the native-ish resolution for a 1 km
+            # grid and the max zoom these tiles are built to.
+            gdalwarp -q -t_srs EPSG:3857 -r near -tr 611 611 \
+              -srcnodata -9999 -dstnodata -9999 \
+              -co COMPRESS=DEFLATE "src/${F}" "work_${B}_3857.tif"
+
+            # Pack to RGBA only after all resampling in value space is done.
+            python3 pack_rgb.py "work_${B}_3857.tif" "work_${B}_rgba.tif"
+
+            # near at every zoom. Overviews built by averaging would corrupt
+            # the packed values at low zoom -- the map would look fine and read
+            # wrong, which is the worst failure mode available.
+            rm -rf "tiles_${B}"
+            gdal2tiles.py -z 3-8 -r near --xyz -w none --processes=4 \
+              "work_${B}_rgba.tif" "tiles_${B}/" >/dev/null
+
+            mb-util --image_format=png --scheme=xyz "tiles_${B}/" "${B}.mbtiles"
+            pmtiles convert "${B}.mbtiles" "out/${B}.pmtiles"
+            ls -lh "out/${B}.pmtiles"
+
+            rm -rf "tiles_${B}" "${B}.mbtiles" \
+                   "work_${B}_3857.tif" "work_${B}_rgba.tif"
+          done
+
+      - name: Sanity check output sizes
+        run: |
+          set -euo pipefail
+          for P in out/*.pmtiles; do
+            BYTES=$(stat -c%s "${P}")
+            echo "$(basename ${P}) = ${BYTES}"
+            if [ "${BYTES}" -lt 100000 ]; then
+              echo "FATAL: ${P} suspiciously small -- check nodata/encoding" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload tiles
+        run: |
+          set -euo pipefail
+          EP="--endpoint-url ${SPACES_EP}"
+          for P in out/*.pmtiles; do
+            B=$(basename "${P}")
+            aws s3 cp "${P}" "s3://${DEST_BUCKET}/${TILES_PREFIX}/${B}" \
+              ${EP} --acl public-read --only-show-errors
+            echo "uploaded ${B}"
+          done
+
+          # Republish the index with a tiles section so the frontend has one
+          # place to look. Still the only mutable object in the product.
+          python3 - <<'PY'
+          import json, os
+          i = json.load(open('index.json'))
+          base = i['base_url'].replace('/derived/', '/tiles/')
+          names = [i['total']] + [w['file'] for w in i['weeks'].values()]
+          i['tiles_url'] = base
+          i['tiles'] = {n: n.replace('.tif', '.pmtiles') for n in names}
+          i['encoding'] = {
+              'scheme': 'R*256+G, 0.1 mm',
+              'raster_color_mix': [65280, 255, 0, 0],
+              'raster_color_range': [0, 2000],
+              'nodata': 'alpha 0',
+              'resampling': 'nearest required at every stage',
+          }
+          json.dump(i, open('index.json', 'w'), indent=2)
+          print(json.dumps(i, indent=2))
+          PY
+
+          aws s3 cp index.json \
+            "s3://${DEST_BUCKET}/${DERIVED_PREFIX}/index.json" \
+            ${EP} --acl public-read --content-type application/json --only-show-errors
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+
+      - name: Purge CDN cache for the index only
+        run: |
+          # The PMTiles are dated and immutable; purging them would only cost
+          # cache misses. index.json is the one thing that changes.
+          curl -s -X DELETE \
+            "https://api.digitalocean.com/v2/cdn/endpoints/${CDN_ENDPOINT_ID}/cache" \
+            -H "Authorization: Bearer ${{ secrets.DO_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"files\": [\"${DERIVED_PREFIX}/index.json\"]}"
+          echo "purged index.json"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### MRMS precip tiles (value-encoded)"
+            echo ""
+            echo "- Encoding: \`R*256+G\` = 0.1 mm, alpha 0 = no radar coverage"
+            echo "- \`raster-color-mix\`: \`[65280, 255, 0, 0]\`"
+            echo "- \`raster-color-range\`: \`[0, 2000]\` (0-200 mm)"
+            echo "- Zooms 3-8, nearest neighbour at every stage"
+            echo "- Tiles: \`s3://${DEST_BUCKET}/${TILES_PREFIX}/\`"
+            echo "- Pointer: \`${DERIVED_PREFIX}/index.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          
