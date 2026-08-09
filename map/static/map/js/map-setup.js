@@ -1065,12 +1065,18 @@ function registerPrecip() {
             // 0.1 mm. Same mechanism registerSlope() already uses.
             if (!map.getSource(srcId)) {
                 map.addSource(srcId, {
-                    // Tiles-array form, not `url:` — matches how slope feeds
-                    // pmtiles into a raster-dem source.
-                    tiles: [`pmtiles://${PRECIP_BASE}/tiles/${pm}/{z}/{x}/{y}`],
                     type: 'raster-dem',
-                    ...PRECIP_DEM_ENCODING,
+                    tiles: [`pmtiles://${PRECIP_BASE}/tiles/${pm}/{z}/{x}/{y}`],
+                    encoding: 'custom',
+                    redFactor: 256,
+                    greenFactor: 1,
+                    // 1, not 0. B is always 0 in our tiles so the math is
+                    // identical, but 0 is falsy and MapLibre may be reading it
+                    // as "unset" and substituting the default.
+                    blueFactor: 1,
+                    baseShift: 0,
                     tileSize: 512,
+                    minzoom: 3,
                     maxzoom: 8,
                     bounds: REGION_BOUNDS.conus,
                     attribution: 'Precipitation: NOAA MRMS',
