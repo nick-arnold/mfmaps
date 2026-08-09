@@ -113,21 +113,24 @@ const PRECIP_COLOR_RAMP = [
 
 // 30-day totals run several times higher than a week, and a single shared ramp
 // would either saturate the month or collapse the week into its bottom fifth.
-// Same colors, same reading, ~4x the range.
+// Stops are packed low and sparse high on purpose: interpolation is linear
+// BETWEEN stops, so stop density is where the color resolution actually comes
+// from. Most of CONUS in 30 days lands under 4 inches, and that band gets six
+// of the eleven stops.
 const PRECIP_COLOR_RAMP_30DAY = [
     'interpolate', ['linear'], ['elevation'],
        0, 'rgba(0,0,0,0)',   // dry
-      13, '#b8e4b8',         // 0.05 in  trace
-      64, '#66c266',         // 0.25 in
-     127, '#1a9641',         // 0.50 in
-     254, '#ffed6f',         // 1.00 in
-     508, '#fdae61',         // 2.00 in
-     762, '#f46d43',         // 3.00 in
-    1270, '#d7191c',         // 5.00 in
-    2032, '#a50026',         // 8.00 in
-    3048, '#8c1d8c',         // 12.0 in
-    4064, '#6a0dad',         // 16.0 in
-    6096, '#e8c4f0',         // 24.0 in and up
+      13, '#b8e4b8',         //  0.05 in  trace
+      64, '#66c266',         //  0.25 in
+     190, '#1a9641',         //  0.75 in
+     381, '#ffed6f',         //  1.5 in
+     762, '#fdae61',         //  3 in
+    1270, '#f46d43',         //  5 in
+    2032, '#d7191c',         //  8 in
+    3048, '#a50026',         // 12 in
+    4572, '#8c1d8c',         // 18 in
+    6604, '#6a0dad',         // 26 in
+    9144, '#e8c4f0',         // 36 in and up
 ];
 
 const PRECIP_PRODUCTS = ['week1', 'week2', 'week3', 'total'];
@@ -1068,7 +1071,7 @@ function renderPrecipLegend(key) {
         .join(', ');
 
     // 254 tenths-of-mm = 1 inch.
-    const ticks = (key === 'total') ? [0, 2, 5, 8, 12, 16, 24] : [0, 0.5, 1, 2, 4, 6];
+    const ticks = (key === 'total') ? [0, 3, 8, 18, 36] : [0, 0.5, 1, 2, 4, 6];
     const tickHtml = ticks.map(inches => {
         const pos = (inches * 254 / max * 100).toFixed(2);
         return `<span style="position:absolute;left:${pos}%;transform:translateX(-50%);">
