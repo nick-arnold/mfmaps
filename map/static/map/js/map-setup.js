@@ -1076,7 +1076,6 @@ function registerPrecip() {
                     blueFactor: 1,
                     baseShift: 0,
                     tileSize: 256,
-                    minzoom: 3,
                     maxzoom: 8,
                     bounds: REGION_BOUNDS.conus,
                     attribution: 'Precipitation: NOAA MRMS',
