@@ -1075,7 +1075,7 @@ function registerPrecip() {
                     // as "unset" and substituting the default.
                     blueFactor: 1,
                     baseShift: 0,
-                    tileSize: 512,
+                    tileSize: 256,
                     minzoom: 3,
                     maxzoom: 8,
                     bounds: REGION_BOUNDS.conus,
