@@ -1165,7 +1165,7 @@ function registerPrecip() {
                         'color-relief-color': e.key === 'total'
                             ? PRECIP_COLOR_RAMP_30DAY
                             : PRECIP_COLOR_RAMP,
-                        'color-relief-opacity': 0.5,
+                        'color-relief-opacity': 0.4,
                     },
                 }, BASEMAP_LINE_ANCHOR);
             }
