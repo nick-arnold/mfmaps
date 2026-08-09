@@ -3500,6 +3500,47 @@ export function initSoilMoistureControls() {
     // registered lazily on first toggle. Future: date picker for the archive.
 }
 
+export function initPrecipControls() {
+    const selects = document.querySelectorAll('.precip-product-select');
+    if (!selects.length) return;
+
+    selects.forEach(sel => {
+        sel.value = state.precipProduct || 'week1';
+        sel.addEventListener('change', (e) => {
+            const key = e.target.value;
+            selects.forEach(other => { if (other !== e.target) other.value = key; });
+            setPrecipProduct(key);
+        });
+    });
+
+    // index.json lands asynchronously, so the real date ranges aren't known
+    // when the panel first renders. Poll briefly and rewrite the option text
+    // once they are. Labelling these "this week" would be a lie — Pass2 is
+    // gauge-corrected and lags ~2 days, so week1 ends 2 days before today.
+    const applyLabels = (attempt = 0) => {
+        const meta = getPrecipMeta();
+        if (!meta) {
+            if (attempt < 30) setTimeout(() => applyLabels(attempt + 1), 200);
+            return;
+        }
+        const base = {
+            week1: 'Most recent week',
+            week2: '2 weeks ago',
+            week3: '3 weeks ago',
+            total: 'Last 30 days',
+        };
+        selects.forEach(sel => {
+            Array.from(sel.options).forEach(opt => {
+                const range = meta.labels[opt.value];
+                opt.textContent = range
+                    ? `${base[opt.value]} (${range})`
+                    : base[opt.value];
+            });
+        });
+    };
+    applyLabels();
+}
+
 const FAB_MODE_ICONS = {
     fabQuery: 'bi-cursor',
     fabSoilProbe: 'bi-thermometer-half',
