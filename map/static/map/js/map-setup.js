@@ -1070,7 +1070,7 @@ function registerPrecip() {
                     tiles: [`pmtiles://${PRECIP_BASE}/tiles/${pm}/{z}/{x}/{y}`],
                     type: 'raster-dem',
                     ...PRECIP_DEM_ENCODING,
-                    tileSize: 256,
+                    tileSize: 512,
                     maxzoom: 8,
                     bounds: REGION_BOUNDS.conus,
                     attribution: 'Precipitation: NOAA MRMS',
