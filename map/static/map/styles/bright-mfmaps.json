@@ -1732,6 +1732,31 @@
       }
     },
     {
+      "id": "boundary-land-level-4",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "filter": [
+        "all",
+        ["==", "admin_level", 4],
+        ["!=", "maritime", 1],
+        ["!=", "disputed", 1]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(248, 7%, 70%)",
+        "line-width": {
+          "base": 1,
+          "stops": [[0, 0.4], [4, 0.8], [5, 1.2], [12, 4]]
+        },
+        "line-dasharray": [3, 2]
+      }
+    },
+    {
       "id": "boundary-land-disputed",
       "type": "line",
       "source": "openmaptiles",
