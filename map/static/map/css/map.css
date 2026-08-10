@@ -410,17 +410,16 @@ body {
 
 /* ============================================================
    Layer panel sections
-   The !important flags are fighting Bootstrap utility classes
-   (.text-uppercase .text-muted .small .fw-bold) that are still on
-   the <summary> elements in home.html. Strip those classes from
-   the template and the !important can come out.
+
+   SPACING: all vertical rhythm comes from the <summary>'s own
+   padding. Do NOT add padding-top or margin-bottom to
+   .layer-section — on a COLLAPSED section there is no content
+   between the two, so anything added there is pure dead space
+   between a header and the next section's rule.
    ============================================================ */
 
-   .layer-section {
+.layer-section {
     border-top: 1px solid var(--rule);
-    /* No padding-top: the summary carries its own now, so adding it here
-       would double the gap under the rule. */
-    margin-bottom: 0.9rem;
 }
 
 .layer-section:first-child {
@@ -440,7 +439,7 @@ body {
     text-transform: uppercase;
     color: var(--forest);
     padding: 0.7rem 16px;
-    margin: 0 -16px 0.4rem;
+    margin: 0 -16px;
     border-radius: 2px;
     -webkit-tap-highlight-color: transparent;
 }
@@ -456,8 +455,19 @@ body {
 }
 
 /* Open sections get a touch more weight so the current one is obvious
-   when several are expanded. */
-.layer-section[open] > summary { color: var(--ink); }
+   when several are expanded, plus the gap to their own controls. The
+   margin lives here rather than on the summary generally so collapsed
+   sections stay tight against the next rule. */
+.layer-section[open] > summary {
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+}
+
+/* Trailing space below an open section's controls, before the next
+   section's rule. Again scoped to [open] so it can't pad a closed one. */
+.layer-section[open] {
+    padding-bottom: 0.6rem;
+}
 
 /* Touch: taller rows, since this is where a small target actually hurts.
    0.85rem padding + line-height puts the row near the 44px minimum. */
