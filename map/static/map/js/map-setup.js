@@ -999,7 +999,7 @@ function registerSoilMoisture() {
     // intermittent "no content-length" errors. The manifest names the current
     // dated archive so every fetch hits an immutable file.
     (async () => {
-        let file = 'era5_raster_latest.pmtiles';
+        let file = null;
         try {
             const r = await fetch(`${SOIL_MOISTURE_BASE}/manifest.json`, { cache: 'no-cache' });
             if (r.ok) {
@@ -1007,7 +1007,13 @@ function registerSoilMoisture() {
                 if (m.raster) file = m.raster;
             }
         } catch (err) {
-            console.warn('Soil moisture manifest fetch failed, using latest:', err);
+            console.error('Soil moisture manifest fetch failed:', err);
+        }
+
+        if (!file) {
+            console.error('Soil moisture manifest gave no filename; layer not registered.');
+            _registeredGroups.delete('soil-moisture-raster');
+            return;
         }
 
         if (map.getSource('soil-moisture-raster')) return;
@@ -1222,7 +1228,7 @@ function registerSoilTemperature() {
     // fixed `_latest` filename, which leaves CDN edges serving byte ranges
     // from mixed versions.
     (async () => {
-        let file = 'era5_st_raster_latest.pmtiles';
+        let file = null;
         try {
             const r = await fetch(`${SOIL_TEMP_TILES_BASE}/manifest.json`, { cache: 'no-cache' });
             if (r.ok) {
@@ -1230,7 +1236,13 @@ function registerSoilTemperature() {
                 if (m.raster) file = m.raster;
             }
         } catch (err) {
-            console.warn('Soil temperature manifest fetch failed, using latest:', err);
+            console.error('Soil temperature manifest fetch failed:', err);
+        }
+
+        if (!file) {
+            console.error('Soil temperature manifest gave no filename; layer not registered.');
+            _registeredGroups.delete('soil-temperature-raster');
+            return;
         }
 
         if (map.getSource('soil-temperature-raster')) return;

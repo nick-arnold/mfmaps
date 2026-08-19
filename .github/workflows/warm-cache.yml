@@ -1,0 +1,64 @@
+name: Warm CDN cache
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Warm static layers
+        run: |
+          BASE=https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
+          KEYS="
+          basemap/north-america-20260524.pmtiles
+          trails/trails-na-20260524.pmtiles
+          terrain/conus_terrain_v1.pmtiles
+          terrain/alaska_terrain_v1.pmtiles
+          terrain/hawaii_terrain_v1.pmtiles
+          terrain/derivatives/slope_conus_z11-12_v1.pmtiles
+          terrain/derivatives/slope_alaska_z11-12_v1.pmtiles
+          terrain/derivatives/slope_hawaii_z11-12_v1.pmtiles
+          terrain/derivatives/aspect_conus_z11-12_v1.pmtiles
+          terrain/derivatives/aspect_alaska_z11-12_v1.pmtiles
+          terrain/derivatives/aspect_hawaii_z11-12_v1.pmtiles
+          contours/conus_contours_v3.pmtiles
+          contours/alaska_contours_v1.pmtiles
+          contours/hawaii_contours_v1.pmtiles
+          canopy/conus_canopy_v1.pmtiles
+          canopy/seak_canopy_v1.pmtiles
+          canopy/hawaii_canopy_v1.pmtiles
+          soils/soils_US.pmtiles
+          public-land/public_land.pmtiles
+          public-land/public_land_dissolved.pmtiles
+          nhd/nhd_conus_v2.pmtiles
+          nhd/nhd_ak_v5.pmtiles
+          tree-species/treemap_composite_conus_v1.pmtiles
+          tree-species/treemap_composite_conus_data_v2.pmtiles
+          tree-species/landfire_evt_ak_v1.pmtiles
+          tree-species/landfire_evt_ak_data_v1.pmtiles
+          tree-species/landfire_evt_hi_v1.pmtiles
+          tree-species/landfire_evt_hi_data_v1.pmtiles
+          burn-severity/mtbs_perimeters.pmtiles
+          "
+          for k in $KEYS; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -r 0-262143 "$BASE/$k")
+            echo "$code  $k"
+          done
+
+      - name: Warm daily layers via manifests
+        run: |
+          BASE=https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com
+          warm() { echo "$(curl -s -o /dev/null -w '%{http_code}' -r 0-262143 "$1")  $1"; }
+
+          for pair in "soil-moisture:raster" "soil-moisture:isolines" "soil-temperature:raster"; do
+            dir=${pair%%:*}; key=${pair##*:}
+            f=$(curl -s "$BASE/$dir/manifest.json" | python3 -c "import json,sys;print(json.load(sys.stdin).get('$key',''))")
+            [ -n "$f" ] && warm "$BASE/$dir/$key/$f" || echo "SKIP  $dir/$key"
+          done
+
+          curl -s "$BASE/precip/derived/index.json" \
+            | python3 -c "import json,sys;print('\n'.join((json.load(sys.stdin).get('tiles') or {}).values()))" \
+            | while read -r f; do [ -n "$f" ] && warm "$BASE/precip/tiles/$f"; done
