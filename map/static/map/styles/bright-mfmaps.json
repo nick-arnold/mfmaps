@@ -27,7 +27,7 @@
       "url": "pmtiles://https://mfmaps-tiles.sfo3.cdn.digitaloceanspaces.com/basemap/north-america-20260524.pmtiles"
     }
   },
-  "sprite": "https://map.mfmaps.com/static/map/styles/sprite/sprite",
+  "sprite": "/static/map/styles/sprite/sprite",
   "glyphs": "https://tiles.openstreetmap.us/fonts/{fontstack}/{range}.pbf",
   "layers": [
     {

@@ -33,6 +33,7 @@ import {
 } from './state.js';
 import { escapeHtml} from './api.js';
 import { registerSpeciesFilterProtocol, warmSpeciesArchives } from './species-filter.js';
+import { registerAttrFilterProtocol, preloadAttrLegends, warmAttrArchives, getAttrLayers, reloadAttrSources } from './attr-filter.js';
 import {
     predict as tidePredict,
     stationTides as tideStationTides,
@@ -159,6 +160,7 @@ const DEFERRED_REGISTRARS = {
     'slope':                   registerSlope,
     'aspect':                  registerAspect,
     'tree-species':            registerTreeSpecies,
+    'tree-attrs':              registerTreeAttrs,
     'burn-severity':           registerBurnSeverity,
     'burn-severity-perimeter': registerBurnSeverity,
     'soil-moisture-raster':    registerSoilMoisture,
@@ -362,6 +364,7 @@ export function initMap() {
         const protocol = new pmtiles.Protocol();
         maplibregl.addProtocol('pmtiles', protocol.tile);
         registerSpeciesFilterProtocol();
+        registerAttrFilterProtocol();
         state._pmtilesRegistered = true;
     }
 
@@ -398,6 +401,7 @@ export function initMap() {
             wireTreeSpeciesHover();
             wireUrlSync();
             await preloadTreeSpeciesLegends();
+            await preloadAttrLegends();
 
             // Basemap has painted — build the heavier groups now, off the
             // critical path.
@@ -3200,11 +3204,19 @@ export function initLayerPanels() {
         cb.addEventListener('change', (e) => {
             const group = e.target.dataset.layerGroup;
             const visible = e.target.checked;
-            setLayerGroupVisibility(group, visible);
-            document.querySelectorAll(`.layer-toggle[data-layer-group="${group}"]`)
+            const attr = e.target.dataset.attrLayer || null;
+            setLayerGroupVisibility(group, visible, attr);
+            // Sync sibling toggles across desktop/mobile panels. When the group
+            // has per-layer toggles (tree-attrs), only sync the same attribute.
+            const sel = attr
+                ? `.layer-toggle[data-layer-group="${group}"][data-attr-layer="${attr}"]`
+                : `.layer-toggle[data-layer-group="${group}"]`;
+            document.querySelectorAll(sel)
                 .forEach(other => { if (other !== e.target) other.checked = visible; });
         });
     });
+
+    initAttrFilters();
 }
 
 function renderPanelInto(template, container, contextSuffix) {
@@ -3219,13 +3231,27 @@ function renderPanelInto(template, container, contextSuffix) {
     container.appendChild(clone);
 }
 
-export function setLayerGroupVisibility(group, visible) {
+export function setLayerGroupVisibility(group, visible, attr = null) {
     // Lazily build the group's sources+layers the first time it's switched on.
     if (visible) {
         ensureGroupRegistered(group);
     }
     if (group === 'tree-species') {
         document.body.classList.toggle('tree-species-mode', visible);
+    }
+
+    // Tree attributes: one group, three independently toggled layers. The
+    // attr name comes from the toggle's data-attr-layer.
+    if (group === 'tree-attrs') {
+        if (!attr) return;
+        const id = `attr-${attr}-layer`;
+        if (state.map.getLayer(id)) {
+            state.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+        }
+        document.querySelectorAll(`[data-attr-legend="${attr}"]`)
+            .forEach(el => el.classList.toggle('d-none', !visible));
+        if (visible) renderAttrLegend(attr);
+        return;
     }
     // Burn severity: only ONE year visible at a time
     if (group === 'burn-severity') {
@@ -4025,5 +4051,104 @@ export function initAccessMode() {
     state.map.on('movestart', hideAccessTooltip);
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') hideAccessTooltip();
+    });
+}// TEST APPEND
+
+// --- Tree attributes (STDSZCD / STANDHT / QMD) ---------------------------
+// Like tree-species, only the data PMTiles is used — the attrfilter://
+// protocol decodes each pixel's value and colors it from the class legend.
+
+function registerTreeAttrs() {
+    if (_registeredGroups.has('tree-attrs')) return;
+    const { map } = state;
+
+    getAttrLayers().forEach(cfg => {
+        const srcId = `attr-${cfg.name}`;
+        map.addSource(srcId, {
+            type: 'raster',
+            tiles: [`attrfilter://${cfg.name}/{z}/{x}/{y}`],
+            tileSize: 256,
+            minzoom: 4,
+            maxzoom: cfg.maxZoom,
+            bounds: cfg.bbox,
+        });
+        map.addLayer({
+            id: `${srcId}-layer`,
+            type: 'raster',
+            source: srcId,
+            minzoom: 4,
+            maxzoom: 22,
+            paint: {
+                'raster-opacity': cfg.opacity,
+                'raster-resampling': 'nearest',
+            },
+            layout: { visibility: 'none' }
+        }, BASEMAP_LINE_ANCHOR);
+    });
+
+    _registeredGroups.add('tree-attrs');
+    enforceLayerOrder();
+    warmAttrArchives();
+}
+
+// --- Tree attribute legends + threshold filters --------------------------
+
+function renderAttrLegend(attrName) {
+    const classes = state.attrLegends[attrName];
+    if (!classes || !classes.length) return;
+    const layer = getAttrLayers().find(a => a.name === attrName);
+
+    document.querySelectorAll(`[data-attr-legend="${attrName}"] .attr-legend`)
+        .forEach(host => {
+            if (host.dataset.rendered === '1') return;
+            host.innerHTML = '';
+            const title = document.createElement('div');
+            title.className = 'small text-muted mb-1';
+            title.textContent = layer ? layer.title : attrName;
+            host.appendChild(title);
+            classes.forEach(c => {
+                const row = document.createElement('div');
+                row.className = 'd-flex align-items-center gap-2 mb-1';
+                const sw = document.createElement('span');
+                sw.style.cssText =
+                    `display:inline-block;width:14px;height:14px;border-radius:2px;` +
+                    `background:${c.hex};flex:0 0 auto;`;
+                const lbl = document.createElement('span');
+                lbl.className = 'small';
+                lbl.textContent = c.label;
+                row.appendChild(sw);
+                row.appendChild(lbl);
+                host.appendChild(row);
+            });
+            host.dataset.rendered = '1';
+        });
+}
+
+export function initAttrFilters() {
+    let debounce = null;
+    document.querySelectorAll('[data-attr-filter]').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const attr = e.target.dataset.attrFilter;
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                const scope = document.querySelectorAll(
+                    `[data-attr-filter="${attr}"]`);
+                let min = null, max = null;
+                scope.forEach(el => {
+                    const v = el.value === '' ? null : parseFloat(el.value);
+                    if (v === null || !Number.isFinite(v)) return;
+                    if (el.classList.contains('attr-filter-min')) min = v;
+                    if (el.classList.contains('attr-filter-max')) max = v;
+                });
+                // Mirror the value into the other panel's matching input.
+                scope.forEach(el => {
+                    if (el === e.target) return;
+                    if (el.className === e.target.className) el.value = e.target.value;
+                });
+                state.attrFilters[attr] =
+                    (min === null && max === null) ? null : { min, max };
+                reloadAttrSources(attr);
+            }, 250);
+        });
     });
 }
