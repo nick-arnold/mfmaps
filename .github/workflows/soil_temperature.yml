@@ -322,14 +322,16 @@ jobs:
           echo "{\"raster\":\"era5_st_raster_${DATA_DATE}.pmtiles\",\"date\":\"${DATA_DATE_ISO}\"}" > st_manifest.json
           aws s3 cp st_manifest.json "s3://mfmaps-tiles/${PRODUCT}/manifest.json" $EP $ACL --cache-control "public, max-age=300"
 
-      - name: Purge CDN cache
+      - name: Purge CDN cache for the manifest only
         run: |
+          # Tile files are dated and immutable, so they must never be purged --
+          # a wildcard purge here leaves every edge cold and the map slow.
           curl -s -X DELETE \
             "https://api.digitalocean.com/v2/cdn/endpoints/${CDN_ENDPOINT_ID}/cache" \
             -H "Authorization: Bearer ${{ secrets.DO_API_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"files\": [\"${PRODUCT}/raster/*\"]}"
-          echo "purged ${PRODUCT}"
+            -d "{\"files\": [\"${PRODUCT}/manifest.json\"]}"
+          echo "purged ${PRODUCT} manifest"
 
       - name: Summary
         run: |
