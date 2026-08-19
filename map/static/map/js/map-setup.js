@@ -356,7 +356,7 @@ function wireUrlSync() {
 
 // --- Map init -------------------------------------------------------------
 
-export function initMap() {
+export async function initMap() {
 
     console.log('map-setup.js loaded — version 15 (region bounds)');
 
@@ -370,9 +370,33 @@ export function initMap() {
 
     const hashState = parseUrlHash();
 
+    // The style JSON has to carry an absolute sprite URL — MapLibre rejects
+    // relative ones outright — so it hardcodes the production host. Fetching
+    // the style here and rewriting the sprite to the current origin keeps
+    // localhost working without a CORS exemption, and is a no-op in production
+    // where the origin already matches. transformStyle doesn't work for this:
+    // it only runs when diffing against an existing style, not on first load.
+    const styleUrl = window.MFMAPS_STYLE_URL || '/static/map/styles/bright-mfmaps.json';
+    let styleSpec = styleUrl;
+    try {
+        const resp = await fetch(styleUrl);
+        const json = await resp.json();
+        if (typeof json.sprite === 'string') {
+            try {
+                const u = new URL(json.sprite, window.location.origin);
+                if (u.origin !== window.location.origin) {
+                    json.sprite = window.location.origin + u.pathname;
+                }
+            } catch { /* leave a malformed sprite URL alone */ }
+        }
+        styleSpec = json;
+    } catch (err) {
+        console.warn('Style prefetch failed, falling back to URL:', err);
+    }
+
     const mapOpts = {
         container: 'map',
-        style: window.MFMAPS_STYLE_URL || '/static/map/styles/bright-mfmaps.json',
+        style: styleSpec,
     };
 
     if (hashState) {
