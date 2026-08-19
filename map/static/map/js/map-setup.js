@@ -3238,6 +3238,8 @@ export function setLayerGroupVisibility(group, visible, attr = null) {
     }
     if (group === 'tree-species') {
         document.body.classList.toggle('tree-species-mode', visible);
+        document.querySelectorAll('[data-species-picker-wrap]')
+            .forEach(el => el.classList.toggle('d-none', !visible));
     }
 
     // Tree attributes: one group, three independently toggled layers. The
