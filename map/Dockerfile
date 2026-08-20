@@ -34,6 +34,7 @@ ENV DJANGO_SETTINGS_MODULE=mfmaps_map.settings \
     DB_PASSWORD=placeholder \
     DB_HOST=placeholder
 RUN python manage.py collectstatic --noinput
+RUN python version_imports.py /app/staticfiles
 
 RUN groupadd --system django && useradd --system --gid django django && \
     chown -R django:django /app
