@@ -758,7 +758,7 @@ function registerSlope() {
     const { map } = state;
 
     const slopeTiers = [
-        { id: 'slope-conus',  file: 'slope_conus_z11-12_v1.pmtiles',  minzoom: 11, maxzoom: 22, bounds: [-125.5, 24.0, -66.0, 50.0] },
+        { id: 'slope-conus',  file: 'slope_conus_z11-12_v2.pmtiles',  minzoom: 11, maxzoom: 22, bounds: [-125.5, 24.0, -66.0, 50.0] },
         { id: 'slope-alaska', file: 'slope_alaska_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-180.0, 51.0, -129.0, 72.0] },
         { id: 'slope-hawaii', file: 'slope_hawaii_z11-12_v1.pmtiles', minzoom: 11, maxzoom: 22, bounds: [-161.0, 18.5, -154.5, 23.0] }
     ];
